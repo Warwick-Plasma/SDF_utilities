@@ -129,7 +129,7 @@ char *parse_args(int *argc, char ***argv)
                                 nbuf = i;
                             }
                         }
-                            
+
                         i = (int)strtol(ptr, &ptr, 10);
                         range_list[nrange-1].start = i;
                         range_list[nrange-1].end = i;
