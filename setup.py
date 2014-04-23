@@ -13,7 +13,7 @@ def get_numpy_dir():
   sys.exit(1)
 
 
-sdfdir = os.path.join('..','SDF_lib')
+sdfdir = os.path.join('..','C','src')
 sdffiles = ['sdf_control.c', 'sdf_input.c', 'sdf_input_cartesian.c',
             'sdf_input_point.c', 'sdf_input_station.c']
 sdffiles = [os.path.join(sdfdir,x) for x in sdffiles]

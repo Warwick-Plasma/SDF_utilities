@@ -1,10 +1,10 @@
 #! /bin/sh
 
-SDFDIR=../SDF_lib
+SDFDIR=../C/src
 EXTDIR=../extension
 
 clean=0
-CFLAGS="-DSDF_DEBUG_ALL -D_XOPEN_SOURCE=600 -I$SDFDIR -I$EXTDIR"
+CFLAGS="-DSDF_DEBUG_ALL -D_XOPEN_SOURCE=600 -I$SDFDIR/../include"
 OPT="$CFLAGS -O3"
 
 while getopts crdph name
