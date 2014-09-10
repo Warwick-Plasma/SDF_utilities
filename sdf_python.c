@@ -3,6 +3,9 @@
 #include <structmember.h>
 #include "sdf.h"
 
+#if PY_MAJOR_VERSION < 3
+    #define PyInt_FromLong PyLong_FromLong
+#endif
 
 static const int typemap[] = {
     0,
@@ -227,7 +230,7 @@ static PyObject* SDF_read(SDFObject *self, PyObject *args)
                 break;
               case SDF_DATATYPE_INTEGER4:
                 il = *((int32_t*)b->const_value);
-                sub = PyInt_FromLong(il);
+                sub = PyLong_FromLong(il);
                 PyDict_SetItemString(dict, b->name, sub);
                 Py_DECREF(sub);
                 break;
@@ -255,8 +258,7 @@ static PyMethodDef SDF_methods[] = {
 
 
 static PyTypeObject SDF_type = {
-    PyObject_HEAD_INIT(NULL)
-    0,                         /* ob_size           */
+    PyVarObject_HEAD_INIT(NULL, 0)
     "sdf.SDF",                 /* tp_name           */
     sizeof(SDFObject),         /* tp_basicsize      */
     0,                         /* tp_itemsize       */
@@ -300,21 +302,40 @@ static PyTypeObject SDF_type = {
 };
 
 
-PyMODINIT_FUNC
-initsdf(void)
+#if PY_MAJOR_VERSION >= 3
+  #define MOD_ERROR_VAL NULL
+  #define MOD_SUCCESS_VAL(val) val
+  #define MOD_INIT(name) PyMODINIT_FUNC PyInit_##name(void)
+  #define MOD_DEF(ob, name, doc, methods) \
+          static struct PyModuleDef moduledef = { \
+            PyModuleDef_HEAD_INIT, name, doc, -1, methods, }; \
+          ob = PyModule_Create(&moduledef);
+#else
+  #define MOD_ERROR_VAL
+  #define MOD_SUCCESS_VAL(val)
+  #define MOD_INIT(name) void init##name(void)
+  #define MOD_DEF(ob, name, doc, methods) \
+          ob = Py_InitModule3(name, methods, doc);
+#endif
+
+
+MOD_INIT(sdf)
 {
     PyObject *m;
 
-    if (PyType_Ready(&SDF_type) < 0)
-        return;
+    MOD_DEF(m, "sdf", "SDF file reading library", NULL)
 
-    m = Py_InitModule3("sdf", NULL, "SDF file reading library\n");
     if (m == NULL)
-        return;
+        return MOD_ERROR_VAL;
+
+    if (PyType_Ready(&SDF_type) < 0)
+        return MOD_ERROR_VAL;
 
     Py_INCREF(&SDF_type);
     if (PyModule_AddObject(m, "SDF", (PyObject *) &SDF_type) < 0)
-        return;
+        return MOD_ERROR_VAL;
 
     import_array();   /* required NumPy initialization */
+
+    return MOD_SUCCESS_VAL(m);
 }

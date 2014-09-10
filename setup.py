@@ -9,7 +9,7 @@ def get_numpy_dir():
       for f in fl:
         if f == 'arrayobject.h':
           return os.path.realpath(os.path.join(r,'..'))
-  print 'Unable to build python module. Numpy directory not found.'
+  print('Unable to build python module. Numpy directory not found.')
   sys.exit(1)
 
 
