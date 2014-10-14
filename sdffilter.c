@@ -750,9 +750,9 @@ static void pretty_print_mesh(sdf_file_t *h, sdf_block_t *b, int idnum)
         return;
     }
 
-    idx = malloc(b->ndims * sizeof(*idx));
-    fac = malloc(b->ndims * sizeof(*fac));
-    fmt = malloc(b->ndims * sizeof(*fmt));
+    idx = calloc(b->ndims, sizeof(*idx));
+    fac = calloc(b->ndims, sizeof(*fac));
+    fmt = calloc(b->ndims, sizeof(*fmt));
 
     rem = 1;
     for (i = 0; i < b->ndims; i++) {
