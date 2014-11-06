@@ -146,6 +146,40 @@ static void setup_mesh(sdf_file_t *h, PyObject *dict)
 }
 
 
+static void setup_lagrangian_mesh(sdf_file_t *h, PyObject *dict)
+{
+    sdf_block_t *b = h->current_block;
+    int n;
+    size_t l1, l2;
+    char *label;
+    void *grid;
+    PyObject *sub;
+    npy_intp dims[3] = {0,0,0};
+
+    sdf_read_data(h);
+
+    for (n = 0; n < b->ndims; n++) dims[n] = (int)b->dims[n];
+
+    for (n = 0; n < b->ndims; n++) {
+        l1 = strlen(b->name);
+        l2 = strlen(b->dim_labels[n]);
+        label = malloc(l1 + l2 + 2);
+        memcpy(label, b->name, l1);
+        label[l1] = '/';
+        memcpy(label+l1+1, b->dim_labels[n], l2+1);
+
+        l1 = strlen(b->id);
+        grid = b->grids[n];
+
+        sub = PyArray_NewFromDescr(&PyArray_Type,
+            PyArray_DescrFromType(typemap[b->datatype_out]), b->ndims,
+            dims, NULL, grid, NPY_F_CONTIGUOUS, NULL);
+        PyDict_SetItemString(dict, label, sub);
+        Py_DECREF(sub);
+    }
+}
+
+
 #define SET_ENTRY(type,value) do { \
         PyObject *sub; \
         sub = Py_BuildValue(#type, h->value); \
@@ -203,6 +237,9 @@ static PyObject* SDF_read(SDFObject *self, PyObject *args)
           case SDF_BLOCKTYPE_PLAIN_MESH:
           case SDF_BLOCKTYPE_POINT_MESH:
             setup_mesh(h, dict);
+            break;
+          case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
+            setup_lagrangian_mesh(h, dict);
             break;
           case SDF_BLOCKTYPE_PLAIN_VARIABLE:
           case SDF_BLOCKTYPE_POINT_VARIABLE:
