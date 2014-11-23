@@ -14,10 +14,18 @@ target_link_libraries(sdf2ascii sdfc dl)
 add_executable(sdffilter sdffilter.c)
 target_link_libraries(sdffilter sdfc dl m)
 
+add_custom_target(sdf-utilities DEPENDS sdf2ascii sdffilter)
+
 find_program(PYTHON "python")
 configure_file(setup.py.in setup.py)
+configure_file(setup.cfg.in setup.cfg)
 add_custom_command(OUTPUT pybuild/timestamp
    COMMAND ${PYTHON} setup.py build -b pybuild
    COMMAND ${CMAKE_COMMAND} -E touch pybuild/timestamp
    DEPENDS setup.py sdf_python.c sdfc)
 add_custom_target(sdfpy ALL DEPENDS pybuild/timestamp)
+
+install(TARGETS sdf2ascii sdffilter DESTINATION bin COMPONENT sdf-utilities)
+
+configure_file(sdfpy_install.cmake.in sdfpy_install.cmake)
+install(SCRIPT ${PROJECT_BINARY_DIR}/sdfpy_install.cmake COMPONENT sdfpy)
