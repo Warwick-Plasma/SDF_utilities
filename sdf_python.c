@@ -185,16 +185,44 @@ static void setup_lagrangian_mesh(sdf_file_t *h, PyObject *dict)
 static void extract_station_time_histories(sdf_file_t *h, PyObject *kw,
       PyObject *dict)
 {
-   PyObject *variables = PyDict_GetItemString(kw, "variables"),
+   PyObject *stations = PyDict_GetItemString(kw, "stations"),
+            *variables = PyDict_GetItemString(kw, "variables"),
             *py_t0 = PyDict_GetItemString(kw, "t0"),
             *py_t1 = PyDict_GetItemString(kw, "t1");
-   Py_ssize_t nvars, i;
+   Py_ssize_t nvars, i, nstat;
    PyObject *sub;
    char **var_names, *timehis, **data, *v, *key;
    double t0, t1;
+   long *stat;
    int *size, *offset, nrows, row_size, j;
    sdf_block_t *b;
    npy_intp dims[1];
+
+   if ( !stations ) {
+      nstat = 1;
+      stat = (long *)malloc(sizeof(long));
+      stat[0] = 1;
+   } else if ( PyInt_Check(stations) ) {
+      nstat = 1;
+      stat = (long *)malloc(sizeof(long));
+      stat[0] = PyInt_AsLong(stations);
+   } else if ( PySequence_Check(stations) ) {
+      nstat = PySequence_Length(stations);
+      stat = (long *)calloc(nstat, sizeof(long));
+      for ( i=0; i<nstat; i++ ) {
+         stat[i] = PyInt_AsLong(PySequence_GetItem(stations, i));
+         if ( PyErr_Occurred() ) {
+            PyErr_SetString(PyExc_TypeError,
+                  "'stations' keyword must be an integer or list of integers");
+            free(stat);
+            return;
+         }
+      }
+   } else {
+      PyErr_SetString(PyExc_TypeError,
+            "'stations' keyword must be an integer or list of integers");
+   }
+
 
    if ( !variables )
       return;
@@ -203,21 +231,25 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *kw,
    if ( nvars<0 ) {
       PyErr_SetString(PyExc_TypeError,
             "'variables' keyword must be a string or list of strings");
+      free(stat);
       return;
    }
-   if ( !nvars )
+   if ( !nvars ) {
+      free(stat);
       return;
+   }
 
    if ( PyString_Check(variables) ) {
       nvars = 1;
-      var_names = (char **)malloc(sizeof(char **));
+      var_names = (char **)malloc(sizeof(char *));
       var_names[0] = PyString_AsString(variables);
    } else {
-      var_names = (char **)malloc(nvars*sizeof(char **));
+      var_names = (char **)malloc(nvars*sizeof(char *));
       for ( i=0; i<nvars; i++ ) {
          var_names[i] = PyString_AsString(PySequence_GetItem(variables, i));
          if ( !var_names[i] ) {
             free(var_names);
+            free(stat);
             PyErr_SetString(PyExc_TypeError,
                   "'variables' keyword must be a string or list of strings");
             return;
@@ -231,6 +263,8 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *kw,
       t0 = PyFloat_AsDouble(py_t0);
       if ( PyErr_Occurred() ) {
          PyErr_SetString(PyExc_TypeError, "'t0' keyword must be a number");
+         free(var_names);
+         free(stat);
          return;
       }
    }
@@ -240,17 +274,20 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *kw,
       t1 = PyFloat_AsDouble(py_t1);
       if ( PyErr_Occurred() ) {
          PyErr_SetString(PyExc_TypeError, "'t1' keyword must be a number");
+         free(var_names);
+         free(stat);
          return;
       }
    }
 
    size = malloc(nvars*sizeof(int));
    offset = malloc(nvars*sizeof(int));
-   if ( sdf_read_station_timehis(h, var_names, nvars, t0, t1,
+   if ( sdf_read_station_timehis(h, stat, var_names, nvars, t0, t1,
             &timehis, &size, &offset, &nrows, &row_size) ) {
       free(var_names);
       free(size);
       free(offset);
+      free(stat);
       return;
    }
 
@@ -282,6 +319,7 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *kw,
    free(size);
    free(key);
    free(timehis);
+   free(stat);
 }
 
 
