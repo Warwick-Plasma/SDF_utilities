@@ -1,3 +1,4 @@
+#include <float.h>
 #include <Python.h>
 #include <numpy/arrayobject.h>
 #include <structmember.h>
@@ -180,6 +181,110 @@ static void setup_lagrangian_mesh(sdf_file_t *h, PyObject *dict)
 }
 
 
+
+static void extract_station_time_histories(sdf_file_t *h, PyObject *kw,
+      PyObject *dict)
+{
+   PyObject *variables = PyDict_GetItemString(kw, "variables"),
+            *py_t0 = PyDict_GetItemString(kw, "t0"),
+            *py_t1 = PyDict_GetItemString(kw, "t1");
+   Py_ssize_t nvars, i;
+   PyObject *sub;
+   char **var_names, *timehis, **data, *v, *key;
+   double t0, t1;
+   int *size, *offset, nrows, row_size, j;
+   sdf_block_t *b;
+   npy_intp dims[1];
+
+   if ( !variables )
+      return;
+
+   nvars = PySequence_Length(variables);
+   if ( nvars<0 ) {
+      PyErr_SetString(PyExc_TypeError,
+            "'variables' keyword must be a string or list of strings");
+      return;
+   }
+   if ( !nvars )
+      return;
+
+   if ( PyString_Check(variables) ) {
+      nvars = 1;
+      var_names = (char **)malloc(sizeof(char **));
+      var_names[0] = PyString_AsString(variables);
+   } else {
+      var_names = (char **)malloc(nvars*sizeof(char **));
+      for ( i=0; i<nvars; i++ ) {
+         var_names[i] = PyString_AsString(PySequence_GetItem(variables, i));
+         if ( !var_names[i] ) {
+            free(var_names);
+            PyErr_SetString(PyExc_TypeError,
+                  "'variables' keyword must be a string or list of strings");
+            return;
+         }
+      }
+   }
+
+   if ( !py_t0 )
+      t0 = -DBL_MAX;
+   else {
+      t0 = PyFloat_AsDouble(py_t0);
+      if ( PyErr_Occurred() ) {
+         PyErr_SetString(PyExc_TypeError, "'t0' keyword must be a number");
+         return;
+      }
+   }
+   if ( !py_t1 )
+      t1 = DBL_MAX;
+   else {
+      t1 = PyFloat_AsDouble(py_t1);
+      if ( PyErr_Occurred() ) {
+         PyErr_SetString(PyExc_TypeError, "'t1' keyword must be a number");
+         return;
+      }
+   }
+
+   size = malloc(nvars*sizeof(int));
+   offset = malloc(nvars*sizeof(int));
+   if ( sdf_read_station_timehis(h, var_names, nvars, t0, t1,
+            &timehis, &size, &offset, &nrows, &row_size) ) {
+      free(var_names);
+      free(size);
+      free(offset);
+      return;
+   }
+
+   b = h->current_block;
+   key = malloc(2*h->string_length+1);
+   data = malloc(nvars*sizeof(char *));
+   dims[0] = nrows;
+
+   for ( i=0; i<nvars; i++ ) {
+      if ( !size[i] )
+         continue;
+
+      data[i] = malloc(nrows * size[i]);
+      v = timehis + offset[i];
+      for ( j=0; j<nrows; j++ )
+         memcpy(data[i] + j*size[i], v + j*row_size, size[i]);
+
+      sub = PyArray_SimpleNewFromData(1, dims, typemap[b->variable_types[i]],
+            data[i]);
+
+      strcpy(key, b->name);
+      strcat(key, "/");
+      strcat(key, var_names[i]);
+
+      PyDict_SetItemString(dict, key, sub);
+   }
+
+   free(var_names);
+   free(size);
+   free(key);
+   free(timehis);
+}
+
+
 #define SET_ENTRY(type,value) do { \
         PyObject *sub; \
         sub = Py_BuildValue(#type, h->value); \
@@ -211,7 +316,7 @@ static PyObject *fill_header(sdf_file_t *h)
     return dict;
 }
 
-static PyObject* SDF_read(SDFObject *self, PyObject *args)
+static PyObject* SDF_read(SDFObject *self, PyObject *args, PyObject *kw)
 {
     sdf_file_t *h;
     sdf_block_t *b;
@@ -279,6 +384,9 @@ static PyObject* SDF_read(SDFObject *self, PyObject *args)
                 break;
             }
             break;
+         case SDF_BLOCKTYPE_STATION:
+            extract_station_time_histories(h, kw, dict);
+            break;
         }
         b = h->current_block = b->next;
     }
@@ -288,7 +396,7 @@ static PyObject* SDF_read(SDFObject *self, PyObject *args)
 
 
 static PyMethodDef SDF_methods[] = {
-    {"read", (PyCFunction)SDF_read, METH_VARARGS,
+    {"read", (PyCFunction)SDF_read, METH_VARARGS | METH_KEYWORDS,
         "Reads the SDF data and returns a dictionary of NumPy arrays" },
     {NULL}
 };
