@@ -3,6 +3,10 @@ cmake_minimum_required(VERSION 2.8.11)
 
 if(${CMAKE_BUILD_TYPE}x STREQUAL "Debugx")
    add_definitions(-DSDF_DEBUG_ALL)
+   set(DEBUG_OPT --debug)
+   set(OPT_LEVEL 0)
+else()
+   set(OPT_LEVEL 3)
 endif()
 add_definitions(-D_XOPEN_SOURCE=600)
 
@@ -20,7 +24,7 @@ find_program(PYTHON "python")
 configure_file(setup.py.in setup.py)
 configure_file(setup.cfg.in setup.cfg)
 add_custom_command(OUTPUT pybuild/timestamp
-   COMMAND ${PYTHON} setup.py build -b pybuild
+   COMMAND ${PYTHON} setup.py build -b pybuild ${DEBUG_OPT}
    COMMAND ${CMAKE_COMMAND} -E touch pybuild/timestamp
    DEPENDS setup.py sdf_python.c sdfc)
 add_custom_target(sdfpy ALL DEPENDS pybuild/timestamp)
