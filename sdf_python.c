@@ -191,7 +191,7 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *kw,
             *py_t1 = PyDict_GetItemString(kw, "t1");
    Py_ssize_t nvars, i, nstat;
    PyObject *sub;
-   char **var_names, *timehis, **data, *v, *key;
+   char **var_names, *timehis, *data, *v, *key;
    double t0, t1;
    long *stat;
    int *size, *offset, nrows, row_size, j;
@@ -201,11 +201,11 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *kw,
    if ( !stations ) {
       nstat = 1;
       stat = (long *)malloc(sizeof(long));
-      stat[0] = 1;
+      stat[0] = 0;
    } else if ( PyInt_Check(stations) ) {
       nstat = 1;
       stat = (long *)malloc(sizeof(long));
-      stat[0] = PyInt_AsLong(stations);
+      stat[0] = PyInt_AsLong(stations) - 1;
    } else if ( PySequence_Check(stations) ) {
       sub = PySequence_List(stations);
       PyList_Sort(sub);
@@ -213,7 +213,7 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *kw,
       stat = (long *)calloc(nstat, sizeof(long));
       j = 0;
       for ( i=0; i<nstat; i++ ) {
-         stat[j] = PyInt_AsLong(PySequence_GetItem(sub, i));
+         stat[j] = PyInt_AsLong(PySequence_GetItem(sub, i)) - 1;
          if ( PyErr_Occurred() ) {
             PyErr_SetString(PyExc_TypeError,
                   "'stations' keyword must be an integer or list of integers");
@@ -287,10 +287,10 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *kw,
       }
    }
 
-   size = malloc(nvars*sizeof(int));
-   offset = malloc(nvars*sizeof(int));
+   offset = (int *)calloc(nstat*nvars+1, sizeof(int));
+   size = (int *)calloc(nstat*nvars+1, sizeof(int));
    if ( sdf_read_station_timehis(h, stat, nstat, var_names, nvars, t0, t1,
-            &timehis, &size, &offset, &nrows, &row_size) ) {
+            &timehis, size, offset, &nrows, &row_size) ) {
       free(var_names);
       free(size);
       free(offset);
@@ -300,26 +300,39 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *kw,
 
    b = h->current_block;
    key = malloc(2*h->string_length+1);
-   data = malloc(nvars*sizeof(char *));
    dims[0] = nrows;
 
-   for ( i=0; i<nvars; i++ ) {
+   /* Handle 'Time' as a special case */
+   data = malloc(nrows * size[0]);
+   v = timehis + offset[0];
+   for ( j=0; j<nrows; j++ )
+      memcpy(data + j*size[0], v + j*row_size, size[0]);
+
+   sub = PyArray_SimpleNewFromData(1, dims, typemap[b->variable_types[i]],
+         data);
+
+   sprintf(key, "%s/Time", b->name);
+
+   PyDict_SetItemString(dict, key, sub);
+   Py_DECREF(sub);
+
+   for ( i=1; i<=nstat*nvars; i++ ) {
       if ( !size[i] )
          continue;
 
-      data[i] = malloc(nrows * size[i]);
+      data = malloc(nrows * size[i]);
       v = timehis + offset[i];
       for ( j=0; j<nrows; j++ )
-         memcpy(data[i] + j*size[i], v + j*row_size, size[i]);
+         memcpy(data + j*size[i], v + j*row_size, size[i]);
 
       sub = PyArray_SimpleNewFromData(1, dims, typemap[b->variable_types[i]],
-            data[i]);
+            data);
 
-      strcpy(key, b->name);
-      strcat(key, "/");
-      strcat(key, var_names[i]);
+      sprintf(key, "%s/Station_%d/%s", b->name, 1+stat[(int)(i-1)/nvars],
+            var_names[(i-1)%nvars]);
 
       PyDict_SetItemString(dict, key, sub);
+      Py_DECREF(sub);
    }
 
    free(var_names);
