@@ -207,17 +207,24 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *kw,
       stat = (long *)malloc(sizeof(long));
       stat[0] = PyInt_AsLong(stations);
    } else if ( PySequence_Check(stations) ) {
-      nstat = PySequence_Length(stations);
+      sub = PySequence_List(stations);
+      PyList_Sort(sub);
+      nstat = PySequence_Length(sub);
       stat = (long *)calloc(nstat, sizeof(long));
+      j = 0;
       for ( i=0; i<nstat; i++ ) {
-         stat[i] = PyInt_AsLong(PySequence_GetItem(stations, i));
+         stat[j] = PyInt_AsLong(PySequence_GetItem(sub, i));
          if ( PyErr_Occurred() ) {
             PyErr_SetString(PyExc_TypeError,
                   "'stations' keyword must be an integer or list of integers");
             free(stat);
             return;
          }
+         if ( i==0 || stat[j]!=stat[j-1] )
+            j++;
       }
+      nstat = j;
+      Py_DECREF(sub);
    } else {
       PyErr_SetString(PyExc_TypeError,
             "'stations' keyword must be an integer or list of integers");
@@ -282,7 +289,7 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *kw,
 
    size = malloc(nvars*sizeof(int));
    offset = malloc(nvars*sizeof(int));
-   if ( sdf_read_station_timehis(h, stat, var_names, nvars, t0, t1,
+   if ( sdf_read_station_timehis(h, stat, nstat, var_names, nvars, t0, t1,
             &timehis, &size, &offset, &nrows, &row_size) ) {
       free(var_names);
       free(size);
