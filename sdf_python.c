@@ -283,7 +283,8 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *stations,
       sub = PyArray_SimpleNewFromData(
             1, dims, typemap[b->variable_types[i]], v);
 
-      sprintf(key, "%s/Station_%ld/%s", b->name, 1+stat[(int)(i-1)/nvars],
+      sprintf(key, "%s/%s/%s", b->name,
+            b->station_names[stat[(int)(i-1)/nvars]],
             var_names[(i-1)%nvars]);
 
       printf("%s\n", key);
