@@ -287,8 +287,6 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *stations,
             b->station_names[stat[(int)(i-1)/nvars]],
             var_names[(i-1)%nvars]);
 
-      printf("%s\n", key);
-
       PyDict_SetItemString(dict, key, sub);
       Py_DECREF(sub);
 
