@@ -182,45 +182,33 @@ static void setup_lagrangian_mesh(sdf_file_t *h, PyObject *dict)
 
 
 
-static void extract_station_time_histories(sdf_file_t *h, PyObject *kw,
-      PyObject *dict)
+static void extract_station_time_histories(sdf_file_t *h, PyObject *stations,
+      PyObject *variables, double t0, double t1, PyObject *dict)
 {
-   PyObject *stations = PyDict_GetItemString(kw, "stations"),
-            *variables = PyDict_GetItemString(kw, "variables"),
-            *py_t0 = PyDict_GetItemString(kw, "t0"),
-            *py_t1 = PyDict_GetItemString(kw, "t1");
    Py_ssize_t nvars, i, nstat;
    PyObject *sub;
    char **var_names, *timehis, *v, *key;
-   double t0, t1;
    long *stat;
    int *size, *offset, nrows, row_size, j;
    sdf_block_t *b;
    npy_intp dims[1];
 
-   /* Stop gcc complaining about 'may be used uninitialised...' */
-   stat = NULL;
-   nstat = 0;
-
    if ( !stations ) {
       nstat = 1;
       stat = (long *)malloc(sizeof(long));
       stat[0] = 0;
-   } else if ( PyInt_Check(stations) ) {
-      nstat = 1;
-      stat = (long *)malloc(sizeof(long));
-      stat[0] = PyInt_AsLong(stations) - 1;
-   } else if ( PySequence_Check(stations) ) {
-      sub = PySequence_List(stations);
-      PyList_Sort(sub);
-      nstat = PySequence_Length(sub);
+   } else {
+      PyList_Sort(stations);
+      nstat = PyList_Size(stations);
       stat = (long *)calloc(nstat, sizeof(long));
       j = 0;
       for ( i=0; i<nstat; i++ ) {
-         stat[j] = PyInt_AsLong(PySequence_GetItem(sub, i)) - 1;
+         sub = PyList_GetItem(stations, i);
+         stat[j] = PyInt_AsLong(sub) - 1;
+         Py_DECREF(sub);
          if ( PyErr_Occurred() ) {
             PyErr_SetString(PyExc_TypeError,
-                  "'stations' keyword must be an integer or list of integers");
+                  "'stations' keyword must be a list of integers");
             free(stat);
             return;
          }
@@ -228,65 +216,34 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *kw,
             j++;
       }
       nstat = j;
-      Py_DECREF(sub);
-   } else {
-      PyErr_SetString(PyExc_TypeError,
-            "'stations' keyword must be an integer or list of integers");
    }
 
-
-   if ( !variables )
-      return;
-
-   nvars = PySequence_Length(variables);
-   if ( nvars<0 ) {
-      PyErr_SetString(PyExc_TypeError,
-            "'variables' keyword must be a string or list of strings");
+   if ( !nstat ) {
       free(stat);
       return;
    }
+
+   if ( !variables ) {
+      free(stat);
+      return;
+   }
+
+   nvars = PyList_Size(variables);
    if ( !nvars ) {
       free(stat);
       return;
    }
 
-   if ( PyString_Check(variables) ) {
-      nvars = 1;
-      var_names = (char **)malloc(sizeof(char *));
-      var_names[0] = PyString_AsString(variables);
-   } else {
-      var_names = (char **)malloc(nvars*sizeof(char *));
-      for ( i=0; i<nvars; i++ ) {
-         var_names[i] = PyString_AsString(PySequence_GetItem(variables, i));
-         if ( !var_names[i] ) {
-            free(var_names);
-            free(stat);
-            PyErr_SetString(PyExc_TypeError,
-                  "'variables' keyword must be a string or list of strings");
-            return;
-         }
-      }
-   }
-
-   if ( !py_t0 )
-      t0 = -DBL_MAX;
-   else {
-      t0 = PyFloat_AsDouble(py_t0);
-      if ( PyErr_Occurred() ) {
-         PyErr_SetString(PyExc_TypeError, "'t0' keyword must be a number");
+   var_names = (char **)malloc(nvars*sizeof(char *));
+   for ( i=0; i<nvars; i++ ) {
+      sub = PyList_GetItem(variables, i);
+      var_names[i] = PyString_AsString(sub);
+      Py_DECREF(sub);
+      if ( !var_names[i] ) {
          free(var_names);
          free(stat);
-         return;
-      }
-   }
-   if ( !py_t1 )
-      t1 = DBL_MAX;
-   else {
-      t1 = PyFloat_AsDouble(py_t1);
-      if ( PyErr_Occurred() ) {
-         PyErr_SetString(PyExc_TypeError, "'t1' keyword must be a number");
-         free(var_names);
-         free(stat);
+         PyErr_SetString(PyExc_TypeError,
+               "'variables' keyword must be a string or list of strings");
          return;
       }
    }
@@ -303,7 +260,7 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *kw,
    }
 
    b = h->current_block;
-   key = malloc(2*h->string_length+1);
+   key = malloc(3*h->string_length);
    dims[0] = nrows;
 
    /* Handle 'Time' as a special case */
@@ -338,6 +295,7 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *kw,
    free(size);
    free(key);
    free(stat);
+   free(offset);
 }
 
 
@@ -382,6 +340,14 @@ static PyObject* SDF_read(SDFObject *self, PyObject *args, PyObject *kw)
     long il;
     long long ll;
     npy_intp dims[3] = {0,0,0};
+
+    static char *kwlist[] = {"stations", "variables", "t0", "t1", NULL};
+    PyObject *stations = NULL, *variables = NULL;
+    double t0 = -DBL_MAX, t1 = DBL_MAX;
+
+    if ( !PyArg_ParseTupleAndKeywords(args, kw, "|O!O!dd", kwlist,
+             &PyList_Type, &stations, &PyList_Type, &variables, &t0, &t1) )
+       return NULL;
 
     h = self->h;
     sdf_read_blocklist(h);
@@ -441,7 +407,8 @@ static PyObject* SDF_read(SDFObject *self, PyObject *args, PyObject *kw)
             }
             break;
          case SDF_BLOCKTYPE_STATION:
-            extract_station_time_histories(h, kw, dict);
+            extract_station_time_histories(h, stations, variables, t0, t1,
+                  dict);
             break;
         }
         b = h->current_block = b->next;
