@@ -191,12 +191,16 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *kw,
             *py_t1 = PyDict_GetItemString(kw, "t1");
    Py_ssize_t nvars, i, nstat;
    PyObject *sub;
-   char **var_names, *timehis, *data, *v, *key;
+   char **var_names, *timehis, *v, *key;
    double t0, t1;
    long *stat;
    int *size, *offset, nrows, row_size, j;
    sdf_block_t *b;
    npy_intp dims[1];
+
+   /* Stop gcc complaining about 'may be used uninitialised...' */
+   stat = NULL;
+   nstat = 0;
 
    if ( !stations ) {
       nstat = 1;
@@ -303,42 +307,36 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *kw,
    dims[0] = nrows;
 
    /* Handle 'Time' as a special case */
-   data = malloc(nrows * size[0]);
-   v = timehis + offset[0];
-   for ( j=0; j<nrows; j++ )
-      memcpy(data + j*size[0], v + j*row_size, size[0]);
-
-   sub = PyArray_SimpleNewFromData(1, dims, typemap[b->variable_types[i]],
-         data);
+   sub = PyArray_SimpleNewFromData(1, dims, typemap[b->variable_types[0]],
+         timehis);
 
    sprintf(key, "%s/Time", b->name);
 
    PyDict_SetItemString(dict, key, sub);
    Py_DECREF(sub);
 
+   v = timehis + nrows * size[0];
    for ( i=1; i<=nstat*nvars; i++ ) {
       if ( !size[i] )
          continue;
 
-      data = malloc(nrows * size[i]);
-      v = timehis + offset[i];
-      for ( j=0; j<nrows; j++ )
-         memcpy(data + j*size[i], v + j*row_size, size[i]);
+      sub = PyArray_SimpleNewFromData(
+            1, dims, typemap[b->variable_types[i]], v);
 
-      sub = PyArray_SimpleNewFromData(1, dims, typemap[b->variable_types[i]],
-            data);
-
-      sprintf(key, "%s/Station_%d/%s", b->name, 1+stat[(int)(i-1)/nvars],
+      sprintf(key, "%s/Station_%ld/%s", b->name, 1+stat[(int)(i-1)/nvars],
             var_names[(i-1)%nvars]);
+
+      printf("%s\n", key);
 
       PyDict_SetItemString(dict, key, sub);
       Py_DECREF(sub);
+
+      v += nrows * size[i];
    }
 
    free(var_names);
    free(size);
    free(key);
-   free(timehis);
    free(stat);
 }
 
