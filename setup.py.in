@@ -18,5 +18,5 @@ setup(
             extra_compile_args=['-O${OPT_LEVEL}', '-D_XOPEN_SOURCE=600']
         )
     ],
-    package_dir={'', '${CMAKE_CURRENT_SOURCE_DIR}'}
+    package_dir={'': '${CMAKE_CURRENT_SOURCE_DIR}'}
 )
