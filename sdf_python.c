@@ -30,14 +30,17 @@ typedef struct {
 } SDFObject;
 
 
+static int convert, use_mmap, mode;
+static comm_t comm;
+
 static PyObject *
 SDF_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     sdf_file_t *h;
     const char *file;
     SDFObject *self;
-    int convert = 0, use_mmap = 1, mode = SDF_READ;
-    comm_t comm = 0;
+
+    convert = 0; use_mmap = 1; mode = SDF_READ; comm = 0;
 
     if (!PyArg_ParseTuple(args, "s|i", &file, &convert))
         return NULL;
@@ -350,10 +353,22 @@ static PyObject* SDF_read(SDFObject *self, PyObject *args, PyObject *kw)
        return NULL;
 
     h = self->h;
+
+    /* Close file and re-open it if it has already been read */
+    if (h->blocklist) {
+        h = sdf_open(h->filename, comm, mode, use_mmap);
+        sdf_close(self->h);
+        self->h = h;
+        if (!self->h) {
+            Py_DECREF(self);
+            return NULL;
+        }
+    }
+
     sdf_read_blocklist(h);
     dict = PyDict_New();
 
-    // Add header
+    /* Add header */
     sub = fill_header(h);
     PyDict_SetItemString(dict, "Header", sub);
     Py_DECREF(sub);
