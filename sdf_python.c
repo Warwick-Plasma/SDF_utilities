@@ -208,7 +208,6 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *stations,
       for ( i=0; i<nstat; i++ ) {
          sub = PyList_GetItem(stations, i);
          stat[j] = PyInt_AsLong(sub) - 1;
-         Py_DECREF(sub);
          if ( PyErr_Occurred() ) {
             PyErr_SetString(PyExc_TypeError,
                   "'stations' keyword must be a list of integers");
@@ -241,7 +240,6 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *stations,
    for ( i=0; i<nvars; i++ ) {
       sub = PyList_GetItem(variables, i);
       var_names[i] = PyString_AsString(sub);
-      Py_DECREF(sub);
       if ( !var_names[i] ) {
          free(var_names);
          free(stat);
