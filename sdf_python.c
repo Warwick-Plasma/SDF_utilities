@@ -382,6 +382,7 @@ static PyObject* SDF_read(SDFObject *self, PyObject *args, PyObject *kw)
             break;
           case SDF_BLOCKTYPE_PLAIN_VARIABLE:
           case SDF_BLOCKTYPE_POINT_VARIABLE:
+          case SDF_BLOCKTYPE_ARRAY:
             for (n = 0; n < b->ndims; n++) dims[n] = (int)b->dims[n];
             sdf_read_data(h);
             sub = PyArray_NewFromDescr(&PyArray_Type,
