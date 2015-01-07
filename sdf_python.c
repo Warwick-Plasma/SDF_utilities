@@ -330,6 +330,21 @@ static PyObject *fill_header(sdf_file_t *h)
     return dict;
 }
 
+
+static PyObject *material_names(sdf_block_t *b)
+{
+    PyObject *matnames = PyList_New(b->ndims), *name;
+    Py_ssize_t i;
+
+    for ( i=0; i<b->ndims; i++ ) {
+       name = PyString_FromString(b->material_names[i]);
+       PyList_SET_ITEM(matnames, i, name);
+    }
+
+    return matnames;
+}
+
+
 static PyObject* SDF_read(SDFObject *self, PyObject *args, PyObject *kw)
 {
     sdf_file_t *h;
@@ -422,6 +437,11 @@ static PyObject* SDF_read(SDFObject *self, PyObject *args, PyObject *kw)
          case SDF_BLOCKTYPE_STATION:
             extract_station_time_histories(h, stations, variables, t0, t1,
                   dict);
+            break;
+         case SDF_BLOCKTYPE_STITCHED_MATERIAL:
+            sub = material_names(b);
+            PyDict_SetItemString(dict, "Materials", sub);
+            Py_DECREF(sub);
             break;
         }
         b = h->current_block = b->next;
