@@ -261,7 +261,7 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *stations,
    }
 
    b = h->current_block;
-   key = malloc(3*h->string_length);
+   key = malloc(3*h->string_length+3);
    dims[0] = nrows;
 
    /* Handle 'Time' as a special case */
@@ -296,6 +296,35 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *stations,
    free(key);
    free(stat);
    free(offset);
+}
+
+
+int append_station_metadata(sdf_block_t *b, PyObject *dict)
+{
+   PyObject *block, *station, *variable;
+   int i;
+   Py_ssize_t j;
+
+   /* Sanity check */
+   if ( !PyDict_Check(dict) )
+      return -1;
+
+   block = PyDict_New();
+   PyDict_SetItemString(dict, b->name, block);
+
+   for ( i=0; i<b->nstations; i++ ) {
+      station = PyList_New(b->station_nvars[i]);
+
+      for ( j=0; j<b->station_nvars[i]; j++ ) {
+         variable = PyString_FromString(b->material_names[i+j+1]);
+         PyList_SET_ITEM(station, j, variable);
+      }
+
+      PyDict_SetItemString(block, b->station_names[i], station);
+      Py_DECREF(station);
+   }
+
+   Py_DECREF(block);
 }
 
 
@@ -435,6 +464,12 @@ static PyObject* SDF_read(SDFObject *self, PyObject *args, PyObject *kw)
             }
             break;
          case SDF_BLOCKTYPE_STATION:
+            sub = PyDict_GetItemString(dict, "StationBlocks");
+            if ( !sub ) {
+               sub = PyDict_New();
+               PyDict_SetItemString(dict, "StationBlocks", sub);
+            }
+            append_station_metadata(b, sub);
             extract_station_time_histories(h, stations, variables, t0, t1,
                   dict);
             break;
