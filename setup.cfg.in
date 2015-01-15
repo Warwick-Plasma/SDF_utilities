@@ -1,2 +1,3 @@
 [install]
 prefix=${CMAKE_INSTALL_PREFIX}
+install-lib=${CMAKE_INSTALL_PREFIX}/lib/python
