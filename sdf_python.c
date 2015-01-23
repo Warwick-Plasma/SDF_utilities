@@ -46,12 +46,15 @@ SDF_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
         return NULL;
 
     self = (SDFObject*)type->tp_alloc(type, 0);
-    if (self == NULL)
+    if (self == NULL) {
+        PyErr_Format(PyExc_MemoryError, "Failed to allocate SDF object");
         return NULL;
+    }
 
     h = sdf_open(file, comm, mode, use_mmap);
     self->h = h;
     if (!self->h) {
+        PyErr_Format(PyExc_IOError, "Failed to open file: '%s'", file);
         Py_DECREF(self);
         return NULL;
     }
@@ -401,6 +404,8 @@ static PyObject* SDF_read(SDFObject *self, PyObject *args, PyObject *kw)
         sdf_close(self->h);
         self->h = h;
         if (!self->h) {
+            PyErr_Format(PyExc_IOError, "Failed to open file: '%s'",
+                  h->filename);
             Py_DECREF(self);
             return NULL;
         }
