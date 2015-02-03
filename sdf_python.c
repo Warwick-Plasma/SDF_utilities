@@ -328,6 +328,8 @@ int append_station_metadata(sdf_block_t *b, PyObject *dict)
    }
 
    Py_DECREF(block);
+
+   return 0;
 }
 
 
