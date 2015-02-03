@@ -2,6 +2,9 @@ import os
 from distutils.core import setup, Extension
 import numpy
 
+os.environ['CC'] = "${CMAKE_C_COMPILER}"
+os.environ['CPP'] = "${CMAKE_CXX_COMPILER}"
+
 setup(
     name='sdfpy',
     version='1.0',
