@@ -194,7 +194,7 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *stations,
    Py_ssize_t nvars, i, nstat;
    PyObject *sub;
    char **var_names, *timehis, *v, *key;
-   long *stat;
+   long *stat, ii;
    int *size, *offset, nrows, row_size, j;
    sdf_block_t *b;
    npy_intp dims[1];
@@ -204,23 +204,18 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *stations,
       stat = (long *)malloc(sizeof(long));
       stat[0] = 0;
    } else {
-      PyList_Sort(stations);
+      /* Force 'stat' to be valid input for sdf_read_station_timehis */
       nstat = PyList_Size(stations);
       stat = (long *)calloc(nstat, sizeof(long));
-      j = 0;
-      for ( i=0; i<nstat; i++ ) {
-         sub = PyList_GetItem(stations, i);
-         stat[j] = PyInt_AsLong(sub) - 1;
-         if ( PyErr_Occurred() ) {
-            PyErr_SetString(PyExc_TypeError,
-                  "'stations' keyword must be a list of integers");
-            free(stat);
-            return;
+      nstat = 0;
+      for ( ii=0; ii<h->current_block->nstations; ii++ ) {
+         sub = PyInt_FromLong(ii+1);
+         if ( PySequence_Contains(stations, sub) ) {
+            stat[nstat] = ii;
+            nstat++;
          }
-         if ( i==0 || stat[j]!=stat[j-1] )
-            j++;
+         Py_DECREF(sub);
       }
-      nstat = j;
    }
 
    if ( !nstat ) {
