@@ -1,3 +1,5 @@
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+
 #include <float.h>
 #include <Python.h>
 #include <numpy/arrayobject.h>
@@ -8,19 +10,20 @@
     #define PyInt_FromLong PyLong_FromLong
 #endif
 
+
 static const int typemap[] = {
     0,
-    PyArray_UINT32,
-    PyArray_UINT64,
-    PyArray_FLOAT,
-    PyArray_DOUBLE,
+    NPY_UINT32,
+    NPY_UINT64,
+    NPY_FLOAT,
+    NPY_DOUBLE,
 #ifdef NPY_FLOAT128
-    PyArray_FLOAT128,
+    NPY_FLOAT128,
 #else
     0,
 #endif
-    PyArray_CHAR,
-    PyArray_CHAR,
+    NPY_CHAR,
+    NPY_CHAR,
 };
 
 
@@ -127,10 +130,10 @@ static void setup_mesh(PyObject *self, PyObject *dict)
             dims[0] = ndims;
             sub = PyArray_NewFromDescr(&PyArray_Type,
                 PyArray_DescrFromType(typemap[b->datatype_out]), 1,
-                dims, NULL, grid, NPY_F_CONTIGUOUS, NULL);
+                dims, NULL, grid, NPY_ARRAY_F_CONTIGUOUS, NULL);
             PyDict_SetItemString(dict, label, sub);
             Py_DECREF(sub);
-            PyArray_BASE(sub) = self;
+            PyArray_SetBaseObject((PyArrayObject*)sub, self);
             Py_INCREF(self);
 
             /* Now add the original grid with "_node" appended */
@@ -149,10 +152,10 @@ static void setup_mesh(PyObject *self, PyObject *dict)
         dims[0] = ndims;
         sub = PyArray_NewFromDescr(&PyArray_Type,
             PyArray_DescrFromType(typemap[b->datatype_out]), 1,
-            dims, NULL, grid, NPY_F_CONTIGUOUS, NULL);
+            dims, NULL, grid, NPY_ARRAY_F_CONTIGUOUS, NULL);
         PyDict_SetItemString(dict, label, sub);
         Py_DECREF(sub);
-        PyArray_BASE(sub) = self;
+        PyArray_SetBaseObject((PyArrayObject*)sub, self);
         Py_INCREF(self);
     }
 }
@@ -186,10 +189,10 @@ static void setup_lagrangian_mesh(PyObject *self, PyObject *dict)
 
         sub = PyArray_NewFromDescr(&PyArray_Type,
             PyArray_DescrFromType(typemap[b->datatype_out]), b->ndims,
-            dims, NULL, grid, NPY_F_CONTIGUOUS, NULL);
+            dims, NULL, grid, NPY_ARRAY_F_CONTIGUOUS, NULL);
         PyDict_SetItemString(dict, label, sub);
         Py_DECREF(sub);
-        PyArray_BASE(sub) = self;
+        PyArray_SetBaseObject((PyArrayObject*)sub, self);
         Py_INCREF(self);
     }
 }
@@ -442,10 +445,10 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
             sdf_read_data(h);
             sub = PyArray_NewFromDescr(&PyArray_Type,
                 PyArray_DescrFromType(typemap[b->datatype_out]), b->ndims,
-                dims, NULL, b->data, NPY_F_CONTIGUOUS, NULL);
+                dims, NULL, b->data, NPY_ARRAY_F_CONTIGUOUS, NULL);
             PyDict_SetItemString(dict, b->name, sub);
             Py_DECREF(sub);
-            PyArray_BASE(sub) = self;
+            PyArray_SetBaseObject((PyArrayObject*)sub, self);
             Py_INCREF(self);
             break;
           case SDF_BLOCKTYPE_CONSTANT:
