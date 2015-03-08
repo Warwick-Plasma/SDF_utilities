@@ -6,10 +6,25 @@
 #include <structmember.h>
 #include "sdf.h"
 
+/* Backwards compatibility */
+
 #if PY_MAJOR_VERSION < 3
     #define PyInt_FromLong PyLong_FromLong
 #endif
 
+#ifndef NPY_ARRAY_F_CONTIGUOUS
+    #define NPY_ARRAY_F_CONTIGUOUS NPY_F_CONTIGUOUS
+#endif
+
+#ifndef PyVarObject_HEAD_INIT
+    #define PyVarObject_HEAD_INIT(type, size) \
+        PyObject_HEAD_INIT(type) size,
+#endif
+
+#ifndef PyArray_SetBaseObject
+    #define PyArray_SetBaseObject(array, base) \
+             PyArray_BASE(array) = base
+#endif
 
 static const int typemap[] = {
     0,
