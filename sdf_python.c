@@ -70,6 +70,16 @@ typedef struct {
 
 typedef struct {
     PyObject_HEAD
+    PyObject *id;
+    PyObject *name;
+    PyObject *data;
+    sdf_file_t *h;
+    sdf_block_t *b;
+} Block;
+
+
+typedef struct {
+    PyObject_HEAD
     sdf_file_t *h;
 } SDFObject;
 
@@ -125,6 +135,111 @@ static PyTypeObject ArrayType = {
     0,                         /* tp_setattro       */
     0,                         /* tp_as_buffer      */
     Py_TPFLAGS_DEFAULT,        /* tp_flags          */
+};
+
+
+static PyMemberDef Block_members[] = {
+    {"id", T_OBJECT_EX, offsetof(Block, id), 0, "Block id"},
+    {"name", T_OBJECT_EX, offsetof(Block, name), 0, "Block name"},
+    {"data", T_OBJECT_EX, offsetof(Block, data), 0, "Block data contents"},
+    {NULL}  /* Sentinel */
+};
+
+
+static PyObject *
+Block_alloc(PyTypeObject *type, sdf_file_t *h)
+{
+    Block *ob;
+    sdf_block_t *b = h->current_block;
+
+    ob = (Block *)type->tp_alloc(type, 0);
+    ob->h = h;
+    ob->b = b;
+
+    if (b->id) {
+        ob->id = PyString_FromString(b->id);
+        if (ob->id == NULL) goto error;
+    }
+
+    if (b->name) {
+        ob->name = PyString_FromString(b->name);
+        if (ob->name == NULL) goto error;
+    }
+
+    return (PyObject *)ob;
+
+error:
+    if (ob->id) {
+        Py_DECREF(ob->id);
+    }
+    if (ob->name) {
+        Py_DECREF(ob->name);
+    }
+    Py_DECREF(ob);
+
+    return NULL;
+}
+
+
+static void
+Block_dealloc(PyObject *self)
+{
+    Block *ob = (Block*)self;
+    if (!self) return;
+    if (ob->id) {
+        Py_XDECREF(ob->id);
+    }
+    if (ob->name) {
+        Py_XDECREF(ob->name);
+    }
+    if (ob->data) {
+        Py_XDECREF(ob->data);
+    }
+    self->ob_type->tp_free(self);
+}
+
+
+static PyTypeObject BlockType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "sdf.Block",               /* tp_name           */
+    sizeof(Block),             /* tp_basicsize      */
+    0,                         /* tp_itemsize       */
+    Block_dealloc,             /* tp_dealloc */
+    0,                         /* tp_print          */
+    0,                         /* tp_getattr        */
+    0,                         /* tp_setattr        */
+    0,                         /* tp_compare        */
+    0,                         /* tp_repr           */
+    0,                         /* tp_as_number      */
+    0,                         /* tp_as_sequence    */
+    0,                         /* tp_as_mapping     */
+    0,                         /* tp_hash           */
+    0,                         /* tp_call           */
+    0,                         /* tp_str            */
+    0,                         /* tp_getattro       */
+    0,                         /* tp_setattro       */
+    0,                         /* tp_as_buffer      */
+    Py_TPFLAGS_DEFAULT,        /* tp_flags          */
+    "SDF block type.\n"
+    "Contains the data and metadata for a single "
+    "block from an SDF file.", /* tp_doc      */
+    0,                         /* tp_traverse       */
+    0,                         /* tp_clear          */
+    0,                         /* tp_richcompare    */
+    0,                         /* tp_weaklistoffset */
+    0,                         /* tp_iter           */
+    0,                         /* tp_iternext       */
+    0,                         /* tp_methods        */
+    Block_members,             /* tp_members        */
+    0,                         /* tp_getset         */
+    0,                         /* tp_base           */
+    0,                         /* tp_dict           */
+    0,                         /* tp_descr_get      */
+    0,                         /* tp_descr_set      */
+    0,                         /* tp_dictoffset     */
+    0,                         /* tp_init           */
+    0,                         /* tp_alloc          */
+    0,//Block_new,                 /* tp_new            */
 };
 
 
@@ -662,6 +777,8 @@ MOD_INIT(sdf)
     if (PyType_Ready(&SDF_type) < 0)
         return MOD_ERROR_VAL;
     if (PyType_Ready(&ArrayType) < 0)
+        return MOD_ERROR_VAL;
+    if (PyType_Ready(&BlockType) < 0)
         return MOD_ERROR_VAL;
 
     Py_INCREF(&SDF_type);
