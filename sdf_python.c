@@ -26,6 +26,23 @@
              PyArray_BASE(array) = base
 #endif
 
+#if PY_MAJOR_VERSION >= 3
+    #define MOD_ERROR_VAL NULL
+    #define MOD_SUCCESS_VAL(val) val
+    #define MOD_INIT(name) PyMODINIT_FUNC PyInit_##name(void)
+    #define MOD_DEF(ob, name, doc, methods) \
+        static struct PyModuleDef moduledef = { \
+            PyModuleDef_HEAD_INIT, name, doc, -1, methods, }; \
+        ob = PyModule_Create(&moduledef);
+#else
+    #define MOD_ERROR_VAL
+    #define MOD_SUCCESS_VAL(val)
+    #define MOD_INIT(name) void init##name(void)
+    #define MOD_DEF(ob, name, doc, methods) \
+        ob = Py_InitModule3(name, methods, doc);
+#endif
+
+
 static const int typemap[] = {
     0,
     NPY_UINT32,
@@ -50,6 +67,7 @@ typedef struct {
 
 static int convert, use_mmap, mode;
 static comm_t comm;
+
 
 static PyObject *
 SDF_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
@@ -213,144 +231,143 @@ static void setup_lagrangian_mesh(PyObject *self, PyObject *dict)
 }
 
 
-
 static void extract_station_time_histories(sdf_file_t *h, PyObject *stations,
       PyObject *variables, double t0, double t1, PyObject *dict)
 {
-   Py_ssize_t nvars, i, nstat;
-   PyObject *sub;
-   char **var_names, *timehis, *v, *key;
-   long *stat, ii;
-   int *size, *offset, nrows, row_size;
-   sdf_block_t *b;
-   npy_intp dims[1];
+    Py_ssize_t nvars, i, nstat;
+    PyObject *sub;
+    char **var_names, *timehis, *v, *key;
+    long *stat, ii;
+    int *size, *offset, nrows, row_size;
+    sdf_block_t *b;
+    npy_intp dims[1];
 
-   if ( !stations ) {
-      nstat = 1;
-      stat = (long *)malloc(sizeof(long));
-      stat[0] = 0;
-   } else {
-      /* Force 'stat' to be valid input for sdf_read_station_timehis */
-      nstat = PyList_Size(stations);
-      stat = (long *)calloc(nstat, sizeof(long));
-      nstat = 0;
-      for ( ii=0; ii<h->current_block->nstations; ii++ ) {
-         sub = PyInt_FromLong(ii+1);
-         if ( PySequence_Contains(stations, sub) ) {
-            stat[nstat] = ii;
-            nstat++;
-         }
-         Py_DECREF(sub);
-      }
-   }
+    if ( !stations ) {
+        nstat = 1;
+        stat = (long *)malloc(sizeof(long));
+        stat[0] = 0;
+    } else {
+        /* Force 'stat' to be valid input for sdf_read_station_timehis */
+        nstat = PyList_Size(stations);
+        stat = (long *)calloc(nstat, sizeof(long));
+        nstat = 0;
+        for ( ii=0; ii<h->current_block->nstations; ii++ ) {
+            sub = PyInt_FromLong(ii+1);
+            if ( PySequence_Contains(stations, sub) ) {
+                stat[nstat] = ii;
+                nstat++;
+            }
+            Py_DECREF(sub);
+        }
+    }
 
-   if ( !nstat ) {
-      free(stat);
-      return;
-   }
+    if ( !nstat ) {
+        free(stat);
+        return;
+    }
 
-   if ( !variables ) {
-      free(stat);
-      return;
-   }
+    if ( !variables ) {
+        free(stat);
+        return;
+    }
 
-   nvars = PyList_Size(variables);
-   if ( !nvars ) {
-      free(stat);
-      return;
-   }
+    nvars = PyList_Size(variables);
+    if ( !nvars ) {
+        free(stat);
+        return;
+    }
 
-   var_names = (char **)malloc(nvars*sizeof(char *));
-   for ( i=0; i<nvars; i++ ) {
-      sub = PyList_GetItem(variables, i);
-      var_names[i] = PyString_AsString(sub);
-      if ( !var_names[i] ) {
-         free(var_names);
-         free(stat);
-         PyErr_SetString(PyExc_TypeError,
-               "'variables' keyword must be a string or list of strings");
-         return;
-      }
-   }
+    var_names = (char **)malloc(nvars*sizeof(char *));
+    for ( i=0; i<nvars; i++ ) {
+        sub = PyList_GetItem(variables, i);
+        var_names[i] = PyString_AsString(sub);
+        if ( !var_names[i] ) {
+            free(var_names);
+            free(stat);
+            PyErr_SetString(PyExc_TypeError,
+                    "'variables' keyword must be a string or list of strings");
+            return;
+        }
+    }
 
-   offset = (int *)calloc(nstat*nvars+1, sizeof(int));
-   size = (int *)calloc(nstat*nvars+1, sizeof(int));
-   if ( sdf_read_station_timehis(h, stat, nstat, var_names, nvars, t0, t1,
+    offset = (int *)calloc(nstat*nvars+1, sizeof(int));
+    size = (int *)calloc(nstat*nvars+1, sizeof(int));
+    if ( sdf_read_station_timehis(h, stat, nstat, var_names, nvars, t0, t1,
             &timehis, size, offset, &nrows, &row_size) ) {
-      free(var_names);
-      free(size);
-      free(offset);
-      free(stat);
-      return;
-   }
+        free(var_names);
+        free(size);
+        free(offset);
+        free(stat);
+        return;
+    }
 
-   b = h->current_block;
-   key = malloc(3*h->string_length+3);
-   dims[0] = nrows;
+    b = h->current_block;
+    key = malloc(3*h->string_length+3);
+    dims[0] = nrows;
 
-   /* Handle 'Time' as a special case */
-   sub = PyArray_SimpleNewFromData(1, dims, typemap[b->variable_types[0]],
-         timehis);
+    /* Handle 'Time' as a special case */
+    sub = PyArray_SimpleNewFromData(1, dims, typemap[b->variable_types[0]],
+            timehis);
 
-   sprintf(key, "%s/Time", b->name);
+    sprintf(key, "%s/Time", b->name);
 
-   PyDict_SetItemString(dict, key, sub);
-   Py_DECREF(sub);
+    PyDict_SetItemString(dict, key, sub);
+    Py_DECREF(sub);
 
-   v = timehis + nrows * size[0];
-   for ( i=1; i<=nstat*nvars; i++ ) {
-      if ( !size[i] )
-         continue;
+    v = timehis + nrows * size[0];
+    for ( i=1; i<=nstat*nvars; i++ ) {
+        if ( !size[i] )
+            continue;
 
-      sub = PyArray_SimpleNewFromData(
-            1, dims, typemap[b->variable_types[i]], v);
+        sub = PyArray_SimpleNewFromData(
+                1, dims, typemap[b->variable_types[i]], v);
 
-      sprintf(key, "%s/%s/%s", b->name,
-            b->station_names[stat[(int)(i-1)/nvars]],
-            var_names[(i-1)%nvars]);
+        sprintf(key, "%s/%s/%s", b->name,
+                b->station_names[stat[(int)(i-1)/nvars]],
+                var_names[(i-1)%nvars]);
 
-      PyDict_SetItemString(dict, key, sub);
-      Py_DECREF(sub);
+        PyDict_SetItemString(dict, key, sub);
+        Py_DECREF(sub);
 
-      v += nrows * size[i];
-   }
+        v += nrows * size[i];
+    }
 
-   free(var_names);
-   free(size);
-   free(key);
-   free(stat);
-   free(offset);
+    free(var_names);
+    free(size);
+    free(key);
+    free(stat);
+    free(offset);
 }
 
 
 int append_station_metadata(sdf_block_t *b, PyObject *dict)
 {
-   PyObject *block, *station, *variable;
-   int i;
-   Py_ssize_t j;
+    PyObject *block, *station, *variable;
+    int i;
+    Py_ssize_t j;
 
-   /* Sanity check */
-   if ( !PyDict_Check(dict) )
-      return -1;
+    /* Sanity check */
+    if ( !PyDict_Check(dict) )
+        return -1;
 
-   block = PyDict_New();
-   PyDict_SetItemString(dict, b->name, block);
+    block = PyDict_New();
+    PyDict_SetItemString(dict, b->name, block);
 
-   for ( i=0; i<b->nstations; i++ ) {
-      station = PyList_New(b->station_nvars[i]);
+    for ( i=0; i<b->nstations; i++ ) {
+        station = PyList_New(b->station_nvars[i]);
 
-      for ( j=0; j<b->station_nvars[i]; j++ ) {
-         variable = PyString_FromString(b->material_names[i+j+1]);
-         PyList_SET_ITEM(station, j, variable);
-      }
+        for ( j=0; j<b->station_nvars[i]; j++ ) {
+            variable = PyString_FromString(b->material_names[i+j+1]);
+            PyList_SET_ITEM(station, j, variable);
+        }
 
-      PyDict_SetItemString(block, b->station_names[i], station);
-      Py_DECREF(station);
-   }
+        PyDict_SetItemString(block, b->station_names[i], station);
+        Py_DECREF(station);
+    }
 
-   Py_DECREF(block);
+    Py_DECREF(block);
 
-   return 0;
+    return 0;
 }
 
 
@@ -392,8 +409,8 @@ static PyObject *material_names(sdf_block_t *b)
     Py_ssize_t i;
 
     for ( i=0; i<b->ndims; i++ ) {
-       name = PyString_FromString(b->material_names[i]);
-       PyList_SET_ITEM(matnames, i, name);
+        name = PyString_FromString(b->material_names[i]);
+        PyList_SET_ITEM(matnames, i, name);
     }
 
     return matnames;
@@ -417,8 +434,8 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
     double t0 = -DBL_MAX, t1 = DBL_MAX;
 
     if ( !PyArg_ParseTupleAndKeywords(args, kw, "|O!O!dd", kwlist,
-             &PyList_Type, &stations, &PyList_Type, &variables, &t0, &t1) )
-       return NULL;
+            &PyList_Type, &stations, &PyList_Type, &variables, &t0, &t1) )
+        return NULL;
 
     h = ob->h;
 
@@ -429,7 +446,7 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
         ob->h = h;
         if (!ob->h) {
             PyErr_Format(PyExc_IOError, "Failed to open file: '%s'",
-                  h->filename);
+                    h->filename);
             Py_DECREF(self);
             return NULL;
         }
@@ -446,69 +463,69 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
     b = h->current_block = h->blocklist;
     for (i = 0; i < h->nblocks; i++) {
         switch(b->blocktype) {
-          case SDF_BLOCKTYPE_PLAIN_MESH:
-          case SDF_BLOCKTYPE_POINT_MESH:
-            setup_mesh(self, dict);
-            break;
-          case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
-            setup_lagrangian_mesh(self, dict);
-            break;
-          case SDF_BLOCKTYPE_PLAIN_VARIABLE:
-          case SDF_BLOCKTYPE_POINT_VARIABLE:
-          case SDF_BLOCKTYPE_ARRAY:
-            for (n = 0; n < b->ndims; n++) dims[n] = (int)b->dims[n];
-            sdf_read_data(h);
-            sub = PyArray_NewFromDescr(&PyArray_Type,
-                PyArray_DescrFromType(typemap[b->datatype_out]), b->ndims,
-                dims, NULL, b->data, NPY_ARRAY_F_CONTIGUOUS, NULL);
-            PyDict_SetItemString(dict, b->name, sub);
-            Py_DECREF(sub);
-            PyArray_SetBaseObject((PyArrayObject*)sub, self);
-            Py_INCREF(self);
-            break;
-          case SDF_BLOCKTYPE_CONSTANT:
-            switch(b->datatype) {
-              case SDF_DATATYPE_REAL4:
-                dd = *((float*)b->const_value);
-                sub = PyFloat_FromDouble(dd);
+            case SDF_BLOCKTYPE_PLAIN_MESH:
+            case SDF_BLOCKTYPE_POINT_MESH:
+                setup_mesh(self, dict);
+                break;
+            case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
+                setup_lagrangian_mesh(self, dict);
+                break;
+            case SDF_BLOCKTYPE_PLAIN_VARIABLE:
+            case SDF_BLOCKTYPE_POINT_VARIABLE:
+            case SDF_BLOCKTYPE_ARRAY:
+                for (n = 0; n < b->ndims; n++) dims[n] = (int)b->dims[n];
+                sdf_read_data(h);
+                sub = PyArray_NewFromDescr(&PyArray_Type,
+                    PyArray_DescrFromType(typemap[b->datatype_out]), b->ndims,
+                    dims, NULL, b->data, NPY_ARRAY_F_CONTIGUOUS, NULL);
                 PyDict_SetItemString(dict, b->name, sub);
                 Py_DECREF(sub);
+                PyArray_SetBaseObject((PyArrayObject*)sub, self);
+                Py_INCREF(self);
                 break;
-              case SDF_DATATYPE_REAL8:
-                dd = *((double*)b->const_value);
-                sub = PyFloat_FromDouble(dd);
-                PyDict_SetItemString(dict, b->name, sub);
+            case SDF_BLOCKTYPE_CONSTANT:
+                switch(b->datatype) {
+                    case SDF_DATATYPE_REAL4:
+                        dd = *((float*)b->const_value);
+                        sub = PyFloat_FromDouble(dd);
+                        PyDict_SetItemString(dict, b->name, sub);
+                        Py_DECREF(sub);
+                        break;
+                    case SDF_DATATYPE_REAL8:
+                        dd = *((double*)b->const_value);
+                        sub = PyFloat_FromDouble(dd);
+                        PyDict_SetItemString(dict, b->name, sub);
+                        Py_DECREF(sub);
+                        break;
+                    case SDF_DATATYPE_INTEGER4:
+                        il = *((int32_t*)b->const_value);
+                        sub = PyLong_FromLong(il);
+                        PyDict_SetItemString(dict, b->name, sub);
+                        Py_DECREF(sub);
+                        break;
+                    case SDF_DATATYPE_INTEGER8:
+                        ll = *((int64_t*)b->const_value);
+                        sub = PyLong_FromLongLong(ll);
+                        PyDict_SetItemString(dict, b->name, sub);
+                        Py_DECREF(sub);
+                        break;
+                }
+                break;
+            case SDF_BLOCKTYPE_STATION:
+                sub = PyDict_GetItemString(dict, "StationBlocks");
+                if ( !sub ) {
+                    sub = PyDict_New();
+                    PyDict_SetItemString(dict, "StationBlocks", sub);
+                }
+                append_station_metadata(b, sub);
+                extract_station_time_histories(h, stations, variables, t0, t1,
+                        dict);
+                break;
+            case SDF_BLOCKTYPE_STITCHED_MATERIAL:
+                sub = material_names(b);
+                PyDict_SetItemString(dict, "Materials", sub);
                 Py_DECREF(sub);
                 break;
-              case SDF_DATATYPE_INTEGER4:
-                il = *((int32_t*)b->const_value);
-                sub = PyLong_FromLong(il);
-                PyDict_SetItemString(dict, b->name, sub);
-                Py_DECREF(sub);
-                break;
-              case SDF_DATATYPE_INTEGER8:
-                ll = *((int64_t*)b->const_value);
-                sub = PyLong_FromLongLong(ll);
-                PyDict_SetItemString(dict, b->name, sub);
-                Py_DECREF(sub);
-                break;
-            }
-            break;
-         case SDF_BLOCKTYPE_STATION:
-            sub = PyDict_GetItemString(dict, "StationBlocks");
-            if ( !sub ) {
-               sub = PyDict_New();
-               PyDict_SetItemString(dict, "StationBlocks", sub);
-            }
-            append_station_metadata(b, sub);
-            extract_station_time_histories(h, stations, variables, t0, t1,
-                  dict);
-            break;
-         case SDF_BLOCKTYPE_STITCHED_MATERIAL:
-            sub = material_names(b);
-            PyDict_SetItemString(dict, "Materials", sub);
-            Py_DECREF(sub);
-            break;
         }
         b = h->current_block = b->next;
     }
@@ -519,7 +536,7 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
 
 static PyMethodDef SDF_methods[] = {
     {"read", (PyCFunction)SDF_read, METH_VARARGS | METH_KEYWORDS,
-        "Reads the SDF data and returns a dictionary of NumPy arrays" },
+            "Reads the SDF data and returns a dictionary of NumPy arrays" },
     {NULL}
 };
 
@@ -567,23 +584,6 @@ static PyTypeObject SDF_type = {
     0,                         /* tp_alloc          */
     SDF_new,                   /* tp_new            */
 };
-
-
-#if PY_MAJOR_VERSION >= 3
-  #define MOD_ERROR_VAL NULL
-  #define MOD_SUCCESS_VAL(val) val
-  #define MOD_INIT(name) PyMODINIT_FUNC PyInit_##name(void)
-  #define MOD_DEF(ob, name, doc, methods) \
-          static struct PyModuleDef moduledef = { \
-            PyModuleDef_HEAD_INIT, name, doc, -1, methods, }; \
-          ob = PyModule_Create(&moduledef);
-#else
-  #define MOD_ERROR_VAL
-  #define MOD_SUCCESS_VAL(val)
-  #define MOD_INIT(name) void init##name(void)
-  #define MOD_DEF(ob, name, doc, methods) \
-          ob = Py_InitModule3(name, methods, doc);
-#endif
 
 
 MOD_INIT(sdf)
