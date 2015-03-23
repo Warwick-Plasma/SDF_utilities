@@ -68,8 +68,6 @@ SDF_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 static void
 SDF_dealloc(PyObject* self)
 {
-    SDFObject *pyo = (SDFObject*)self;
-    if (pyo->h) sdf_close(pyo->h);
     self->ob_type->tp_free(self);
 }
 
@@ -195,7 +193,7 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *stations,
    PyObject *sub;
    char **var_names, *timehis, *v, *key;
    long *stat, ii;
-   int *size, *offset, nrows, row_size, j;
+   int *size, *offset, nrows, row_size;
    sdf_block_t *b;
    npy_intp dims[1];
 
