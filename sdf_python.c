@@ -74,12 +74,13 @@ SDF_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     sdf_file_t *h;
     const char *file;
+    static char *kwlist[] = {"file", "convert", "mmap", NULL};
     SDFObject *self;
 
     convert = 0; use_mmap = 1; mode = SDF_READ; comm = 0;
 
-    if (!PyArg_ParseTuple(args, "s|i", &file, &convert))
-        return NULL;
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|ii", kwlist, &file,
+        &convert, &use_mmap)) return NULL;
 
     self = (SDFObject*)type->tp_alloc(type, 0);
     if (self == NULL) {
