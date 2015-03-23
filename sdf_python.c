@@ -68,12 +68,15 @@ SDF_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 static void
 SDF_dealloc(PyObject* self)
 {
+    sdf_file_t *h = ((SDFObject*)self)->h;
+    if (h) sdf_close(h);
     self->ob_type->tp_free(self);
 }
 
 
-static void setup_mesh(sdf_file_t *h, PyObject *dict)
+static void setup_mesh(PyObject *self, PyObject *dict)
 {
+    sdf_file_t *h = ((SDFObject*)self)->h;
     sdf_block_t *b = h->current_block;
     int i, n, ndims;
     size_t l1, l2;
@@ -127,6 +130,8 @@ static void setup_mesh(sdf_file_t *h, PyObject *dict)
                 dims, NULL, grid, NPY_F_CONTIGUOUS, NULL);
             PyDict_SetItemString(dict, label, sub);
             Py_DECREF(sub);
+            PyArray_BASE(sub) = self;
+            Py_INCREF(self);
 
             /* Now add the original grid with "_node" appended */
             ndims++;
@@ -147,12 +152,15 @@ static void setup_mesh(sdf_file_t *h, PyObject *dict)
             dims, NULL, grid, NPY_F_CONTIGUOUS, NULL);
         PyDict_SetItemString(dict, label, sub);
         Py_DECREF(sub);
+        PyArray_BASE(sub) = self;
+        Py_INCREF(self);
     }
 }
 
 
-static void setup_lagrangian_mesh(sdf_file_t *h, PyObject *dict)
+static void setup_lagrangian_mesh(PyObject *self, PyObject *dict)
 {
+    sdf_file_t *h = ((SDFObject*)self)->h;
     sdf_block_t *b = h->current_block;
     int n;
     size_t l1, l2;
@@ -181,6 +189,8 @@ static void setup_lagrangian_mesh(sdf_file_t *h, PyObject *dict)
             dims, NULL, grid, NPY_F_CONTIGUOUS, NULL);
         PyDict_SetItemString(dict, label, sub);
         Py_DECREF(sub);
+        PyArray_BASE(sub) = self;
+        Py_INCREF(self);
     }
 }
 
@@ -372,8 +382,9 @@ static PyObject *material_names(sdf_block_t *b)
 }
 
 
-static PyObject* SDF_read(SDFObject *self, PyObject *args, PyObject *kw)
+static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
 {
+    SDFObject *ob = (SDFObject*)self;
     sdf_file_t *h;
     sdf_block_t *b;
     PyObject *dict, *sub;
@@ -391,14 +402,14 @@ static PyObject* SDF_read(SDFObject *self, PyObject *args, PyObject *kw)
              &PyList_Type, &stations, &PyList_Type, &variables, &t0, &t1) )
        return NULL;
 
-    h = self->h;
+    h = ob->h;
 
     /* Close file and re-open it if it has already been read */
     if (h->blocklist) {
         h = sdf_open(h->filename, comm, mode, use_mmap);
-        sdf_close(self->h);
-        self->h = h;
-        if (!self->h) {
+        sdf_close(ob->h);
+        ob->h = h;
+        if (!ob->h) {
             PyErr_Format(PyExc_IOError, "Failed to open file: '%s'",
                   h->filename);
             Py_DECREF(self);
@@ -419,10 +430,10 @@ static PyObject* SDF_read(SDFObject *self, PyObject *args, PyObject *kw)
         switch(b->blocktype) {
           case SDF_BLOCKTYPE_PLAIN_MESH:
           case SDF_BLOCKTYPE_POINT_MESH:
-            setup_mesh(h, dict);
+            setup_mesh(self, dict);
             break;
           case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
-            setup_lagrangian_mesh(h, dict);
+            setup_lagrangian_mesh(self, dict);
             break;
           case SDF_BLOCKTYPE_PLAIN_VARIABLE:
           case SDF_BLOCKTYPE_POINT_VARIABLE:
@@ -434,6 +445,8 @@ static PyObject* SDF_read(SDFObject *self, PyObject *args, PyObject *kw)
                 dims, NULL, b->data, NPY_F_CONTIGUOUS, NULL);
             PyDict_SetItemString(dict, b->name, sub);
             Py_DECREF(sub);
+            PyArray_BASE(sub) = self;
+            Py_INCREF(self);
             break;
           case SDF_BLOCKTYPE_CONSTANT:
             switch(b->datatype) {
