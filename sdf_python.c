@@ -61,8 +61,68 @@ static const int typemap[] = {
 
 typedef struct {
     PyObject_HEAD
+    PyObject *sdf;
+    sdf_file_t *h;
+    sdf_block_t *b;
+} ArrayObject;
+
+
+typedef struct {
+    PyObject_HEAD
     sdf_file_t *h;
 } SDFObject;
+
+
+static PyObject *
+Array_new(PyTypeObject *type, PyObject *sdf, sdf_file_t *h, sdf_block_t *b)
+{
+    PyObject *self;
+    ArrayObject *ob;
+
+    self = type->tp_alloc(type, 0);
+    if (self) {
+        ob = (ArrayObject*)self;
+        ob->sdf = sdf;
+        ob->h = h;
+        ob->b = b;
+        Py_INCREF(sdf);
+    }
+
+    return self;
+}
+
+
+static void
+Array_dealloc(PyObject *self)
+{
+    if (!self) return;
+    Py_XDECREF(((ArrayObject*)self)->sdf);
+    self->ob_type->tp_free(self);
+}
+
+
+static PyTypeObject ArrayType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "Array",                   /* tp_name           */
+    sizeof(ArrayObject),       /* tp_basicsize      */
+    0,                         /* tp_itemsize       */
+    Array_dealloc,             /* tp_dealloc */
+    0,                         /* tp_print          */
+    0,                         /* tp_getattr        */
+    0,                         /* tp_setattr        */
+    0,                         /* tp_compare        */
+    0,                         /* tp_repr           */
+    0,                         /* tp_as_number      */
+    0,                         /* tp_as_sequence    */
+    0,                         /* tp_as_mapping     */
+    0,                         /* tp_hash           */
+    0,                         /* tp_call           */
+    0,                         /* tp_str            */
+    0,                         /* tp_getattro       */
+    0,                         /* tp_setattro       */
+    0,                         /* tp_as_buffer      */
+    Py_TPFLAGS_DEFAULT,        /* tp_flags          */
+};
 
 
 static int convert, use_mmap, mode;
@@ -119,7 +179,7 @@ static void setup_mesh(PyObject *self, PyObject *dict)
     size_t l1, l2;
     char *label;
     void *grid;
-    PyObject *sub;
+    PyObject *sub, *array;
     npy_intp dims[3] = {0,0,0};
 
     sdf_read_data(h);
@@ -165,10 +225,10 @@ static void setup_mesh(PyObject *self, PyObject *dict)
             sub = PyArray_NewFromDescr(&PyArray_Type,
                 PyArray_DescrFromType(typemap[b->datatype_out]), 1,
                 dims, NULL, grid, NPY_ARRAY_F_CONTIGUOUS, NULL);
+            array = Array_new(&ArrayType, self, h, b);
+            PyArray_SetBaseObject((PyArrayObject*)sub, array);
             PyDict_SetItemString(dict, label, sub);
             Py_DECREF(sub);
-            PyArray_SetBaseObject((PyArrayObject*)sub, self);
-            Py_INCREF(self);
 
             /* Now add the original grid with "_node" appended */
             ndims++;
@@ -187,10 +247,10 @@ static void setup_mesh(PyObject *self, PyObject *dict)
         sub = PyArray_NewFromDescr(&PyArray_Type,
             PyArray_DescrFromType(typemap[b->datatype_out]), 1,
             dims, NULL, grid, NPY_ARRAY_F_CONTIGUOUS, NULL);
+        array = Array_new(&ArrayType, self, h, b);
+        PyArray_SetBaseObject((PyArrayObject*)sub, array);
         PyDict_SetItemString(dict, label, sub);
         Py_DECREF(sub);
-        PyArray_SetBaseObject((PyArrayObject*)sub, self);
-        Py_INCREF(self);
     }
 }
 
@@ -203,7 +263,7 @@ static void setup_lagrangian_mesh(PyObject *self, PyObject *dict)
     size_t l1, l2;
     char *label;
     void *grid;
-    PyObject *sub;
+    PyObject *sub, *array;
     npy_intp dims[3] = {0,0,0};
 
     sdf_read_data(h);
@@ -224,10 +284,10 @@ static void setup_lagrangian_mesh(PyObject *self, PyObject *dict)
         sub = PyArray_NewFromDescr(&PyArray_Type,
             PyArray_DescrFromType(typemap[b->datatype_out]), b->ndims,
             dims, NULL, grid, NPY_ARRAY_F_CONTIGUOUS, NULL);
+        array = Array_new(&ArrayType, self, h, b);
+        PyArray_SetBaseObject((PyArrayObject*)sub, array);
         PyDict_SetItemString(dict, label, sub);
         Py_DECREF(sub);
-        PyArray_SetBaseObject((PyArrayObject*)sub, self);
-        Py_INCREF(self);
     }
 }
 
@@ -423,7 +483,7 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
     SDFObject *ob = (SDFObject*)self;
     sdf_file_t *h;
     sdf_block_t *b;
-    PyObject *dict, *sub;
+    PyObject *dict, *sub, *array;
     int i, n;
     double dd;
     long il;
@@ -479,10 +539,10 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
                 sub = PyArray_NewFromDescr(&PyArray_Type,
                     PyArray_DescrFromType(typemap[b->datatype_out]), b->ndims,
                     dims, NULL, b->data, NPY_ARRAY_F_CONTIGUOUS, NULL);
+                array = Array_new(&ArrayType, self, h, b);
+                PyArray_SetBaseObject((PyArrayObject*)sub, array);
                 PyDict_SetItemString(dict, b->name, sub);
                 Py_DECREF(sub);
-                PyArray_SetBaseObject((PyArrayObject*)sub, self);
-                Py_INCREF(self);
                 break;
             case SDF_BLOCKTYPE_CONSTANT:
                 switch(b->datatype) {
@@ -597,6 +657,8 @@ MOD_INIT(sdf)
         return MOD_ERROR_VAL;
 
     if (PyType_Ready(&SDF_type) < 0)
+        return MOD_ERROR_VAL;
+    if (PyType_Ready(&ArrayType) < 0)
         return MOD_ERROR_VAL;
 
     Py_INCREF(&SDF_type);
