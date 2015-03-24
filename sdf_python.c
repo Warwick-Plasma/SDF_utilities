@@ -101,6 +101,19 @@ static PyTypeObject BlockType = {
 };
 
 
+static PyTypeObject BlockBase;
+static PyTypeObject BlockMeshType;
+static PyTypeObject BlockPlainMeshType;
+static PyTypeObject BlockPointMeshType;
+static PyTypeObject BlockLagrangianMeshType;
+static PyTypeObject BlockPlainVariableType;
+static PyTypeObject BlockPointVariableType;
+static PyTypeObject BlockArrayType;
+static PyTypeObject BlockConstantType;
+static PyTypeObject BlockStationType;
+static PyTypeObject BlockStitchedMaterialType;
+
+
 static PyTypeObject SDF_type = {
     PyVarObject_HEAD_INIT(NULL, 0)
     "sdf.SDF",                 /* tp_name           */
@@ -160,10 +173,42 @@ static PyMemberDef Block_members[] = {
 
 
 static PyObject *
-Block_alloc(PyTypeObject *type, sdf_file_t *h)
+Block_alloc(sdf_file_t *h, sdf_block_t *b)
 {
     Block *ob;
-    sdf_block_t *b = h->current_block;
+    PyTypeObject *type;
+
+    switch(b->blocktype) {
+        case SDF_BLOCKTYPE_PLAIN_MESH:
+            type = &BlockPlainMeshType;
+            break;
+        case SDF_BLOCKTYPE_POINT_MESH:
+            type = &BlockPointMeshType;
+            break;
+        case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
+            type = &BlockLagrangianMeshType;
+            break;
+        case SDF_BLOCKTYPE_PLAIN_VARIABLE:
+            type = &BlockPlainVariableType;
+            break;
+        case SDF_BLOCKTYPE_POINT_VARIABLE:
+            type = &BlockPointVariableType;
+            break;
+        case SDF_BLOCKTYPE_ARRAY:
+            type = &BlockArrayType;
+            break;
+        case SDF_BLOCKTYPE_CONSTANT:
+            type = &BlockConstantType;
+            break;
+        case SDF_BLOCKTYPE_STATION:
+            type = &BlockStationType;
+            break;
+        case SDF_BLOCKTYPE_STITCHED_MATERIAL:
+            type = &BlockStitchedMaterialType;
+            break;
+        default:
+            type = &BlockType;
+    }
 
     ob = (Block *)type->tp_alloc(type, 0);
     ob->h = h;
@@ -327,7 +372,7 @@ static void setup_mesh(PyObject *self, PyObject *dict)
             if (!array2) goto free_mem;
             ((ArrayObject*)array2)->mem = grid;
 
-            block = Block_alloc(&BlockType, h);
+            block = Block_alloc(h, b);
             if (!block) goto free_mem;
             sub = PyArray_NewFromDescr(&PyArray_Type,
                 PyArray_DescrFromType(typemap[b->datatype_out]), 1,
@@ -354,7 +399,7 @@ static void setup_mesh(PyObject *self, PyObject *dict)
 
         dims[0] = ndims;
 
-        block = Block_alloc(&BlockType, h);
+        block = Block_alloc(h, b);
         if (!block) goto free_mem;
         sub = PyArray_NewFromDescr(&PyArray_Type,
             PyArray_DescrFromType(typemap[b->datatype_out]), 1,
@@ -416,7 +461,7 @@ static void setup_lagrangian_mesh(PyObject *self, PyObject *dict)
         l1 = strlen(b->id);
         grid = b->grids[n];
 
-        block = Block_alloc(&BlockType, h);
+        block = Block_alloc(h, b);
         if (!block) goto free_mem;
         sub = PyArray_NewFromDescr(&PyArray_Type,
             PyArray_DescrFromType(typemap[b->datatype_out]), b->ndims,
@@ -644,7 +689,7 @@ setup_array(PyObject *self, PyObject *dict, sdf_file_t *h, sdf_block_t *b)
     array = Array_new(&ArrayType, self, h, b);
     if (!array) goto free_mem;
 
-    block = Block_alloc(&BlockType, h);
+    block = Block_alloc(h, b);
     if (!block) goto free_mem;
     sub = PyArray_NewFromDescr(&PyArray_Type,
         PyArray_DescrFromType(typemap[b->datatype_out]), b->ndims,
@@ -674,7 +719,7 @@ setup_constant(PyObject *self, PyObject *dict, sdf_file_t *h, sdf_block_t *b)
     long il;
     long long ll;
 
-    block = Block_alloc(&BlockType, h);
+    block = Block_alloc(h, b);
     if (!block) return NULL;
 
     switch(b->datatype) {
@@ -791,6 +836,16 @@ static PyMethodDef SDF_methods[] = {
     {NULL}
 };
 
+#define ADD_TYPE(name,base) do { \
+        name##Type = base; \
+        name##Type.tp_name = "sdf." #name; \
+        if (PyType_Ready(&name##Type) < 0) \
+            return MOD_ERROR_VAL; \
+        Py_INCREF(&name##Type); \
+        if (PyModule_AddObject(m, #name, (PyObject *)&name##Type) < 0) \
+            return MOD_ERROR_VAL; \
+    } while(0)
+
 
 MOD_INIT(sdf)
 {
@@ -817,14 +872,35 @@ MOD_INIT(sdf)
     if (PyType_Ready(&ArrayType) < 0)
         return MOD_ERROR_VAL;
 
-    BlockType.tp_dealloc = Block_dealloc;
     BlockType.tp_flags = Py_TPFLAGS_DEFAULT;
     BlockType.tp_doc = "SDF block type.\n"
         "Contains the data and metadata for a single "
         "block from an SDF file.";
+    BlockBase = BlockType;
+    BlockBase.tp_base = &BlockType;
+
+    BlockType.tp_name = "BlockType";
+    BlockType.tp_dealloc = Block_dealloc;
     BlockType.tp_members = Block_members;
     if (PyType_Ready(&BlockType) < 0)
         return MOD_ERROR_VAL;
+
+    ADD_TYPE(BlockConstant, BlockBase);
+    ADD_TYPE(BlockStation, BlockBase);
+    ADD_TYPE(BlockStitchedMaterial, BlockBase);
+    ADD_TYPE(BlockArray, BlockBase);
+    ADD_TYPE(BlockMesh, BlockBase);
+
+    BlockBase.tp_base = &BlockArrayType;
+
+    ADD_TYPE(BlockPlainVariable, BlockBase);
+    ADD_TYPE(BlockPointVariable, BlockBase);
+
+    BlockBase.tp_base = &BlockMeshType;
+
+    ADD_TYPE(BlockPlainMesh, BlockBase);
+    ADD_TYPE(BlockPointMesh, BlockBase);
+    ADD_TYPE(BlockLagrangianMesh, BlockBase);
 
     Py_INCREF(&SDF_type);
     if (PyModule_AddObject(m, "SDF", (PyObject *) &SDF_type) < 0)
