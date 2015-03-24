@@ -42,6 +42,7 @@
         ob = Py_InitModule3(name, methods, doc);
 #endif
 
+int sdf_free_block_data(sdf_file_t *h, sdf_block_t *b);
 
 static const int typemap[] = {
     0,
@@ -95,8 +96,10 @@ Array_new(PyTypeObject *type, PyObject *sdf, sdf_file_t *h, sdf_block_t *b)
 static void
 Array_dealloc(PyObject *self)
 {
+    ArrayObject *ob = (ArrayObject*)self;
     if (!self) return;
-    Py_XDECREF(((ArrayObject*)self)->sdf);
+    sdf_free_block_data(ob->h, ob->b);
+    Py_XDECREF(ob->sdf);
     self->ob_type->tp_free(self);
 }
 
