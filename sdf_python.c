@@ -73,6 +73,9 @@ typedef struct {
     PyObject_HEAD
     PyObject *id;
     PyObject *name;
+    PyObject *data_length;
+    PyObject *datatype;
+    PyObject *dims;
     PyObject *data;
     sdf_file_t *h;
     sdf_block_t *b;
@@ -167,6 +170,9 @@ Array_dealloc(PyObject *self)
 static PyMemberDef Block_members[] = {
     {"id", T_OBJECT_EX, offsetof(Block, id), 0, "Block id"},
     {"name", T_OBJECT_EX, offsetof(Block, name), 0, "Block name"},
+    {"data_length", T_OBJECT_EX, offsetof(Block, data_length), 0, "Data size"},
+    {"datatype", T_OBJECT_EX, offsetof(Block, datatype), 0, "Data type"},
+    {"dims", T_OBJECT_EX, offsetof(Block, dims), 0, "Data dimensions"},
     {"data", T_OBJECT_EX, offsetof(Block, data), 0, "Block data contents"},
     {NULL}  /* Sentinel */
 };
@@ -177,6 +183,7 @@ Block_alloc(sdf_file_t *h, sdf_block_t *b)
 {
     Block *ob;
     PyTypeObject *type;
+    Py_ssize_t i;
 
     switch(b->blocktype) {
         case SDF_BLOCKTYPE_PLAIN_MESH:
@@ -224,6 +231,47 @@ Block_alloc(sdf_file_t *h, sdf_block_t *b)
         if (ob->name == NULL) goto error;
     }
 
+    if (b->data_length) {
+        ob->data_length = PyLong_FromLongLong(b->data_length);
+        if (ob->data_length == NULL) goto error;
+    }
+
+    if (b->datatype_out) {
+        ob->datatype = PyArray_TypeObjectFromType(typemap[b->datatype_out]);
+        if (ob->datatype == NULL) goto error;
+    }
+
+    if (b->ndims) {
+        if (b->blocktype == SDF_BLOCKTYPE_PLAIN_MESH)
+            ob->dims = PyTuple_New(1);
+        else
+            ob->dims = PyTuple_New(b->ndims);
+        if (ob->dims == NULL) goto error;
+    }
+
+    switch(b->blocktype) {
+        case SDF_BLOCKTYPE_PLAIN_MESH:
+            break;
+        case SDF_BLOCKTYPE_POINT_MESH:
+            break;
+        case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
+        case SDF_BLOCKTYPE_PLAIN_VARIABLE:
+        case SDF_BLOCKTYPE_POINT_VARIABLE:
+        case SDF_BLOCKTYPE_ARRAY:
+            if (b->dims && ob->dims) {
+                for (i=0; i < b->ndims; i++)
+                    PyTuple_SetItem(ob->dims, i, PyLong_FromLong(b->dims[i]));
+            }
+            break;
+        case SDF_BLOCKTYPE_CONSTANT:
+            PyTuple_SetItem(ob->dims, 0, PyLong_FromLong(1));
+            break;
+        case SDF_BLOCKTYPE_STATION:
+            break;
+        case SDF_BLOCKTYPE_STITCHED_MATERIAL:
+            break;
+    }
+
     return (PyObject *)ob;
 
 error:
@@ -232,6 +280,15 @@ error:
     }
     if (ob->name) {
         Py_DECREF(ob->name);
+    }
+    if (ob->data_length) {
+        Py_DECREF(ob->data_length);
+    }
+    if (ob->datatype) {
+        Py_DECREF(ob->datatype);
+    }
+    if (ob->dims) {
+        Py_DECREF(ob->dims);
     }
     Py_DECREF(ob);
 
@@ -249,6 +306,15 @@ Block_dealloc(PyObject *self)
     }
     if (ob->name) {
         Py_XDECREF(ob->name);
+    }
+    if (ob->data_length) {
+        Py_XDECREF(ob->data_length);
+    }
+    if (ob->datatype) {
+        Py_XDECREF(ob->datatype);
+    }
+    if (ob->dims) {
+        Py_XDECREF(ob->dims);
     }
     if (ob->data) {
         Py_XDECREF(ob->data);
@@ -310,7 +376,7 @@ static void setup_mesh(PyObject *self, PyObject *dict)
 {
     sdf_file_t *h = ((SDFObject*)self)->h;
     sdf_block_t *b = h->current_block;
-    int i, n, ndims;
+    Py_ssize_t i, n, ndims;
     size_t l1, l2;
     char *label = NULL;
     void *grid, *grid_ptr = NULL;
@@ -327,7 +393,7 @@ static void setup_mesh(PyObject *self, PyObject *dict)
 
     for (n = 0; n < b->ndims; n++) {
         sub = array2 = block = grid_ptr = NULL;
-        ndims = (int)b->dims[n];
+        ndims = b->dims[n];
 
         l1 = strlen(b->name);
         l2 = strlen(b->dim_labels[n]);
@@ -374,6 +440,10 @@ static void setup_mesh(PyObject *self, PyObject *dict)
 
             block = Block_alloc(h, b);
             if (!block) goto free_mem;
+
+            PyTuple_SetItem(((Block*)block)->dims, 0,
+                PyLong_FromLongLong(ndims));
+
             sub = PyArray_NewFromDescr(&PyArray_Type,
                 PyArray_DescrFromType(typemap[b->datatype_out]), 1,
                 dims, NULL, grid, NPY_ARRAY_F_CONTIGUOUS, NULL);
@@ -401,6 +471,9 @@ static void setup_mesh(PyObject *self, PyObject *dict)
 
         block = Block_alloc(h, b);
         if (!block) goto free_mem;
+
+        PyTuple_SetItem(((Block*)block)->dims, 0, PyLong_FromLongLong(ndims));
+
         sub = PyArray_NewFromDescr(&PyArray_Type,
             PyArray_DescrFromType(typemap[b->datatype_out]), 1,
             dims, NULL, grid, NPY_ARRAY_F_CONTIGUOUS, NULL);
