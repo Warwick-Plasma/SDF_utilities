@@ -77,6 +77,8 @@ typedef struct {
     PyObject *datatype;
     PyObject *dims;
     PyObject *data;
+    PyObject *label;
+    PyObject *units;
     sdf_file_t *h;
     sdf_block_t *b;
 } Block;
@@ -174,6 +176,12 @@ static PyMemberDef Block_members[] = {
     {"datatype", T_OBJECT_EX, offsetof(Block, datatype), 0, "Data type"},
     {"dims", T_OBJECT_EX, offsetof(Block, dims), 0, "Data dimensions"},
     {"data", T_OBJECT_EX, offsetof(Block, data), 0, "Block data contents"},
+    {NULL}  /* Sentinel */
+};
+
+static PyMemberDef BlockMesh_members[] = {
+    {"label", T_OBJECT_EX, offsetof(Block, label), 0, "Axis label"},
+    {"units", T_OBJECT_EX, offsetof(Block, units), 0, "Axis units"},
     {NULL}  /* Sentinel */
 };
 
@@ -276,19 +284,25 @@ Block_alloc(sdf_file_t *h, sdf_block_t *b)
 
 error:
     if (ob->id) {
-        Py_DECREF(ob->id);
+        Py_XDECREF(ob->id);
     }
     if (ob->name) {
-        Py_DECREF(ob->name);
+        Py_XDECREF(ob->name);
     }
     if (ob->data_length) {
-        Py_DECREF(ob->data_length);
+        Py_XDECREF(ob->data_length);
     }
     if (ob->datatype) {
-        Py_DECREF(ob->datatype);
+        Py_XDECREF(ob->datatype);
     }
     if (ob->dims) {
-        Py_DECREF(ob->dims);
+        Py_XDECREF(ob->dims);
+    }
+    if (ob->label) {
+        Py_XDECREF(ob->label);
+    }
+    if (ob->units) {
+        Py_XDECREF(ob->units);
     }
     Py_DECREF(ob);
 
@@ -315,6 +329,12 @@ Block_dealloc(PyObject *self)
     }
     if (ob->dims) {
         Py_XDECREF(ob->dims);
+    }
+    if (ob->label) {
+        Py_XDECREF(ob->label);
+    }
+    if (ob->units) {
+        Py_XDECREF(ob->units);
     }
     if (ob->data) {
         Py_XDECREF(ob->data);
@@ -381,6 +401,7 @@ static void setup_mesh(PyObject *self, PyObject *dict)
     char *label = NULL;
     void *grid, *grid_ptr = NULL;
     PyObject *sub = NULL, *array = NULL, *array2 = NULL, *block = NULL;
+    Block *blockob;
     npy_intp dims[3] = {0,0,0};
 
     if (!h || !b) return;
@@ -441,8 +462,14 @@ static void setup_mesh(PyObject *self, PyObject *dict)
             block = Block_alloc(h, b);
             if (!block) goto free_mem;
 
-            PyTuple_SetItem(((Block*)block)->dims, 0,
-                PyLong_FromLongLong(ndims));
+            blockob = (Block*)block;
+            PyTuple_SetItem(blockob->dims, 0, PyLong_FromLongLong(ndims));
+
+            blockob->label = PyString_FromString(b->dim_labels[n]);
+            if (blockob->label == NULL) goto free_mem;
+
+            blockob->units = PyString_FromString(b->dim_units[n]);
+            if (blockob->units == NULL) goto free_mem;
 
             sub = PyArray_NewFromDescr(&PyArray_Type,
                 PyArray_DescrFromType(typemap[b->datatype_out]), 1,
@@ -472,7 +499,14 @@ static void setup_mesh(PyObject *self, PyObject *dict)
         block = Block_alloc(h, b);
         if (!block) goto free_mem;
 
-        PyTuple_SetItem(((Block*)block)->dims, 0, PyLong_FromLongLong(ndims));
+        blockob = (Block*)block;
+        PyTuple_SetItem(blockob->dims, 0, PyLong_FromLongLong(ndims));
+
+        blockob->label = PyString_FromString(b->dim_labels[n]);
+        if (blockob->label == NULL) goto free_mem;
+
+        blockob->units = PyString_FromString(b->dim_units[n]);
+        if (blockob->units == NULL) goto free_mem;
 
         sub = PyArray_NewFromDescr(&PyArray_Type,
             PyArray_DescrFromType(typemap[b->datatype_out]), 1,
@@ -508,6 +542,7 @@ static void setup_lagrangian_mesh(PyObject *self, PyObject *dict)
     char *label = NULL;
     void *grid;
     PyObject *sub = NULL, *array = NULL, *block = NULL;
+    Block *blockob;
     npy_intp dims[3] = {0,0,0};
 
     if (!h || !b) return;
@@ -536,6 +571,14 @@ static void setup_lagrangian_mesh(PyObject *self, PyObject *dict)
 
         block = Block_alloc(h, b);
         if (!block) goto free_mem;
+
+        blockob = (Block*)block;
+        blockob->label = PyString_FromString(b->dim_labels[n]);
+        if (blockob->label == NULL) goto free_mem;
+
+        blockob->units = PyString_FromString(b->dim_units[n]);
+        if (blockob->units == NULL) goto free_mem;
+
         sub = PyArray_NewFromDescr(&PyArray_Type,
             PyArray_DescrFromType(typemap[b->datatype_out]), b->ndims,
             dims, NULL, grid, NPY_ARRAY_F_CONTIGUOUS, NULL);
@@ -970,6 +1013,7 @@ MOD_INIT(sdf)
     ADD_TYPE(BlockPointVariable, BlockBase);
 
     BlockBase.tp_base = &BlockMeshType;
+    BlockBase.tp_members = BlockMesh_members;
 
     ADD_TYPE(BlockPlainMesh, BlockBase);
     ADD_TYPE(BlockPointMesh, BlockBase);
