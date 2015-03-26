@@ -78,7 +78,7 @@ typedef struct {
     PyObject *data;
     PyObject *label;
     PyObject *units;
-    sdf_file_t *h;
+    PyObject *sdf;
     sdf_block_t *b;
 } Block;
 
@@ -185,7 +185,7 @@ static PyMemberDef BlockMesh_members[] = {
 
 
 static PyObject *
-Block_alloc(sdf_file_t *h, sdf_block_t *b)
+Block_alloc(PyObject *sdf, sdf_block_t *b)
 {
     Block *ob;
     PyTypeObject *type;
@@ -224,7 +224,7 @@ Block_alloc(sdf_file_t *h, sdf_block_t *b)
     }
 
     ob = (Block *)type->tp_alloc(type, 0);
-    ob->h = h;
+    ob->sdf = sdf;
     ob->b = b;
 
     if (b->id) {
@@ -457,7 +457,7 @@ static void setup_mesh(PyObject *self, PyObject *dict)
             if (!array2) goto free_mem;
             ((ArrayObject*)array2)->mem = grid;
 
-            block = Block_alloc(h, b);
+            block = Block_alloc(self, b);
             if (!block) goto free_mem;
 
             blockob = (Block*)block;
@@ -494,7 +494,7 @@ static void setup_mesh(PyObject *self, PyObject *dict)
 
         dims[0] = ndims;
 
-        block = Block_alloc(h, b);
+        block = Block_alloc(self, b);
         if (!block) goto free_mem;
 
         blockob = (Block*)block;
@@ -567,7 +567,7 @@ static void setup_lagrangian_mesh(PyObject *self, PyObject *dict)
         l1 = strlen(b->id);
         grid = b->grids[n];
 
-        block = Block_alloc(h, b);
+        block = Block_alloc(self, b);
         if (!block) goto free_mem;
 
         blockob = (Block*)block;
@@ -787,8 +787,9 @@ static PyObject *material_names(sdf_block_t *b)
 
 
 static PyObject *
-setup_array(PyObject *self, PyObject *dict, sdf_file_t *h, sdf_block_t *b)
+setup_array(PyObject *self, PyObject *dict, sdf_block_t *b)
 {
+    sdf_file_t *h = ((SDFObject*)self)->h;
     int n;
     npy_intp dims[3] = {0,0,0};
     PyObject *sub = NULL, *array = NULL, *block = NULL;
@@ -803,7 +804,7 @@ setup_array(PyObject *self, PyObject *dict, sdf_file_t *h, sdf_block_t *b)
     array = Array_new(&ArrayType, self, b);
     if (!array) goto free_mem;
 
-    block = Block_alloc(h, b);
+    block = Block_alloc(self, b);
     if (!block) goto free_mem;
     sub = PyArray_NewFromDescr(&PyArray_Type,
         PyArray_DescrFromType(typemap[b->datatype_out]), b->ndims,
@@ -826,14 +827,14 @@ free_mem:
 
 
 static PyObject *
-setup_constant(PyObject *self, PyObject *dict, sdf_file_t *h, sdf_block_t *b)
+setup_constant(PyObject *self, PyObject *dict, sdf_block_t *b)
 {
     PyObject *sub = NULL, *block = NULL;
     double dd;
     long il;
     long long ll;
 
-    block = Block_alloc(h, b);
+    block = Block_alloc(self, b);
     if (!block) return NULL;
 
     switch(b->datatype) {
@@ -916,10 +917,10 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
             case SDF_BLOCKTYPE_PLAIN_VARIABLE:
             case SDF_BLOCKTYPE_POINT_VARIABLE:
             case SDF_BLOCKTYPE_ARRAY:
-                setup_array(self, dict, h, b);
+                setup_array(self, dict, b);
                 break;
             case SDF_BLOCKTYPE_CONSTANT:
-                setup_constant(self, dict, h, b);
+                setup_constant(self, dict, b);
                 break;
             case SDF_BLOCKTYPE_STATION:
                 sub = PyDict_GetItemString(dict, "StationBlocks");
