@@ -63,7 +63,6 @@ static const int typemap[] = {
 typedef struct {
     PyObject_HEAD
     PyObject *sdf;
-    sdf_file_t *h;
     sdf_block_t *b;
     void *mem;
 } ArrayObject;
@@ -132,7 +131,7 @@ static PyTypeObject SDF_type = {
  ******************************************************************************/
 
 static PyObject *
-Array_new(PyTypeObject *type, PyObject *sdf, sdf_file_t *h, sdf_block_t *b)
+Array_new(PyTypeObject *type, PyObject *sdf, sdf_block_t *b)
 {
     PyObject *self;
     ArrayObject *ob;
@@ -141,10 +140,9 @@ Array_new(PyTypeObject *type, PyObject *sdf, sdf_file_t *h, sdf_block_t *b)
     if (self) {
         ob = (ArrayObject*)self;
         ob->sdf = sdf;
-        ob->h = h;
         ob->b = b;
         ob->mem = NULL;
-        Py_INCREF(sdf);
+        Py_INCREF(ob->sdf);
     }
 
     return self;
@@ -159,7 +157,7 @@ Array_dealloc(PyObject *self)
     if (ob->mem)
         free(ob->mem);
     else
-        sdf_free_block_data(ob->h, ob->b);
+        sdf_free_block_data(((SDFObject*)ob->sdf)->h, ob->b);
     Py_XDECREF(ob->sdf);
     self->ob_type->tp_free(self);
 }
@@ -409,7 +407,7 @@ static void setup_mesh(PyObject *self, PyObject *dict)
     sdf_read_data(h);
     if (!b->grids || !b->grids[0]) return;
 
-    array = Array_new(&ArrayType, self, h, b);
+    array = Array_new(&ArrayType, self, b);
     if (!array) goto free_mem;
 
     for (n = 0; n < b->ndims; n++) {
@@ -455,7 +453,7 @@ static void setup_mesh(PyObject *self, PyObject *dict)
             }
 
             dims[0] = ndims;
-            array2 = Array_new(&ArrayType, self, h, b);
+            array2 = Array_new(&ArrayType, self, b);
             if (!array2) goto free_mem;
             ((ArrayObject*)array2)->mem = grid;
 
@@ -552,7 +550,7 @@ static void setup_lagrangian_mesh(PyObject *self, PyObject *dict)
 
     for (n = 0; n < b->ndims; n++) dims[n] = (int)b->dims[n];
 
-    array = Array_new(&ArrayType, self, h, b);
+    array = Array_new(&ArrayType, self, b);
     if (!array) goto free_mem;
 
     for (n = 0; n < b->ndims; n++) {
@@ -802,7 +800,7 @@ setup_array(PyObject *self, PyObject *dict, sdf_file_t *h, sdf_block_t *b)
 
     for (n = 0; n < b->ndims; n++) dims[n] = (int)b->dims[n];
 
-    array = Array_new(&ArrayType, self, h, b);
+    array = Array_new(&ArrayType, self, b);
     if (!array) goto free_mem;
 
     block = Block_alloc(h, b);
