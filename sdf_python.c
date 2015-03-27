@@ -343,42 +343,6 @@ Block_dealloc(PyObject *self)
  * SDF type methods
  ******************************************************************************/
 
-static int convert, use_mmap, mode;
-static comm_t comm;
-
-static PyObject *
-SDF_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
-{
-    sdf_file_t *h;
-    const char *file;
-    static char *kwlist[] = {"file", "convert", "mmap", NULL};
-    SDFObject *sdf;
-
-    convert = 0; use_mmap = 1; mode = SDF_READ; comm = 0;
-
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|ii", kwlist, &file,
-        &convert, &use_mmap)) return NULL;
-
-    sdf = (SDFObject*)type->tp_alloc(type, 0);
-    if (sdf == NULL) {
-        PyErr_Format(PyExc_MemoryError, "Failed to allocate SDF object");
-        return NULL;
-    }
-
-    h = sdf_open(file, comm, mode, use_mmap);
-    sdf->h = h;
-    if (!sdf->h) {
-        PyErr_Format(PyExc_IOError, "Failed to open file: '%s'", file);
-        Py_DECREF(sdf);
-        return NULL;
-    }
-
-    if (convert) h->use_float = 1;
-
-    return (PyObject*)sdf;
-}
-
-
 static void
 SDF_dealloc(PyObject* self)
 {
@@ -865,35 +829,43 @@ setup_constant(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
 }
 
 
-static PyObject* SDF_read(SDFObject *sdf, PyObject *args, PyObject *kw)
+static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
 {
+    SDFObject *sdf;
+    PyTypeObject *type = &SDFType;
     sdf_file_t *h;
     sdf_block_t *b;
     PyObject *dict, *sub;
-    int i;
-
-    static char *kwlist[] = {"stations", "variables", "t0", "t1", NULL};
+    int i, convert, use_mmap, mode;
+    comm_t comm;
+    const char *file;
+    static char *kwlist[] = {"file", "convert", "mmap", "stations",
+        "variables", "t0", "t1", NULL};
     PyObject *stations = NULL, *variables = NULL;
     double t0 = -DBL_MAX, t1 = DBL_MAX;
 
-    if ( !PyArg_ParseTupleAndKeywords(args, kw, "|O!O!dd", kwlist,
-            &PyList_Type, &stations, &PyList_Type, &variables, &t0, &t1) )
+    convert = 0; use_mmap = 1; mode = SDF_READ; comm = 0;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "s|iiO!O!dd", kwlist, &file,
+            &convert, &use_mmap, &PyList_Type, &stations, &PyList_Type,
+            &variables, &t0, &t1))
         return NULL;
 
-    h = sdf->h;
-
-    /* Close file and re-open it if it has already been read */
-    if (h->blocklist) {
-        h = sdf_open(h->filename, comm, mode, use_mmap);
-        sdf_close(sdf->h);
-        sdf->h = h;
-        if (!sdf->h) {
-            PyErr_Format(PyExc_IOError, "Failed to open file: '%s'",
-                    h->filename);
-            Py_DECREF(sdf);
-            return NULL;
-        }
+    sdf = (SDFObject*)type->tp_alloc(type, 0);
+    if (sdf == NULL) {
+        PyErr_Format(PyExc_MemoryError, "Failed to allocate SDF object");
+        return NULL;
     }
+
+    h = sdf_open(file, comm, mode, use_mmap);
+    sdf->h = h;
+    if (!sdf->h) {
+        PyErr_Format(PyExc_IOError, "Failed to open file: '%s'", file);
+        Py_DECREF(sdf);
+        return NULL;
+    }
+
+    if (convert) h->use_float = 1;
 
     sdf_read_blocklist(h);
     dict = PyDict_New();
@@ -940,6 +912,8 @@ static PyObject* SDF_read(SDFObject *sdf, PyObject *args, PyObject *kw)
         b = h->current_block = b->next;
     }
 
+    Py_DECREF(sdf);
+
     return dict;
 }
 
@@ -965,7 +939,7 @@ MOD_INIT(sdf)
 {
     PyObject *m;
 
-    MOD_DEF(m, "sdf", "SDF file reading library", NULL)
+    MOD_DEF(m, "sdf", "SDF file reading library", SDF_methods)
 
     if (m == NULL)
         return MOD_ERROR_VAL;
@@ -979,7 +953,6 @@ MOD_INIT(sdf)
         "The second argument is an optional integer. If it is non-zero then "
         "the\ndata is converted from double precision to single.";
     SDFType.tp_methods = SDF_methods;
-    SDFType.tp_new = SDF_new;
     if (PyType_Ready(&SDFType) < 0)
         return MOD_ERROR_VAL;
 
@@ -1021,10 +994,6 @@ MOD_INIT(sdf)
     ADD_TYPE(BlockPlainMesh, BlockBase);
     ADD_TYPE(BlockPointMesh, BlockBase);
     ADD_TYPE(BlockLagrangianMesh, BlockBase);
-
-    Py_INCREF(&SDFType);
-    if (PyModule_AddObject(m, "SDF", (PyObject *) &SDFType) < 0)
-        return MOD_ERROR_VAL;
 
     import_array();   /* required NumPy initialization */
 
