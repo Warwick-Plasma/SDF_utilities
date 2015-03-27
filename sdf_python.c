@@ -920,7 +920,25 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
 
 static PyMethodDef SDF_methods[] = {
     {"read", (PyCFunction)SDF_read, METH_VARARGS | METH_KEYWORDS,
-            "Reads the SDF data and returns a dictionary of NumPy arrays" },
+     "read(file, [convert, mmap, stations, variables, t0, t1])\n\n"
+     "Reads the SDF data and returns a dictionary of NumPy arrays.\n\n"
+     "Parameters\n"
+     "----------\n"
+     "file : string\n"
+     "    The name of the SDF file to open.\n"
+     "convert : bool, optional\n"
+     "    Convert double precision data to single when reading file.\n"
+     "mmap : bool, optional\n"
+     "    Use mmap to map file contents into memory.\n"
+     "stations : string list, optional\n"
+     "    List of stations to read.\n"
+     "variables : string list, optional\n"
+     "    List of station variables to read.\n"
+     "t0 : double, optional\n"
+     "    Starting time for station data.\n"
+     "t1 : double, optional\n"
+     "    Ending time for station data.\n"
+     },
     {NULL}
 };
 
