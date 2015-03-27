@@ -118,7 +118,7 @@ static PyTypeObject BlockStationType;
 static PyTypeObject BlockStitchedMaterialType;
 
 
-static PyTypeObject SDF_type = {
+static PyTypeObject SDFType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     "sdf.SDF",                 /* tp_name           */
     sizeof(SDFObject),         /* tp_basicsize      */
@@ -972,15 +972,15 @@ MOD_INIT(sdf)
 
     PyModule_AddStringConstant(m, "__version__", "2.0.0");
 
-    SDF_type.tp_dealloc = SDF_dealloc;
-    SDF_type.tp_flags = Py_TPFLAGS_DEFAULT;
-    SDF_type.tp_doc = "SDF constructor accepts two arguments.\n"
+    SDFType.tp_dealloc = SDF_dealloc;
+    SDFType.tp_flags = Py_TPFLAGS_DEFAULT;
+    SDFType.tp_doc = "SDF constructor accepts two arguments.\n"
         "The first is the SDF filename to open. This argument is mandatory.\n"
         "The second argument is an optional integer. If it is non-zero then "
         "the\ndata is converted from double precision to single.";
-    SDF_type.tp_methods = SDF_methods;
-    SDF_type.tp_new = SDF_new;
-    if (PyType_Ready(&SDF_type) < 0)
+    SDFType.tp_methods = SDF_methods;
+    SDFType.tp_new = SDF_new;
+    if (PyType_Ready(&SDFType) < 0)
         return MOD_ERROR_VAL;
 
     ArrayType.tp_dealloc = Array_dealloc;
@@ -1022,8 +1022,8 @@ MOD_INIT(sdf)
     ADD_TYPE(BlockPointMesh, BlockBase);
     ADD_TYPE(BlockLagrangianMesh, BlockBase);
 
-    Py_INCREF(&SDF_type);
-    if (PyModule_AddObject(m, "SDF", (PyObject *) &SDF_type) < 0)
+    Py_INCREF(&SDFType);
+    if (PyModule_AddObject(m, "SDF", (PyObject *) &SDFType) < 0)
         return MOD_ERROR_VAL;
 
     import_array();   /* required NumPy initialization */
