@@ -199,6 +199,14 @@ static PyMemberDef BlockMesh_members[] = {
 };
 
 
+static PyObject *Block_getdata(Block *block, void *closure);
+
+static PyGetSetDef Block_getset[] = {
+    {"data", (getter)Block_getdata, NULL, "Block data contents", NULL},
+    {NULL}  /* Sentinel */
+};
+
+
 static PyObject *
 Block_alloc(SDFObject *sdf, sdf_block_t *b)
 {
@@ -359,6 +367,56 @@ Block_dealloc(PyObject *self)
     }
     if (ob->sdfref) Py_XDECREF(ob->sdf);
     self->ob_type->tp_free(self);
+}
+
+
+static PyObject *Block_getdata(Block *block, void *closure)
+{
+    void *data;
+    SDFObject *sdf = block->sdf;
+    sdf_block_t *b = block->b;
+    ArrayObject *array = NULL;
+    Py_ssize_t ndims;
+    npy_intp *dims;
+
+    /* Already populated numpy array. Just return it. */
+    if (block->data) {
+        Py_INCREF(block->data);
+        return block->data;
+    }
+
+    if (!sdf || !sdf->h || !b)
+        return PyErr_Format(PyExc_Exception, "Unknown SDF file\n");
+
+    sdf->h->current_block = b;
+    sdf_read_data(sdf->h);
+
+    data = b->data;
+
+    if (!data)
+        return PyErr_Format(PyExc_Exception, "Unable to read SDF block\n");
+
+    dims = block->adims;
+    ndims = b->ndims;
+
+    block->data = PyArray_NewFromDescr(&PyArray_Type,
+        PyArray_DescrFromType(typemap[b->datatype_out]), ndims,
+        dims, NULL, data, NPY_ARRAY_F_CONTIGUOUS, NULL);
+    if (!block->data) goto free_mem;
+
+    array = (ArrayObject*)Array_new(&ArrayType, sdf, b);
+    if (!array) goto free_mem;
+
+    PyArray_SetBaseObject((PyArrayObject*)block->data, (PyObject*)array);
+
+    Py_INCREF(block->data);
+    return block->data;
+
+free_mem:
+    if (block->data) Py_DECREF(block->data);
+    if (array) Py_DECREF(array);
+    sdf_free_block_data(sdf->h, b);
+    return PyErr_Format(PyExc_Exception, "Error whilst reading SDF block\n");
 }
 
 
@@ -891,18 +949,11 @@ static PyObject *
 setup_array(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
 {
     char *block_name = NULL;
-    PyObject *array = NULL;
     Block *block = NULL;
-    void *data = NULL;
 
     if (!sdf->h || !b) return NULL;
 
-    sdf->h->current_block = b;
-    sdf_read_data(sdf->h);
-    data = b->data;
     block_name = b->name;
-
-    if (!data) return NULL;
 
     block = (Block*)Block_alloc(sdf, b);
     if (!block) goto free_mem;
@@ -912,16 +963,6 @@ setup_array(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
         if (!block->units) goto free_mem;
     }
 
-    block->data = PyArray_NewFromDescr(&PyArray_Type,
-        PyArray_DescrFromType(typemap[b->datatype_out]), block->ndims,
-        block->adims, NULL, data, NPY_ARRAY_F_CONTIGUOUS, NULL);
-    if (!block->data) goto free_mem;
-
-    array = Array_new(&ArrayType, sdf, b);
-    if (!array) goto free_mem;
-
-    PyArray_SetBaseObject((PyArrayObject*)block->data, array);
-
     PyDict_SetItemString(dict, block_name, (PyObject*)block);
     Py_DECREF(block);
 
@@ -929,8 +970,6 @@ setup_array(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
 
 free_mem:
     if (block) Py_DECREF(block);
-    if (array) Py_DECREF(array);
-    sdf_free_block_data(sdf->h, b);
     return NULL;
 }
 
@@ -1146,6 +1185,7 @@ MOD_INIT(sdf)
     ADD_TYPE(BlockMesh, BlockBase);
 
     BlockBase.tp_base = &BlockArrayType;
+    BlockBase.tp_getset = Block_getset;
 
     ADD_TYPE(BlockPlainVariable, BlockBase);
     ADD_TYPE(BlockPointVariable, BlockBase);
