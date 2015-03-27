@@ -84,8 +84,11 @@ typedef struct {
     PyObject *data;
     PyObject *label;
     PyObject *units;
+    PyObject *array;
     SDFObject *sdf;
     sdf_block_t *b;
+    int dim, ndims;
+    npy_intp adims[4];
 } Block;
 
 
@@ -224,6 +227,8 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
     ob = (Block *)type->tp_alloc(type, 0);
     ob->sdf = sdf;
     ob->b = b;
+    ob->dim = 0;
+    ob->ndims = b->ndims;
 
     if (b->id) {
         ob->id = PyString_FromString(b->id);
@@ -263,8 +268,10 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
         case SDF_BLOCKTYPE_POINT_VARIABLE:
         case SDF_BLOCKTYPE_ARRAY:
             if (b->dims && ob->dims) {
-                for (i=0; i < b->ndims; i++)
+                for (i=0; i < b->ndims; i++) {
+                    ob->adims[i] = b->dims[i];
                     PyTuple_SetItem(ob->dims, i, PyLong_FromLong(b->dims[i]));
+                }
             }
             break;
         case SDF_BLOCKTYPE_CONSTANT:
@@ -352,78 +359,85 @@ SDF_dealloc(PyObject* self)
 }
 
 
-static void setup_mesh(SDFObject *sdf, PyObject *dict)
+static void setup_mesh(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
 {
-    sdf_file_t *h = sdf->h;
-    sdf_block_t *b = h->current_block;
-    Py_ssize_t i, n, ndims;
-    size_t l1, l2;
-    char *label = NULL;
-    void *grid, *grid_ptr = NULL;
-    PyObject *array = NULL, *array2 = NULL;
+    char *block_name = NULL;
+    PyObject *array = NULL;
+    PyObject *array2 = NULL;
     Block *block = NULL;
-    npy_intp dims[3] = {0,0,0};
+    Py_ssize_t n, i, ndims_dir;
+    void *data = NULL;
+    void *mem = NULL;
+    size_t len_name, len_label, len_id;
+    int add_grid = 0;
 
-    if (!h || !b) return;
+    if (!sdf->h || !b) return;
 
-    sdf_read_data(h);
-    if (!b->grids || !b->grids[0]) return;
+    sdf->h->current_block = b;
+    sdf_read_data(sdf->h);
+    if (b->grids) data = b->grids[0];
+    block_name = b->name;
+    len_name = strlen(b->name);
+    len_id = strlen(b->id);
+
+    if (!data) return;
 
     array = Array_new(&ArrayType, sdf, b);
     if (!array) goto free_mem;
 
+    if (strncmp(b->id, "grid", len_id+1) == 0) add_grid = 1;
+
     for (n = 0; n < b->ndims; n++) {
-        grid_ptr = block = NULL;
-        array2 = NULL;
-        ndims = b->dims[n];
+        mem = block = NULL;
+        ndims_dir = b->dims[n];
 
-        l1 = strlen(b->name);
-        l2 = strlen(b->dim_labels[n]);
-        label = malloc(l1 + l2 + 2);
-        if (!label) return;
+        len_label = strlen(b->dim_labels[n]);
+        block_name = malloc(len_name + len_label + 2);
+        if (!block_name) goto free_mem;
 
-        memcpy(label, b->name, l1);
-        label[l1] = '/';
-        memcpy(label+l1+1, b->dim_labels[n], l2+1);
+        memcpy(block_name, b->name, len_name);
+        block_name[len_name] = '/';
+        memcpy(block_name+len_name+1, b->dim_labels[n], len_label+1);
 
-        l1 = strlen(b->id);
-        grid = b->grids[n];
         /* Hack to node-centre the cartesian grid */
-        if (strncmp(b->id, "grid", l1+1) == 0) {
-            ndims--;
+        if (add_grid) {
+            ndims_dir--;
             if (b->datatype_out == SDF_DATATYPE_REAL4) {
-                float v1, v2, *ptr, *out;
-                ptr = grid;
-                grid_ptr = grid = out = malloc(ndims * sizeof(*out));
-                if (!grid_ptr) goto free_mem;
-                for (i = 0; i < ndims; i++) {
-                    v1 = *ptr;
-                    v2 = *(ptr+1);
-                    *out++ = 0.5 * (v1 + v2);
-                    ptr++;
+                float v1, v2, *ptr_in, *ptr_out;
+                ptr_in = b->grids[n];
+                ptr_out = data = mem = malloc(ndims_dir * sizeof(*ptr_out));
+                if (!mem) goto free_mem;
+                for (i = 0; i < ndims_dir; i++) {
+                    v1 = *ptr_in;
+                    v2 = *(ptr_in+1);
+                    *ptr_out++ = 0.5 * (v1 + v2);
+                    ptr_in++;
                 }
             } else {
-                double v1, v2, *ptr, *out;
-                ptr = grid;
-                grid_ptr = grid = out = malloc(ndims * sizeof(*out));
-                if (!grid_ptr) goto free_mem;
-                for (i = 0; i < ndims; i++) {
-                    v1 = *ptr;
-                    v2 = *(ptr+1);
-                    *out++ = 0.5 * (v1 + v2);
-                    ptr++;
+                double v1, v2, *ptr_in, *ptr_out;
+                ptr_in = b->grids[n];
+                ptr_out = data = mem = malloc(ndims_dir * sizeof(*ptr_out));
+                if (!mem) goto free_mem;
+                for (i = 0; i < ndims_dir; i++) {
+                    v1 = *ptr_in;
+                    v2 = *(ptr_in+1);
+                    *ptr_out++ = 0.5 * (v1 + v2);
+                    ptr_in++;
                 }
             }
 
-            dims[0] = ndims;
             array2 = Array_new(&ArrayType, sdf, b);
             if (!array2) goto free_mem;
-            ((ArrayObject*)array2)->mem = grid;
+            ((ArrayObject*)array2)->mem = mem;
 
             block = (Block*)Block_alloc(sdf, b);
             if (!block) goto free_mem;
 
-            PyTuple_SetItem(block->dims, 0, PyLong_FromLongLong(ndims));
+            block->ndims = 1;
+            PyTuple_SetItem(block->dims, 0, PyLong_FromLongLong(ndims_dir));
+            block->adims[0] = ndims_dir;
+
+            block->array = array2;
 
             block->label = PyString_FromString(b->dim_labels[n]);
             if (block->label == NULL) goto free_mem;
@@ -432,33 +446,37 @@ static void setup_mesh(SDFObject *sdf, PyObject *dict)
             if (block->units == NULL) goto free_mem;
 
             block->data = PyArray_NewFromDescr(&PyArray_Type,
-                PyArray_DescrFromType(typemap[b->datatype_out]), 1,
-                dims, NULL, grid, NPY_ARRAY_F_CONTIGUOUS, NULL);
+                PyArray_DescrFromType(typemap[b->datatype_out]), block->ndims,
+                block->adims, NULL, data, NPY_ARRAY_F_CONTIGUOUS, NULL);
             if (!block->data) goto free_mem;
 
-            PyArray_SetBaseObject((PyArrayObject*)block->data, array2);
-            PyDict_SetItemString(dict, label, (PyObject*)block);
+            PyArray_SetBaseObject((PyArrayObject*)block->data, block->array);
+            PyDict_SetItemString(dict, block_name, (PyObject*)block);
             Py_DECREF(block);
+            free(block_name);
 
             /* Now add the original grid with "_node" appended */
-            ndims++;
-            grid = b->grids[n];
+            ndims_dir++;
 
-            l1 = strlen(b->name);
-            l2 = strlen(b->dim_labels[n]);
-            label = malloc(l1 + l2 + 2 + 5);
-            memcpy(label, b->name, l1);
-            memcpy(label+l1, "_node", 5);
-            label[l1+5] = '/';
-            memcpy(label+l1+6, b->dim_labels[n], l2+1);
+            block_name = malloc(len_name + len_label + 2 + 5);
+            if (!block_name) goto free_mem;
+
+            memcpy(block_name, b->name, len_name);
+            memcpy(block_name+len_name, "_node", 5);
+            block_name[len_name+5] = '/';
+            memcpy(block_name+len_name+6, b->dim_labels[n], len_label+1);
         }
 
-        dims[0] = ndims;
+        data = b->grids[n];
 
         block = (Block*)Block_alloc(sdf, b);
         if (!block) goto free_mem;
 
-        PyTuple_SetItem(block->dims, 0, PyLong_FromLongLong(ndims));
+        block->ndims = 1;
+        PyTuple_SetItem(block->dims, 0, PyLong_FromLongLong(ndims_dir));
+        block->adims[0] = ndims_dir;
+
+        block->array = array;
 
         block->label = PyString_FromString(b->dim_labels[n]);
         if (block->label == NULL) goto free_mem;
@@ -467,47 +485,49 @@ static void setup_mesh(SDFObject *sdf, PyObject *dict)
         if (block->units == NULL) goto free_mem;
 
         block->data = PyArray_NewFromDescr(&PyArray_Type,
-            PyArray_DescrFromType(typemap[b->datatype_out]), 1,
-            dims, NULL, grid, NPY_ARRAY_F_CONTIGUOUS, NULL);
+            PyArray_DescrFromType(typemap[b->datatype_out]), block->ndims,
+            block->adims, NULL, data, NPY_ARRAY_F_CONTIGUOUS, NULL);
         if (!block->data) goto free_mem;
 
-        Py_INCREF(array);
-        PyArray_SetBaseObject((PyArrayObject*)block->data, array);
-        PyDict_SetItemString(dict, label, (PyObject*)block);
+        PyArray_SetBaseObject((PyArrayObject*)block->data, block->array);
+        PyDict_SetItemString(dict, block_name, (PyObject*)block);
         Py_DECREF(block);
+        Py_INCREF(block->array);
+        free(block_name);
     }
-    Py_DECREF(array);
+    Py_DECREF(block->array);
 
     return;
 
 free_mem:
-    if (label) free(label);
-    if (grid_ptr) free(grid_ptr);
+    if (block_name) free(block_name);
+    if (mem) free(mem);
     if (block) Py_DECREF(block);
     if (array) Py_DECREF(array);
     if (array2) Py_DECREF(array2);
-    sdf_free_block_data(h, b);
+    sdf_free_block_data(sdf->h, b);
 }
 
 
-static void setup_lagrangian_mesh(SDFObject *sdf, PyObject *dict)
+static void setup_lagrangian_mesh(SDFObject *sdf, PyObject *dict,
+                                  sdf_block_t *b)
 {
-    sdf_file_t *h = sdf->h;
-    sdf_block_t *b = h->current_block;
-    int n;
-    size_t l1, l2;
-    char *label = NULL;
-    void *grid;
+    char *block_name = NULL;
     PyObject *array = NULL;
     Block *block = NULL;
-    npy_intp dims[3] = {0,0,0};
+    Py_ssize_t n;
+    void *data = NULL;
+    size_t len_name, len_label;
 
-    if (!h || !b) return;
+    if (!sdf->h || !b) return;
 
-    sdf_read_data(h);
-    if (!b->grids || !b->grids[0]) return;
+    sdf->h->current_block = b;
+    sdf_read_data(sdf->h);
+    if (b->grids) data = b->grids[0];
+    block_name = b->name;
+    len_name = strlen(b->name);
 
-    for (n = 0; n < b->ndims; n++) dims[n] = (int)b->dims[n];
+    if (!data) return;
 
     array = Array_new(&ArrayType, sdf, b);
     if (!array) goto free_mem;
@@ -515,19 +535,20 @@ static void setup_lagrangian_mesh(SDFObject *sdf, PyObject *dict)
     for (n = 0; n < b->ndims; n++) {
         block = NULL;
 
-        l1 = strlen(b->name);
-        l2 = strlen(b->dim_labels[n]);
-        label = malloc(l1 + l2 + 2);
-        if (!label) goto free_mem;
-        memcpy(label, b->name, l1);
-        label[l1] = '/';
-        memcpy(label+l1+1, b->dim_labels[n], l2+1);
+        len_label = strlen(b->dim_labels[n]);
+        block_name = malloc(len_name + len_label + 2);
+        if (!block_name) goto free_mem;
 
-        l1 = strlen(b->id);
-        grid = b->grids[n];
+        memcpy(block_name, b->name, len_name);
+        block_name[len_name] = '/';
+        memcpy(block_name+len_name+1, b->dim_labels[n], len_label+1);
+
+        data = b->grids[n];
 
         block = (Block*)Block_alloc(sdf, b);
         if (!block) goto free_mem;
+
+        block->array = array;
 
         block->label = PyString_FromString(b->dim_labels[n]);
         if (block->label == NULL) goto free_mem;
@@ -536,24 +557,25 @@ static void setup_lagrangian_mesh(SDFObject *sdf, PyObject *dict)
         if (block->units == NULL) goto free_mem;
 
         block->data = PyArray_NewFromDescr(&PyArray_Type,
-            PyArray_DescrFromType(typemap[b->datatype_out]), b->ndims,
-            dims, NULL, grid, NPY_ARRAY_F_CONTIGUOUS, NULL);
+            PyArray_DescrFromType(typemap[b->datatype_out]), block->ndims,
+            block->adims, NULL, data, NPY_ARRAY_F_CONTIGUOUS, NULL);
         if (!block->data) goto free_mem;
 
-        Py_INCREF(array);
-        PyArray_SetBaseObject((PyArrayObject*)block->data, array);
-        PyDict_SetItemString(dict, label, (PyObject*)block);
+        PyArray_SetBaseObject((PyArrayObject*)block->data, block->array);
+        PyDict_SetItemString(dict, block_name, (PyObject*)block);
         Py_DECREF(block);
+        Py_INCREF(block->array);
+        free(block_name);
     }
-    Py_DECREF(array);
+    Py_DECREF(block->array);
 
     return;
 
 free_mem:
-    if (label) free(label);
+    if (block_name) free(block_name);
     if (block) Py_DECREF(block);
     if (array) Py_DECREF(array);
-    sdf_free_block_data(h, b);
+    sdf_free_block_data(sdf->h, b);
 }
 
 
@@ -746,18 +768,19 @@ static PyObject *material_names(sdf_block_t *b)
 static PyObject *
 setup_array(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
 {
-    sdf_file_t *h = sdf->h;
-    int n;
-    npy_intp dims[3] = {0,0,0};
+    char *block_name = NULL;
     PyObject *array = NULL;
     Block *block = NULL;
+    void *data = NULL;
 
-    if (!h || !b) return NULL;
+    if (!sdf->h || !b) return NULL;
 
-    sdf_read_data(h);
-    if (!b->data) return NULL;
+    sdf->h->current_block = b;
+    sdf_read_data(sdf->h);
+    data = b->data;
+    block_name = b->name;
 
-    for (n = 0; n < b->ndims; n++) dims[n] = (int)b->dims[n];
+    if (!data) return NULL;
 
     array = Array_new(&ArrayType, sdf, b);
     if (!array) goto free_mem;
@@ -765,13 +788,20 @@ setup_array(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
     block = (Block*)Block_alloc(sdf, b);
     if (!block) goto free_mem;
 
+    block->array = array;
+
+    if (b->units) {
+        block->units = PyString_FromString(b->units);
+        if (block->units == NULL) goto free_mem;
+    }
+
     block->data = PyArray_NewFromDescr(&PyArray_Type,
-        PyArray_DescrFromType(typemap[b->datatype_out]), b->ndims,
-        dims, NULL, b->data, NPY_ARRAY_F_CONTIGUOUS, NULL);
+        PyArray_DescrFromType(typemap[b->datatype_out]), block->ndims,
+        block->adims, NULL, data, NPY_ARRAY_F_CONTIGUOUS, NULL);
     if (!block->data) goto free_mem;
 
-    PyArray_SetBaseObject((PyArrayObject*)block->data, array);
-    PyDict_SetItemString(dict, b->name, (PyObject*)block);
+    PyArray_SetBaseObject((PyArrayObject*)block->data, block->array);
+    PyDict_SetItemString(dict, block_name, (PyObject*)block);
     Py_DECREF(block);
 
     return (PyObject*)block;
@@ -779,7 +809,7 @@ setup_array(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
 free_mem:
     if (block) Py_DECREF(block);
     if (array) Py_DECREF(array);
-    sdf_free_block_data(h, b);
+    sdf_free_block_data(sdf->h, b);
     return NULL;
 }
 
@@ -873,10 +903,10 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
         switch(b->blocktype) {
             case SDF_BLOCKTYPE_PLAIN_MESH:
             case SDF_BLOCKTYPE_POINT_MESH:
-                setup_mesh(sdf, dict);
+                setup_mesh(sdf, dict, b);
                 break;
             case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
-                setup_lagrangian_mesh(sdf, dict);
+                setup_lagrangian_mesh(sdf, dict, b);
                 break;
             case SDF_BLOCKTYPE_PLAIN_VARIABLE:
             case SDF_BLOCKTYPE_POINT_VARIABLE:
