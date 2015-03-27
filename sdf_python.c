@@ -5,6 +5,9 @@
 #include <numpy/arrayobject.h>
 #include <structmember.h>
 #include "sdf.h"
+#include "sdf_extension.h"
+#include "sdf_helper.h"
+#include "stack_allocator.h"
 
 /* Backwards compatibility */
 
@@ -442,7 +445,7 @@ static PyObject *Block_getdata(Block *block, void *closure)
         return PyErr_Format(PyExc_Exception, "Unknown SDF file\n");
 
     sdf->h->current_block = b;
-    sdf_read_data(sdf->h);
+    sdf_helper_read_data(sdf->h, b);
 
     if (b->grids && b->grids[0])
         data = b->grids[0];
@@ -990,21 +993,23 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
     PyObject *items_list;
     Block *block;
     Py_ssize_t pos = 0;
-    int i, convert, use_mmap, use_dict, mode, len_id, mangled_num = 0;
+    int i, convert, use_mmap, use_dict, use_derived, mode, len_id;
+    int mangled_num = 0;
     comm_t comm;
     const char *file;
     char *mesh_id, *tail;
-    static char *kwlist[] = {"file", "convert", "mmap", "dict", "stations",
-        "variables", "t0", "t1", NULL};
+    static char *kwlist[] = {"file", "convert", "mmap", "dict", "derived",
+        "stations", "variables", "t0", "t1", NULL};
     PyObject *stations = NULL, *variables = NULL;
     double t0 = -DBL_MAX, t1 = DBL_MAX;
     BlockList *blocklist;
 
-    convert = 0; use_mmap = 1; use_dict = 0; mode = SDF_READ; comm = 0;
+    convert = 0; use_mmap = 1; use_dict = 0; use_derived = 1;
+    mode = SDF_READ; comm = 0;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kw, "s|iiiO!O!dd", kwlist, &file,
-            &convert, &use_mmap, &use_dict, &PyList_Type, &stations,
-            &PyList_Type, &variables, &t0, &t1))
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "s|iiiiO!O!dd", kwlist, &file,
+            &convert, &use_mmap, &use_dict, &use_derived, &PyList_Type,
+            &stations, &PyList_Type, &variables, &t0, &t1))
         return NULL;
 
     sdf = (SDFObject*)type->tp_alloc(type, 0);
@@ -1023,7 +1028,11 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
 
     if (convert) h->use_float = 1;
 
-    sdf_read_blocklist(h);
+    if (use_derived)
+        sdf_read_blocklist_all(h);
+    else
+        sdf_read_blocklist(h);
+
     dict = PyDict_New();
 
     /* Add header */
@@ -1162,8 +1171,8 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
 
 static PyMethodDef SDF_methods[] = {
     {"read", (PyCFunction)SDF_read, METH_VARARGS | METH_KEYWORDS,
-     "read(file, [convert, mmap, dict, stations, variables, t0, t1])\n\n"
-     "Reads the SDF data and returns a dictionary of NumPy arrays.\n\n"
+     "read(file, [convert, mmap, dict, derived, stations, variables, t0, t1])\n"
+     "\nReads the SDF data and returns a dictionary of NumPy arrays.\n\n"
      "Parameters\n"
      "----------\n"
      "file : string\n"
@@ -1174,6 +1183,8 @@ static PyMethodDef SDF_methods[] = {
      "    Use mmap to map file contents into memory.\n"
      "dict : bool, optional\n"
      "    Return file contents as a dictionary rather than member names.\n"
+     "derived : bool, optional\n"
+     "    Include derived variables in the data structure.\n"
      "stations : string list, optional\n"
      "    List of stations to read.\n"
      "variables : string list, optional\n"
@@ -1267,6 +1278,7 @@ MOD_INIT(sdf)
     ADD_TYPE(BlockLagrangianMesh, BlockBase);
 
     import_array();   /* required NumPy initialization */
+    stack_init();
 
     return MOD_SUCCESS_VAL(m);
 }
