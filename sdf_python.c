@@ -996,10 +996,13 @@ MOD_INIT(sdf)
     BlockBase = BlockType;
     BlockBase.tp_base = &BlockType;
 
-    BlockType.tp_name = "BlockType";
+    BlockType.tp_name = "sdf.Block";
     BlockType.tp_dealloc = Block_dealloc;
     BlockType.tp_members = Block_members;
     if (PyType_Ready(&BlockType) < 0)
+        return MOD_ERROR_VAL;
+    Py_INCREF(&BlockType);
+    if (PyModule_AddObject(m, "Block", (PyObject *)&BlockType) < 0)
         return MOD_ERROR_VAL;
 
     ADD_TYPE(BlockConstant, BlockBase);
