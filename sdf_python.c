@@ -375,14 +375,23 @@ static PyObject *Block_getdata(Block *block, void *closure)
     void *data;
     SDFObject *sdf = block->sdf;
     sdf_block_t *b = block->b;
+    PyObject *ob;
     ArrayObject *array = NULL;
-    Py_ssize_t ndims;
+    Py_ssize_t ndims, n, i, j;
     npy_intp *dims;
+    npy_intp adims[1];
+    void *mem;
+    int float1d = 0, double1d = 0, float2d = 0, double2d = 0;
 
     /* Already populated numpy array. Just return it. */
     if (block->data) {
         Py_INCREF(block->data);
         return block->data;
+    }
+
+    if (block->parent) {
+        ob = Block_getdata(block->parent, closure);
+        Py_DECREF(ob);
     }
 
     if (!sdf || !sdf->h || !b)
@@ -391,7 +400,10 @@ static PyObject *Block_getdata(Block *block, void *closure)
     sdf->h->current_block = b;
     sdf_read_data(sdf->h);
 
-    data = b->data;
+    if (b->grids && b->grids[0])
+        data = b->grids[0];
+    else
+        data = b->data;
 
     if (!data)
         return PyErr_Format(PyExc_Exception, "Unable to read SDF block\n");
@@ -399,15 +411,118 @@ static PyObject *Block_getdata(Block *block, void *closure)
     dims = block->adims;
     ndims = b->ndims;
 
-    block->data = PyArray_NewFromDescr(&PyArray_Type,
-        PyArray_DescrFromType(typemap[b->datatype_out]), ndims,
-        dims, NULL, data, NPY_ARRAY_F_CONTIGUOUS, NULL);
-    if (!block->data) goto free_mem;
+    if (b->grids && b->grids[0]) {
+        block->data = PyTuple_New(b->ndims);
+        if (!block->data) goto free_mem;
 
-    array = (ArrayObject*)Array_new(&ArrayType, sdf, b);
-    if (!array) goto free_mem;
+        array = (ArrayObject*)Array_new(&ArrayType, sdf, b);
+        if (!array) goto free_mem;
 
-    PyArray_SetBaseObject((PyArrayObject*)block->data, (PyObject*)array);
+        if (block->parent) {
+            array->memlen = b->ndims;
+            array->mem = malloc(array->memlen * sizeof(*array->mem));
+        }
+
+        if (b->blocktype == SDF_BLOCKTYPE_PLAIN_MESH
+                || b->blocktype == SDF_BLOCKTYPE_POINT_MESH) {
+            ndims = 1;
+            dims = adims;
+            if (block->parent) {
+                if (b->datatype_out == SDF_DATATYPE_REAL4)
+                    float1d = 1;
+                else
+                    double1d = 1;
+            }
+        } else {
+            if (block->parent) {
+                if (b->datatype_out == SDF_DATATYPE_REAL4)
+                    float2d = 1;
+                else
+                    double2d = 1;
+            }
+        }
+
+        for (n = 0; n < b->ndims; n++) {
+            data = b->grids[n];
+            mem = NULL;
+
+            if (float1d) {
+                float v1, v2, *ptr_in, *ptr_out;
+                Py_ssize_t ntot = block->adims[n];
+                ptr_in = data;
+                ptr_out = data = mem = malloc(ntot * sizeof(*ptr_out));
+                if (!mem) goto free_mem;
+                for (i = 0; i < ntot; i++) {
+                    v1 = *ptr_in;
+                    v2 = *(ptr_in+1);
+                    *ptr_out++ = 0.5 * (v1 + v2);
+                    ptr_in++;
+                }
+            } else if (double1d) {
+                double v1, v2, *ptr_in, *ptr_out;
+                Py_ssize_t ntot = block->adims[n];
+                ptr_in = data;
+                ptr_out = data = mem = malloc(ntot * sizeof(*ptr_out));
+                if (!mem) goto free_mem;
+                for (i = 0; i < ntot; i++) {
+                    v1 = *ptr_in;
+                    v2 = *(ptr_in+1);
+                    *ptr_out++ = 0.5 * (v1 + v2);
+                    ptr_in++;
+                }
+            } else if (float2d) {
+                float *ptr_in, *ptr_out;
+                Py_ssize_t ntot = block->adims[0] * block->adims[1];
+                ptr_in = data;
+                ptr_out = data = mem = malloc(ntot * sizeof(*ptr_out));
+                if (!mem) goto free_mem;
+                for (j = 0; j < block->adims[1]; j++) {
+                for (i = 0; i < block->adims[0]; i++) {
+                    *ptr_out++ = 0.25 * (ptr_in[IJ(i,j)] + ptr_in[IJ(i+1,j)]
+                                  + ptr_in[IJ(i,j+1)] + ptr_in[IJ(i+1,j+1)]);
+                }}
+            } else if (double2d) {
+                double *ptr_in, *ptr_out;
+                Py_ssize_t ntot = block->adims[0] * block->adims[1];
+                ptr_in = data;
+                ptr_out = data = mem = malloc(ntot * sizeof(*ptr_out));
+                if (!mem) goto free_mem;
+                for (j = 0; j < block->adims[1]; j++) {
+                for (i = 0; i < block->adims[0]; i++) {
+                    *ptr_out++ = 0.25 * (ptr_in[IJ(i,j)] + ptr_in[IJ(i+1,j)]
+                                  + ptr_in[IJ(i,j+1)] + ptr_in[IJ(i+1,j+1)]);
+                }}
+            }
+
+            if (mem)
+                array->mem[n] = mem;
+
+            if (b->blocktype == SDF_BLOCKTYPE_PLAIN_MESH
+                    || b->blocktype == SDF_BLOCKTYPE_POINT_MESH)
+                dims[0] = block->adims[n];
+
+            ob = PyArray_NewFromDescr(&PyArray_Type,
+                PyArray_DescrFromType(typemap[b->datatype_out]), ndims,
+                dims, NULL, data, NPY_ARRAY_F_CONTIGUOUS, NULL);
+            if (!ob) goto free_mem;
+
+            PyTuple_SetItem(block->data, n, ob);
+
+            PyArray_SetBaseObject((PyArrayObject*)ob, (PyObject*)array);
+            Py_INCREF(array);
+        }
+        Py_DECREF(array);
+    } else {
+        block->data = PyArray_NewFromDescr(&PyArray_Type,
+            PyArray_DescrFromType(typemap[b->datatype_out]), ndims,
+            dims, NULL, data, NPY_ARRAY_F_CONTIGUOUS, NULL);
+        if (!block->data) goto free_mem;
+
+        array = (ArrayObject*)Array_new(&ArrayType, sdf, b);
+        if (!array) goto free_mem;
+
+        PyArray_SetBaseObject((PyArrayObject*)block->data, (PyObject*)array);
+    }
 
     Py_INCREF(block->data);
     return block->data;
@@ -436,20 +551,11 @@ SDF_dealloc(PyObject* self)
 static void setup_mesh(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
 {
     char *block_name = NULL;
-    ArrayObject *array = NULL;
     PyObject *ob = NULL;
     Block *parent, *block = NULL;
-    Py_ssize_t n, i, len_name;
-    void *data = NULL, *mem = NULL;
-    npy_intp dims[1];
+    Py_ssize_t n, len_name;
 
     if (!sdf->h || !b) return;
-
-    sdf->h->current_block = b;
-    sdf_read_data(sdf->h);
-    if (b->grids) data = b->grids[0];
-
-    if (!data) return;
 
     len_name = strlen(b->name);
     block_name = malloc(len_name + 5);
@@ -461,21 +567,13 @@ static void setup_mesh(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
     block = (Block*)Block_alloc(sdf, b);
     if (!block) goto free_mem;
 
-    block->data = PyTuple_New(b->ndims);
-    if (!block->data) goto free_mem;
-
     block->labels = PyTuple_New(b->ndims);
     if (!block->labels) goto free_mem;
 
     block->units = PyTuple_New(b->ndims);
     if (!block->units) goto free_mem;
 
-    array = (ArrayObject*)Array_new(&ArrayType, sdf, b);
-    if (!array) goto free_mem;
-
     for (n = 0; n < b->ndims; n++) {
-        data = b->grids[n];
-
         ob = PyString_FromString(b->dim_labels[n]);
         if (!ob) goto free_mem;
         PyTuple_SetItem(block->labels, n, ob);
@@ -483,20 +581,15 @@ static void setup_mesh(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
         ob = PyString_FromString(b->dim_units[n]);
         if (!ob) goto free_mem;
         PyTuple_SetItem(block->units, n, ob);
-
-        dims[0] = block->adims[n];
-
-        ob = PyArray_NewFromDescr(&PyArray_Type,
-                PyArray_DescrFromType(typemap[b->datatype_out]), 1,
-                dims, NULL, data, NPY_ARRAY_F_CONTIGUOUS, NULL);
-        if (!ob) goto free_mem;
-        PyTuple_SetItem(block->data, n, ob);
-
-        PyArray_SetBaseObject((PyArrayObject*)ob, (PyObject*)array);
     }
 
     PyDict_SetItemString(dict, block_name, (PyObject*)block);
     Py_DECREF(block);
+
+    if (b->blocktype == SDF_BLOCKTYPE_POINT_MESH) {
+        free(block_name);
+        return;
+    }
 
     /* Add median mesh block */
 
@@ -511,56 +604,15 @@ static void setup_mesh(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
     block->parent = parent;
     Py_INCREF(block->parent);
 
-    block->data = PyTuple_New(b->ndims);
-    if (!block->data) goto free_mem;
-
     block->labels = PyTuple_New(b->ndims);
     if (!block->labels) goto free_mem;
 
     block->units = PyTuple_New(b->ndims);
     if (!block->units) goto free_mem;
 
-    array = (ArrayObject*)Array_new(&ArrayType, sdf, b);
-    if (!array) goto free_mem;
-
-    array->memlen = b->ndims;
-    array->mem = malloc(array->memlen * sizeof(*array->mem));
-
     for (n = 0; n < b->ndims; n++) {
         block->adims[n]--;
         PyTuple_SetItem(block->dims, n, PyLong_FromLong(block->adims[n]));
-    }
-
-    for (n = 0; n < b->ndims; n++) {
-        data = b->grids[n];
-
-        if (b->datatype_out == SDF_DATATYPE_REAL4) {
-            float v1, v2, *ptr_in, *ptr_out;
-            Py_ssize_t ntot = block->adims[n];
-            ptr_in = data;
-            ptr_out = data = mem = malloc(ntot * sizeof(*ptr_out));
-            if (!mem) goto free_mem;
-            for (i = 0; i < ntot; i++) {
-                v1 = *ptr_in;
-                v2 = *(ptr_in+1);
-                *ptr_out++ = 0.5 * (v1 + v2);
-                ptr_in++;
-            }
-        } else {
-            double v1, v2, *ptr_in, *ptr_out;
-            Py_ssize_t ntot = block->adims[n];
-            ptr_in = data;
-            ptr_out = data = mem = malloc(ntot * sizeof(*ptr_out));
-            if (!mem) goto free_mem;
-            for (i = 0; i < ntot; i++) {
-                v1 = *ptr_in;
-                v2 = *(ptr_in+1);
-                *ptr_out++ = 0.5 * (v1 + v2);
-                ptr_in++;
-            }
-        }
-
-        array->mem[n] = mem;
 
         ob = PyString_FromString(b->dim_labels[n]);
         if (!ob) goto free_mem;
@@ -569,16 +621,6 @@ static void setup_mesh(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
         ob = PyString_FromString(b->dim_units[n]);
         if (!ob) goto free_mem;
         PyTuple_SetItem(block->units, n, ob);
-
-        dims[0] = block->adims[n];
-
-        ob = PyArray_NewFromDescr(&PyArray_Type,
-                PyArray_DescrFromType(typemap[b->datatype_out]), 1,
-                dims, NULL, data, NPY_ARRAY_F_CONTIGUOUS, NULL);
-        if (!ob) goto free_mem;
-        PyTuple_SetItem(block->data, n, ob);
-
-        PyArray_SetBaseObject((PyArrayObject*)ob, (PyObject*)array);
     }
 
     PyDict_SetItemString(dict, block_name, (PyObject*)block);
@@ -590,172 +632,9 @@ static void setup_mesh(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
 
 free_mem:
     if (block_name) free(block_name);
-    if (mem) free(mem);
     if (block) Py_DECREF(block);
-    if (array) Py_DECREF(array);
     if (block->parent) Py_DECREF(block->parent);
     if (ob) Py_DECREF(ob);
-    sdf_free_block_data(sdf->h, b);
-}
-
-
-static void setup_lagrangian_mesh(SDFObject *sdf, PyObject *dict,
-                                  sdf_block_t *b)
-{
-    char *block_name = NULL;
-    ArrayObject *array = NULL;
-    PyObject *ob = NULL;
-    Block *parent, *block = NULL;
-    Py_ssize_t n, i, j, len_name;
-    void *data = NULL, *mem = NULL;
-
-    if (!sdf->h || !b) return;
-
-    sdf->h->current_block = b;
-    sdf_read_data(sdf->h);
-    if (b->grids) data = b->grids[0];
-
-    if (!data) return;
-
-    len_name = strlen(b->name);
-    block_name = malloc(len_name + 5);
-    if (!block_name) goto free_mem;
-
-    memcpy(block_name, b->name, len_name);
-    block_name[len_name] = '\0';
-
-    block = (Block*)Block_alloc(sdf, b);
-    if (!block) goto free_mem;
-
-    block->data = PyTuple_New(b->ndims);
-    if (!block->data) goto free_mem;
-
-    block->labels = PyTuple_New(b->ndims);
-    if (!block->labels) goto free_mem;
-
-    block->units = PyTuple_New(b->ndims);
-    if (!block->units) goto free_mem;
-
-    array = (ArrayObject*)Array_new(&ArrayType, sdf, b);
-    if (!array) goto free_mem;
-
-    for (n = 0; n < b->ndims; n++) {
-        data = b->grids[n];
-
-        ob = PyString_FromString(b->dim_labels[n]);
-        if (!ob) goto free_mem;
-        PyTuple_SetItem(block->labels, n, ob);
-
-        ob = PyString_FromString(b->dim_units[n]);
-        if (!ob) goto free_mem;
-        PyTuple_SetItem(block->units, n, ob);
-
-        ob = PyArray_NewFromDescr(&PyArray_Type,
-            PyArray_DescrFromType(typemap[b->datatype_out]), block->ndims,
-            block->adims, NULL, data, NPY_ARRAY_F_CONTIGUOUS, NULL);
-        if (!ob) goto free_mem;
-        PyTuple_SetItem(block->data, n, ob);
-
-        PyArray_SetBaseObject((PyArrayObject*)ob, (PyObject*)array);
-    }
-
-    PyDict_SetItemString(dict, block_name, (PyObject*)block);
-    Py_DECREF(block);
-
-    /* Add median mesh block */
-
-    parent = block;
-    memcpy(block_name+len_name, "_mid", 5);
-
-    block = (Block*)Block_alloc(sdf, b);
-    if (!block) goto free_mem;
-
-    /* This block needs a reference to the parent and also needs the parent to
-       exist as long as we do. */
-    block->parent = parent;
-    Py_INCREF(block->parent);
-
-    block->data = PyTuple_New(b->ndims);
-    if (!block->data) goto free_mem;
-
-    block->labels = PyTuple_New(b->ndims);
-    if (!block->labels) goto free_mem;
-
-    block->units = PyTuple_New(b->ndims);
-    if (!block->units) goto free_mem;
-
-    array = (ArrayObject*)Array_new(&ArrayType, sdf, b);
-    if (!array) goto free_mem;
-
-    array->memlen = b->ndims;
-    array->mem = malloc(array->memlen * sizeof(*array->mem));
-
-    for (n = 0; n < b->ndims; n++) {
-        block->adims[n]--;
-        PyTuple_SetItem(block->dims, n, PyLong_FromLong(block->adims[n]));
-    }
-
-    for (n = 0; n < b->ndims; n++) {
-        data = b->grids[n];
-
-        if (b->datatype_out == SDF_DATATYPE_REAL4) {
-            float *ptr_in, *ptr_out;
-            Py_ssize_t ntot = block->adims[0] * block->adims[1];
-            ptr_in = data;
-            ptr_out = data = mem = malloc(ntot * sizeof(*ptr_out));
-            if (!mem) goto free_mem;
-            for (j = 0; j < block->adims[1]; j++) {
-            for (i = 0; i < block->adims[0]; i++) {
-                *ptr_out++ = 0.25 * (ptr_in[IJ(i,j)] + ptr_in[IJ(i+1,j)]
-                              + ptr_in[IJ(i,j+1)] + ptr_in[IJ(i+1,j+1)]);
-            }}
-        } else {
-            double *ptr_in, *ptr_out;
-            Py_ssize_t ntot = block->adims[0] * block->adims[1];
-            ptr_in = data;
-            ptr_out = data = mem = malloc(ntot * sizeof(*ptr_out));
-            if (!mem) goto free_mem;
-            for (j = 0; j < block->adims[1]; j++) {
-            for (i = 0; i < block->adims[0]; i++) {
-                *ptr_out++ = 0.25 * (ptr_in[IJ(i,j)] + ptr_in[IJ(i+1,j)]
-                              + ptr_in[IJ(i,j+1)] + ptr_in[IJ(i+1,j+1)]);
-            }}
-        }
-
-        array->mem[n] = mem;
-
-        ob = PyString_FromString(b->dim_labels[n]);
-        if (!ob) goto free_mem;
-        PyTuple_SetItem(block->labels, n, ob);
-
-        ob = PyString_FromString(b->dim_units[n]);
-        if (!ob) goto free_mem;
-        PyTuple_SetItem(block->units, n, ob);
-
-        ob = PyArray_NewFromDescr(&PyArray_Type,
-            PyArray_DescrFromType(typemap[b->datatype_out]), block->ndims,
-            block->adims, NULL, data, NPY_ARRAY_F_CONTIGUOUS, NULL);
-        if (!ob) goto free_mem;
-        PyTuple_SetItem(block->data, n, ob);
-
-        PyArray_SetBaseObject((PyArrayObject*)ob, (PyObject*)array);
-    }
-
-    PyDict_SetItemString(dict, block_name, (PyObject*)block);
-    Py_DECREF(block);
-
-    free(block_name);
-
-    return;
-
-free_mem:
-    if (block_name) free(block_name);
-    if (mem) free(mem);
-    if (block) Py_DECREF(block);
-    if (array) Py_DECREF(array);
-    if (block->parent) Py_DECREF(block->parent);
-    if (ob) Py_DECREF(ob);
-    sdf_free_block_data(sdf->h, b);
 }
 
 
@@ -1063,10 +942,8 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
         switch(b->blocktype) {
             case SDF_BLOCKTYPE_PLAIN_MESH:
             case SDF_BLOCKTYPE_POINT_MESH:
-                setup_mesh(sdf, dict, b);
-                break;
             case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
-                setup_lagrangian_mesh(sdf, dict, b);
+                setup_mesh(sdf, dict, b);
                 break;
             case SDF_BLOCKTYPE_PLAIN_VARIABLE:
             case SDF_BLOCKTYPE_POINT_VARIABLE:
