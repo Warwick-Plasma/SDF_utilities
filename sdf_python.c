@@ -88,6 +88,7 @@ typedef struct {
     SDFObject *sdf;
     sdf_block_t *b;
     int dim, ndims;
+    int sdfref;
     npy_intp adims[4];
 } Block;
 
@@ -229,6 +230,7 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
     ob->b = b;
     ob->dim = 0;
     ob->ndims = b->ndims;
+    ob->sdfref = 0;
 
     if (b->id) {
         ob->id = PyString_FromString(b->id);
@@ -260,13 +262,16 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
 
     switch(b->blocktype) {
         case SDF_BLOCKTYPE_PLAIN_MESH:
-            break;
         case SDF_BLOCKTYPE_POINT_MESH:
+            ob->sdfref = 1;
+            Py_INCREF(ob->sdf);
             break;
         case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
         case SDF_BLOCKTYPE_PLAIN_VARIABLE:
         case SDF_BLOCKTYPE_POINT_VARIABLE:
         case SDF_BLOCKTYPE_ARRAY:
+            ob->sdfref = 1;
+            Py_INCREF(ob->sdf);
             if (b->dims && ob->dims) {
                 for (i=0; i < b->ndims; i++) {
                     ob->adims[i] = b->dims[i];
@@ -342,6 +347,7 @@ Block_dealloc(PyObject *self)
     if (ob->data) {
         Py_XDECREF(ob->data);
     }
+    if (ob->sdfref) Py_XDECREF(ob->sdf);
     self->ob_type->tp_free(self);
 }
 
