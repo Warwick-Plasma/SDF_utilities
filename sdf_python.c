@@ -89,6 +89,8 @@ struct Block_struct {
     PyObject *data;
     PyObject *labels;
     PyObject *units;
+    Block *grid;
+    Block *grid_mid;
     Block *parent;
     SDFObject *sdf;
     sdf_block_t *b;
@@ -195,6 +197,14 @@ static PyMemberDef Block_members[] = {
 static PyMemberDef BlockMesh_members[] = {
     {"labels", T_OBJECT_EX, offsetof(Block, labels), 0, "Axis labels"},
     {"units", T_OBJECT_EX, offsetof(Block, units), 0, "Axis units"},
+    {NULL}  /* Sentinel */
+};
+
+static PyMemberDef BlockMeshVariable_members[] = {
+    {"grid", T_OBJECT_EX, offsetof(Block, grid), 0, "Associated mesh"},
+    {"grid_mid", T_OBJECT_EX, offsetof(Block, grid_mid), 0,
+     "Associated median mesh"},
+    {"units", T_OBJECT_EX, offsetof(Block, units), 0, "Units of variable"},
     {NULL}  /* Sentinel */
 };
 
@@ -551,9 +561,10 @@ SDF_dealloc(PyObject* self)
 static void setup_mesh(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
 {
     char *block_name = NULL;
+    char *mesh_id = NULL;
     PyObject *ob = NULL;
     Block *parent, *block = NULL;
-    Py_ssize_t n, len_name;
+    Py_ssize_t n, len_name, len_id;
 
     if (!sdf->h || !b) return;
 
@@ -623,6 +634,23 @@ static void setup_mesh(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
         PyTuple_SetItem(block->units, n, ob);
     }
 
+    len_id = strlen(b->id);
+    mesh_id = malloc(len_id + 5);
+    if (!mesh_id) goto free_mem;
+
+    memcpy(mesh_id, b->id, len_id);
+    memcpy(mesh_id+len_id, "_mid", 5);
+
+    Py_DECREF(block->id);
+    block->id = PyString_FromString(mesh_id);
+    if (!block->id) goto free_mem;
+
+    free(mesh_id);
+
+    Py_DECREF(block->name);
+    block->name = PyString_FromString(block_name);
+    if (!block->name) goto free_mem;
+
     PyDict_SetItemString(dict, block_name, (PyObject*)block);
     Py_DECREF(block);
 
@@ -632,6 +660,7 @@ static void setup_mesh(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
 
 free_mem:
     if (block_name) free(block_name);
+    if (mesh_id) free(mesh_id);
     if (block) Py_DECREF(block);
     if (block->parent) Py_DECREF(block->parent);
     if (ob) Py_DECREF(ob);
@@ -891,16 +920,45 @@ setup_constant(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
 }
 
 
+static Block *dict_find_mesh_id(PyObject *dict, char *id)
+{
+    PyObject *key, *value;
+    Block *block;
+    char *mesh_id;
+    Py_ssize_t pos = 0, len = strlen(id) + 1;
+
+    while (PyDict_Next(dict, &pos, &key, &value)) {
+        block = (Block*)value;
+        if (!block->b)
+            continue;
+        switch(block->b->blocktype) {
+            case SDF_BLOCKTYPE_PLAIN_MESH:
+            case SDF_BLOCKTYPE_POINT_MESH:
+            case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
+                mesh_id = PyString_AsString(block->id);
+                if (mesh_id && memcmp(mesh_id, id, len) == 0)
+                    return block;
+                break;
+        }
+    }
+
+    return NULL;
+}
+
+
 static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
 {
     SDFObject *sdf;
     PyTypeObject *type = &SDFType;
     sdf_file_t *h;
     sdf_block_t *b;
-    PyObject *dict, *sub;
-    int i, convert, use_mmap, mode;
+    PyObject *dict, *sub, *key, *value;
+    Block *block;
+    Py_ssize_t pos = 0;
+    int i, convert, use_mmap, mode, len_id;
     comm_t comm;
     const char *file;
+    char *mesh_id, *tail;
     static char *kwlist[] = {"file", "convert", "mmap", "stations",
         "variables", "t0", "t1", NULL};
     PyObject *stations = NULL, *variables = NULL;
@@ -971,6 +1029,25 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
         }
         b = h->current_block = b->next;
     }
+
+    len_id = h->string_length + 5;
+    mesh_id = malloc(len_id);
+
+    while (PyDict_Next(dict, &pos, &key, &value)) {
+        block = (Block*)value;
+        b = block->b;
+        if (!b) continue;
+        if (b->blocktype == SDF_BLOCKTYPE_PLAIN_VARIABLE) {
+            block->grid = dict_find_mesh_id(dict, b->mesh_id);
+            tail = stpncpy(mesh_id, b->mesh_id, len_id);
+            strncpy(tail, "_mid", len_id);
+            block->grid_mid = dict_find_mesh_id(dict, mesh_id);
+        } else if (b->blocktype == SDF_BLOCKTYPE_POINT_VARIABLE) {
+            block->grid = dict_find_mesh_id(dict, b->mesh_id);
+        }
+    }
+
+    free(mesh_id);
 
     Py_DECREF(sdf);
 
@@ -1063,6 +1140,7 @@ MOD_INIT(sdf)
 
     BlockBase.tp_base = &BlockArrayType;
     BlockBase.tp_getset = Block_getset;
+    BlockBase.tp_members = BlockMeshVariable_members;
 
     ADD_TYPE(BlockPlainVariable, BlockBase);
     ADD_TYPE(BlockPointVariable, BlockBase);
