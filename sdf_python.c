@@ -92,6 +92,11 @@ struct Block_struct {
     PyObject *data;
     PyObject *labels;
     PyObject *units;
+    PyObject *extents;
+    PyObject *geometry;
+    PyObject *species_id;
+    PyObject *mult;
+    PyObject *stagger;
     Block *grid;
     Block *grid_mid;
     Block *parent;
@@ -234,6 +239,9 @@ static PyMemberDef Block_members[] = {
 static PyMemberDef BlockMesh_members[] = {
     {"labels", T_OBJECT_EX, offsetof(Block, labels), 0, "Axis labels"},
     {"units", T_OBJECT_EX, offsetof(Block, units), 0, "Axis units"},
+    {"extents", T_OBJECT_EX, offsetof(Block, extents), 0, "Axis extents"},
+    {"geometry", T_OBJECT_EX, offsetof(Block, geometry), 0, "Domain geometry"},
+    {"mult", T_OBJECT_EX, offsetof(Block, mult), 0, "Multiplication factors"},
     {NULL}  /* Sentinel */
 };
 
@@ -242,6 +250,27 @@ static PyMemberDef BlockMeshVariable_members[] = {
     {"grid_mid", T_OBJECT_EX, offsetof(Block, grid_mid), 0,
      "Associated median mesh"},
     {"units", T_OBJECT_EX, offsetof(Block, units), 0, "Units of variable"},
+    {"mult", T_OBJECT_EX, offsetof(Block, mult), 0, "Multiplication factor"},
+    {NULL}  /* Sentinel */
+};
+
+static PyMemberDef BlockPointVariable_members[] = {
+    {"grid", T_OBJECT_EX, offsetof(Block, grid), 0, "Associated mesh"},
+    {"grid_mid", T_OBJECT_EX, offsetof(Block, grid_mid), 0,
+     "Associated median mesh"},
+    {"units", T_OBJECT_EX, offsetof(Block, units), 0, "Units of variable"},
+    {"mult", T_OBJECT_EX, offsetof(Block, mult), 0, "Multiplication factor"},
+    {"species_id", T_OBJECT_EX, offsetof(Block, species_id), 0, "Species ID"},
+    {NULL}  /* Sentinel */
+};
+
+static PyMemberDef BlockPlainMesh_members[] = {
+    {"stagger", T_OBJECT_EX, offsetof(Block, stagger), 0, "Grid stagger"},
+    {NULL}  /* Sentinel */
+};
+
+static PyMemberDef BlockPointMesh_members[] = {
+    {"species_id", T_OBJECT_EX, offsetof(Block, species_id), 0, "Species ID"},
     {NULL}  /* Sentinel */
 };
 
@@ -325,10 +354,20 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
         if (!ob->dims) goto error;
     }
 
+    if (b->extents) {
+        ob->extents = PyTuple_New(2 * b->ndims);
+        if (!ob->extents) goto error;
+        for (i=0; i < 2 * b->ndims; i++) {
+            PyTuple_SetItem(ob->extents, i, PyFloat_FromDouble(b->extents[i]));
+        }
+    }
+
     switch(b->blocktype) {
         case SDF_BLOCKTYPE_PLAIN_MESH:
         case SDF_BLOCKTYPE_POINT_MESH:
         case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
+            ob->geometry = PyLong_FromLong(b->geometry);
+            if (!ob->geometry) goto error;
         case SDF_BLOCKTYPE_PLAIN_VARIABLE:
         case SDF_BLOCKTYPE_POINT_VARIABLE:
         case SDF_BLOCKTYPE_ARRAY:
@@ -344,9 +383,44 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
         case SDF_BLOCKTYPE_CONSTANT:
             PyTuple_SetItem(ob->dims, 0, PyLong_FromLong(1));
             break;
-        case SDF_BLOCKTYPE_STATION:
+    }
+
+    switch(b->blocktype) {
+        case SDF_BLOCKTYPE_POINT_MESH:
+        case SDF_BLOCKTYPE_POINT_VARIABLE:
+            if (b->material_id) {
+                ob->species_id = PyString_FromString(b->material_id);
+                if (!ob->species_id) goto error;
+            }
             break;
-        case SDF_BLOCKTYPE_STITCHED_MATERIAL:
+    }
+
+    switch(b->blocktype) {
+        case SDF_BLOCKTYPE_PLAIN_VARIABLE:
+        case SDF_BLOCKTYPE_POINT_VARIABLE:
+            if (b->mult) {
+                ob->mult = PyFloat_FromDouble(b->mult);
+                if (!ob->mult) goto error;
+            }
+            break;
+        case SDF_BLOCKTYPE_PLAIN_MESH:
+        case SDF_BLOCKTYPE_POINT_MESH:
+            if (b->dim_mults) {
+                ob->mult = PyTuple_New(b->ndims);
+                if (!ob->mult) goto error;
+                for (i=0; i < b->ndims; i++) {
+                    PyTuple_SetItem(ob->mult, i,
+                                    PyFloat_FromDouble(b->dim_mults[i]));
+                }
+            }
+            break;
+    }
+
+    switch(b->blocktype) {
+        case SDF_BLOCKTYPE_PLAIN_MESH:
+        case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
+            ob->stagger = PyLong_FromLong(b->stagger);
+            if (!ob->stagger) goto error;
             break;
     }
 
@@ -367,6 +441,21 @@ error:
     }
     if (ob->dims) {
         Py_XDECREF(ob->dims);
+    }
+    if (ob->extents) {
+        Py_XDECREF(ob->extents);
+    }
+    if (ob->geometry) {
+        Py_XDECREF(ob->geometry);
+    }
+    if (ob->species_id) {
+        Py_XDECREF(ob->species_id);
+    }
+    if (ob->mult) {
+        Py_XDECREF(ob->mult);
+    }
+    if (ob->stagger) {
+        Py_XDECREF(ob->stagger);
     }
     if (ob->labels) {
         Py_XDECREF(ob->labels);
@@ -399,6 +488,21 @@ Block_dealloc(PyObject *self)
     }
     if (ob->dims) {
         Py_XDECREF(ob->dims);
+    }
+    if (ob->extents) {
+        Py_XDECREF(ob->extents);
+    }
+    if (ob->geometry) {
+        Py_XDECREF(ob->geometry);
+    }
+    if (ob->species_id) {
+        Py_XDECREF(ob->species_id);
+    }
+    if (ob->mult) {
+        Py_XDECREF(ob->mult);
+    }
+    if (ob->stagger) {
+        Py_XDECREF(ob->stagger);
     }
     if (ob->labels) {
         Py_XDECREF(ob->labels);
@@ -1261,6 +1365,8 @@ MOD_INIT(sdf)
     ADD_TYPE(BlockStation, BlockBase);
     ADD_TYPE(BlockStitchedMaterial, BlockBase);
     ADD_TYPE(BlockArray, BlockBase);
+
+    BlockBase.tp_members = BlockMesh_members;
     ADD_TYPE(BlockMesh, BlockBase);
 
     BlockBase.tp_base = &BlockArrayType;
@@ -1268,14 +1374,17 @@ MOD_INIT(sdf)
     BlockBase.tp_members = BlockMeshVariable_members;
 
     ADD_TYPE(BlockPlainVariable, BlockBase);
+
+    BlockBase.tp_members = BlockPointVariable_members;
     ADD_TYPE(BlockPointVariable, BlockBase);
 
     BlockBase.tp_base = &BlockMeshType;
-    BlockBase.tp_members = BlockMesh_members;
-
+    BlockBase.tp_members = BlockPlainMesh_members;
     ADD_TYPE(BlockPlainMesh, BlockBase);
-    ADD_TYPE(BlockPointMesh, BlockBase);
     ADD_TYPE(BlockLagrangianMesh, BlockBase);
+
+    BlockBase.tp_members = BlockPointMesh_members;
+    ADD_TYPE(BlockPointMesh, BlockBase);
 
     import_array();   /* required NumPy initialization */
     stack_init();
