@@ -100,6 +100,12 @@ struct Block_struct {
 };
 
 
+typedef struct {
+    PyObject_HEAD
+    PyObject *dict;
+} BlockList;
+
+
 static PyTypeObject ArrayType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     "Array",                   /* tp_name           */
@@ -112,6 +118,14 @@ static PyTypeObject BlockType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     "sdf.Block",               /* tp_name           */
     sizeof(Block),             /* tp_basicsize      */
+    0,                         /* tp_itemsize       */
+};
+
+
+static PyTypeObject BlockListType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "sdf.BlockList",           /* tp_name           */
+    sizeof(BlockList),         /* tp_basicsize      */
     0,                         /* tp_itemsize       */
 };
 
@@ -176,6 +190,26 @@ Array_dealloc(PyObject *self)
         sdf_free_block_data(ob->sdf->h, ob->b);
 
     Py_XDECREF(ob->sdf);
+    self->ob_type->tp_free(self);
+}
+
+
+/*
+ * BlockList type methods
+ ******************************************************************************/
+
+static PyMemberDef BlockList_members[] = {
+    {"__dict__", T_OBJECT, offsetof(BlockList, dict), READONLY},
+    {0}
+};
+
+
+static void
+BlockList_dealloc(PyObject *self)
+{
+    BlockList *ob = (BlockList*)self;
+
+    Py_XDECREF(ob->dict);
     self->ob_type->tp_free(self);
 }
 
@@ -953,22 +987,24 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
     sdf_file_t *h;
     sdf_block_t *b;
     PyObject *dict, *sub, *key, *value;
+    PyObject *items_list;
     Block *block;
     Py_ssize_t pos = 0;
-    int i, convert, use_mmap, mode, len_id;
+    int i, convert, use_mmap, use_dict, mode, len_id, mangled_num = 0;
     comm_t comm;
     const char *file;
     char *mesh_id, *tail;
-    static char *kwlist[] = {"file", "convert", "mmap", "stations",
+    static char *kwlist[] = {"file", "convert", "mmap", "dict", "stations",
         "variables", "t0", "t1", NULL};
     PyObject *stations = NULL, *variables = NULL;
     double t0 = -DBL_MAX, t1 = DBL_MAX;
+    BlockList *blocklist;
 
-    convert = 0; use_mmap = 1; mode = SDF_READ; comm = 0;
+    convert = 0; use_mmap = 1; use_dict = 0; mode = SDF_READ; comm = 0;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kw, "s|iiO!O!dd", kwlist, &file,
-            &convert, &use_mmap, &PyList_Type, &stations, &PyList_Type,
-            &variables, &t0, &t1))
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "s|iiiO!O!dd", kwlist, &file,
+            &convert, &use_mmap, &use_dict, &PyList_Type, &stations,
+            &PyList_Type, &variables, &t0, &t1))
         return NULL;
 
     sdf = (SDFObject*)type->tp_alloc(type, 0);
@@ -1051,13 +1087,82 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
 
     Py_DECREF(sdf);
 
-    return dict;
+    if (use_dict)
+        return (PyObject*)dict;
+
+    type = &BlockListType;
+    blocklist = (BlockList*)type->tp_alloc(type, 0);
+    if (!blocklist) {
+        PyErr_Format(PyExc_MemoryError, "Failed to allocate BlockList object");
+        return NULL;
+    }
+    blocklist->dict = dict;
+
+    /* Mangle dictionary names */
+    items_list = PyDict_Items(dict);
+    for (i = 0; i < PyList_GET_SIZE(items_list); i++) {
+        PyObject *item = PyList_GET_ITEM(items_list, i);
+        PyObject *key = PyTuple_GET_ITEM(item, 0);
+        PyObject *value = PyTuple_GET_ITEM(item, 1);
+        char *ckey, *ptr;
+        ckey = strdup(PyString_AsString(key));
+        for (ptr = ckey; *ptr != '\0'; ptr++) {
+            if (*ptr >= '0' && *ptr <= '9')
+                continue;
+            if (*ptr >= 'A' && *ptr <= 'Z')
+                continue;
+            if (*ptr >= 'a' && *ptr <= 'z')
+                continue;
+            *ptr = '_';
+        }
+        /* Mangle python keywords */
+        if (memcmp(ckey, "and", 4) == 0
+                || memcmp(ckey, "assert", 7) == 0
+                || memcmp(ckey, "break", 6) == 0
+                || memcmp(ckey, "class", 6) == 0
+                || memcmp(ckey, "continue", 9) == 0
+                || memcmp(ckey, "def", 4) == 0
+                || memcmp(ckey, "del", 4) == 0
+                || memcmp(ckey, "elif", 5) == 0
+                || memcmp(ckey, "else", 5) == 0
+                || memcmp(ckey, "except", 7) == 0
+                || memcmp(ckey, "exec", 5) == 0
+                || memcmp(ckey, "finally", 8) == 0
+                || memcmp(ckey, "for", 4) == 0
+                || memcmp(ckey, "from", 5) == 0
+                || memcmp(ckey, "global", 7) == 0
+                || memcmp(ckey, "if", 3) == 0
+                || memcmp(ckey, "import", 7) == 0
+                || memcmp(ckey, "in", 3) == 0
+                || memcmp(ckey, "is", 3) == 0
+                || memcmp(ckey, "lambda", 7) == 0
+                || memcmp(ckey, "not", 4) == 0
+                || memcmp(ckey, "or", 3) == 0
+                || memcmp(ckey, "pass", 5) == 0
+                || memcmp(ckey, "print", 6) == 0
+                || memcmp(ckey, "raise", 6) == 0
+                || memcmp(ckey, "return", 7) == 0
+                || memcmp(ckey, "try", 4) == 0
+                || memcmp(ckey, "while", 6) == 0
+                || memcmp(ckey, "yield", 6) == 0) {
+            free(ckey);
+            ckey = malloc(16);
+            sprintf(ckey, "mangled%i", mangled_num++);
+        }
+
+        PyDict_DelItem(dict, key);
+        PyDict_SetItemString(dict, ckey, value);
+        Py_DECREF(value);
+        free(ckey);
+    }
+
+    return (PyObject*)blocklist;
 }
 
 
 static PyMethodDef SDF_methods[] = {
     {"read", (PyCFunction)SDF_read, METH_VARARGS | METH_KEYWORDS,
-     "read(file, [convert, mmap, stations, variables, t0, t1])\n\n"
+     "read(file, [convert, mmap, dict, stations, variables, t0, t1])\n\n"
      "Reads the SDF data and returns a dictionary of NumPy arrays.\n\n"
      "Parameters\n"
      "----------\n"
@@ -1067,6 +1172,8 @@ static PyMethodDef SDF_methods[] = {
      "    Convert double precision data to single when reading file.\n"
      "mmap : bool, optional\n"
      "    Use mmap to map file contents into memory.\n"
+     "dict : bool, optional\n"
+     "    Return file contents as a dictionary rather than member names.\n"
      "stations : string list, optional\n"
      "    List of stations to read.\n"
      "variables : string list, optional\n"
@@ -1114,6 +1221,13 @@ MOD_INIT(sdf)
     ArrayType.tp_dealloc = Array_dealloc;
     ArrayType.tp_flags = Py_TPFLAGS_DEFAULT;
     if (PyType_Ready(&ArrayType) < 0)
+        return MOD_ERROR_VAL;
+
+    BlockListType.tp_dealloc = BlockList_dealloc;
+    BlockListType.tp_flags = Py_TPFLAGS_DEFAULT;
+    BlockListType.tp_dictoffset = offsetof(BlockList, dict);
+    BlockListType.tp_members = BlockList_members;
+    if (PyType_Ready(&BlockListType) < 0)
         return MOD_ERROR_VAL;
 
     BlockType.tp_flags = Py_TPFLAGS_DEFAULT;
