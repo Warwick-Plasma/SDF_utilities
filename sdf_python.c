@@ -149,6 +149,7 @@ static PyTypeObject BlockArrayType;
 static PyTypeObject BlockConstantType;
 static PyTypeObject BlockStationType;
 static PyTypeObject BlockStitchedMaterialType;
+static PyTypeObject BlockNameValueType;
 
 
 static PyTypeObject SDFType = {
@@ -318,6 +319,9 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
         case SDF_BLOCKTYPE_STITCHED_MATERIAL:
             type = &BlockStitchedMaterialType;
             break;
+        case SDF_BLOCKTYPE_NAMEVALUE:
+            type = &BlockNameValueType;
+            break;
         default:
             type = &BlockType;
     }
@@ -339,18 +343,17 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
         if (!ob->name) goto error;
     }
 
-    if (b->data_length) {
-        ob->data_length = PyLong_FromLongLong(b->data_length);
-        if (!ob->data_length) goto error;
-    }
+    ob->data_length = PyLong_FromLongLong(b->data_length);
+    if (!ob->data_length) goto error;
 
-    if (b->datatype_out) {
-        ob->datatype = PyArray_TypeObjectFromType(typemap[b->datatype_out]);
-        if (!ob->datatype) goto error;
-    }
+    ob->datatype = PyArray_TypeObjectFromType(typemap[b->datatype_out]);
+    if (!ob->datatype) goto error;
 
     if (b->ndims) {
-        ob->dims = PyTuple_New(b->ndims);
+        if (b->blocktype == SDF_BLOCKTYPE_NAMEVALUE)
+            ob->dims = PyTuple_New(1);
+        else
+            ob->dims = PyTuple_New(b->ndims);
         if (!ob->dims) goto error;
     }
 
@@ -379,6 +382,9 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
                     PyTuple_SetItem(ob->dims, i, PyLong_FromLong(b->dims[i]));
                 }
             }
+            break;
+        case SDF_BLOCKTYPE_NAMEVALUE:
+            PyTuple_SetItem(ob->dims, 0, PyLong_FromLong(b->ndims));
             break;
         case SDF_BLOCKTYPE_CONSTANT:
             PyTuple_SetItem(ob->dims, 0, PyLong_FromLong(1));
@@ -1030,6 +1036,7 @@ setup_constant(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
     double dd;
     long il;
     long long ll;
+    char cc;
 
     block = (Block*)Block_alloc(sdf, b);
     if (!block) return NULL;
@@ -1051,6 +1058,13 @@ setup_constant(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
             ll = *((int64_t*)b->const_value);
             block->data = PyLong_FromLongLong(ll);
             break;
+        case SDF_DATATYPE_LOGICAL:
+            cc = *((char*)b->const_value);
+            if (cc)
+                block->data = Py_True;
+            else
+                block->data = Py_False;
+            break;
     }
 
     PyDict_SetItemString(dict, b->name, (PyObject*)block);
@@ -1058,6 +1072,87 @@ setup_constant(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
     Py_DECREF(block);
 
     return (PyObject*)block;
+}
+
+
+static PyObject *
+setup_namevalue(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
+{
+    Block *block = NULL;
+    PyObject *sub;
+    float *ff;
+    double *dd;
+    int32_t *il;
+    int64_t *ll;
+    char *cc;
+    Py_ssize_t i;
+
+    block = (Block*)Block_alloc(sdf, b);
+    if (!block) return NULL;
+
+    block->data = PyDict_New();
+    if (!block->data) goto free_mem;
+
+    switch(b->datatype) {
+        case SDF_DATATYPE_REAL4:
+            ff = (float*)b->data;
+            for (i=0; i < b->ndims; i++) {
+                sub = PyFloat_FromDouble(*ff);
+                PyDict_SetItemString(block->data, b->material_names[i], sub);
+                Py_DECREF(sub);
+                ff++;
+            }
+            break;
+        case SDF_DATATYPE_REAL8:
+            dd = (double*)b->data;
+            for (i=0; i < b->ndims; i++) {
+                sub = PyFloat_FromDouble(*dd);
+                PyDict_SetItemString(block->data, b->material_names[i], sub);
+                Py_DECREF(sub);
+                dd++;
+            }
+            break;
+        case SDF_DATATYPE_INTEGER4:
+            il = (int32_t*)b->data;
+            for (i=0; i < b->ndims; i++) {
+                sub = PyLong_FromLong(*il);
+                PyDict_SetItemString(block->data, b->material_names[i], sub);
+                Py_DECREF(sub);
+                il++;
+            }
+            break;
+        case SDF_DATATYPE_INTEGER8:
+            ll = (int64_t*)b->data;
+            for (i=0; i < b->ndims; i++) {
+                sub = PyLong_FromLongLong(*ll);
+                PyDict_SetItemString(block->data, b->material_names[i], sub);
+                Py_DECREF(sub);
+                ll++;
+            }
+            break;
+        case SDF_DATATYPE_LOGICAL:
+            cc = (char*)b->data;
+            for (i=0; i < b->ndims; i++) {
+                if (*cc)
+                    sub = Py_True;
+                else
+                    sub = Py_False;
+                PyDict_SetItemString(block->data, b->material_names[i], sub);
+                Py_DECREF(sub);
+                cc++;
+            }
+            break;
+    }
+
+    PyDict_SetItemString(dict, b->name, (PyObject*)block);
+
+    Py_DECREF(block);
+
+    return (PyObject*)block;
+
+free_mem:
+    if (block) Py_DECREF(block);
+    return NULL;
 }
 
 
@@ -1159,6 +1254,9 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
                 break;
             case SDF_BLOCKTYPE_CONSTANT:
                 setup_constant(sdf, dict, b);
+                break;
+            case SDF_BLOCKTYPE_NAMEVALUE:
+                setup_namevalue(sdf, dict, b);
                 break;
             case SDF_BLOCKTYPE_STATION:
                 sub = PyDict_GetItemString(dict, "StationBlocks");
@@ -1362,6 +1460,7 @@ MOD_INIT(sdf)
         return MOD_ERROR_VAL;
 
     ADD_TYPE(BlockConstant, BlockBase);
+    ADD_TYPE(BlockNameValue, BlockBase);
     ADD_TYPE(BlockStation, BlockBase);
     ADD_TYPE(BlockStitchedMaterial, BlockBase);
     ADD_TYPE(BlockArray, BlockBase);
