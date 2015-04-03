@@ -97,6 +97,7 @@ struct Block_struct {
     PyObject *species_id;
     PyObject *mult;
     PyObject *stagger;
+    PyObject *dict;
     Block *grid;
     Block *grid_mid;
     Block *parent;
@@ -234,6 +235,7 @@ static PyMemberDef Block_members[] = {
     {"datatype", T_OBJECT_EX, offsetof(Block, datatype), 0, "Data type"},
     {"dims", T_OBJECT_EX, offsetof(Block, dims), 0, "Data dimensions"},
     {"data", T_OBJECT_EX, offsetof(Block, data), 0, "Block data contents"},
+    {"__dict__", T_OBJECT_EX, offsetof(Block, dict), READONLY},
     {NULL}  /* Sentinel */
 };
 
@@ -1090,15 +1092,15 @@ setup_namevalue(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
     block = (Block*)Block_alloc(sdf, b);
     if (!block) return NULL;
 
-    block->data = PyDict_New();
-    if (!block->data) goto free_mem;
+    block->dict = PyDict_New();
+    if (!block->dict) goto free_mem;
 
     switch(b->datatype) {
         case SDF_DATATYPE_REAL4:
             ff = (float*)b->data;
             for (i=0; i < b->ndims; i++) {
                 sub = PyFloat_FromDouble(*ff);
-                PyDict_SetItemString(block->data, b->material_names[i], sub);
+                PyDict_SetItemString(block->dict, b->material_names[i], sub);
                 Py_DECREF(sub);
                 ff++;
             }
@@ -1107,7 +1109,7 @@ setup_namevalue(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
             dd = (double*)b->data;
             for (i=0; i < b->ndims; i++) {
                 sub = PyFloat_FromDouble(*dd);
-                PyDict_SetItemString(block->data, b->material_names[i], sub);
+                PyDict_SetItemString(block->dict, b->material_names[i], sub);
                 Py_DECREF(sub);
                 dd++;
             }
@@ -1116,7 +1118,7 @@ setup_namevalue(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
             il = (int32_t*)b->data;
             for (i=0; i < b->ndims; i++) {
                 sub = PyLong_FromLong(*il);
-                PyDict_SetItemString(block->data, b->material_names[i], sub);
+                PyDict_SetItemString(block->dict, b->material_names[i], sub);
                 Py_DECREF(sub);
                 il++;
             }
@@ -1125,7 +1127,7 @@ setup_namevalue(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
             ll = (int64_t*)b->data;
             for (i=0; i < b->ndims; i++) {
                 sub = PyLong_FromLongLong(*ll);
-                PyDict_SetItemString(block->data, b->material_names[i], sub);
+                PyDict_SetItemString(block->dict, b->material_names[i], sub);
                 Py_DECREF(sub);
                 ll++;
             }
@@ -1137,7 +1139,7 @@ setup_namevalue(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
                     sub = Py_True;
                 else
                     sub = Py_False;
-                PyDict_SetItemString(block->data, b->material_names[i], sub);
+                PyDict_SetItemString(block->dict, b->material_names[i], sub);
                 Py_DECREF(sub);
                 cc++;
             }
@@ -1460,11 +1462,13 @@ MOD_INIT(sdf)
         return MOD_ERROR_VAL;
 
     ADD_TYPE(BlockConstant, BlockBase);
-    ADD_TYPE(BlockNameValue, BlockBase);
     ADD_TYPE(BlockStation, BlockBase);
     ADD_TYPE(BlockStitchedMaterial, BlockBase);
     ADD_TYPE(BlockArray, BlockBase);
+    BlockBase.tp_dictoffset = offsetof(Block, dict);
+    ADD_TYPE(BlockNameValue, BlockBase);
 
+    BlockBase.tp_dictoffset = 0;
     BlockBase.tp_members = BlockMesh_members;
     ADD_TYPE(BlockMesh, BlockBase);
 
