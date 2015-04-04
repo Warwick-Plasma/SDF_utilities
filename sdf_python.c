@@ -1464,7 +1464,9 @@ MOD_INIT(sdf)
     ADD_TYPE(BlockConstant, BlockBase);
     ADD_TYPE(BlockStation, BlockBase);
     ADD_TYPE(BlockStitchedMaterial, BlockBase);
+    BlockBase.tp_getset = Block_getset;
     ADD_TYPE(BlockArray, BlockBase);
+    BlockBase.tp_getset = 0;
     BlockBase.tp_dictoffset = offsetof(Block, dict);
     ADD_TYPE(BlockNameValue, BlockBase);
 
