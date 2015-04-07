@@ -45,7 +45,7 @@
         ob = Py_InitModule3(name, methods, doc);
 #endif
 
-#define IJ(i,j) (i + j * block->adims[0])
+#define IJ(i,j) ((i) + (j) * (block->adims[0] + 1))
 
 int sdf_free_block_data(sdf_file_t *h, sdf_block_t *b);
 
