@@ -1198,7 +1198,7 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
     int mangled_num = 0;
     comm_t comm;
     const char *file;
-    char *mesh_id, *tail;
+    char *mesh_id;
     static char *kwlist[] = {"file", "convert", "mmap", "dict", "derived",
         "stations", "variables", "t0", "t1", NULL};
     PyObject *stations = NULL, *variables = NULL;
@@ -1288,8 +1288,9 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
         if (!b) continue;
         if (b->blocktype == SDF_BLOCKTYPE_PLAIN_VARIABLE) {
             block->grid = dict_find_mesh_id(dict, b->mesh_id);
-            tail = stpncpy(mesh_id, b->mesh_id, len_id);
-            strncpy(tail, "_mid", len_id);
+            len_id = strlen(b->mesh_id);
+            memcpy(mesh_id, b->mesh_id, len_id);
+            memcpy(mesh_id+len_id, "_mid", 5);
             block->grid_mid = dict_find_mesh_id(dict, mesh_id);
         } else if (b->blocktype == SDF_BLOCKTYPE_POINT_VARIABLE) {
             block->grid = dict_find_mesh_id(dict, b->mesh_id);
