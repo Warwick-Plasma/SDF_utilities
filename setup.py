@@ -24,4 +24,5 @@ srcfiles = ['sdf_python.c'] + sdffiles
 incdirs = [get_numpy_dir()] + [sdfdir]
 
 setup(name="sdf", version="1.0",
-      ext_modules=[Extension("sdf", srcfiles, include_dirs=incdirs)])
+      ext_modules=[Extension("sdf", srcfiles, include_dirs=incdirs)],
+      py_modules=["sdf_legacy"])
