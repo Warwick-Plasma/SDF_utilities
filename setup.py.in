@@ -12,6 +12,7 @@ setup(
     author_email='K.Bennett@warwick.ac.uk',
     url='http://github.com/keithbennett/SDF.git',
     description='Python module for processing SDF files',
+    py_modules=['sdf_legacy'],
     ext_modules=[
         Extension(
             'sdf',
