@@ -528,6 +528,16 @@ char *parse_args(int *argc, char ***argv)
 }
 
 
+void free_memory(void)
+{
+
+    if (format_int) free(format_int);
+    if (format_float) free(format_float);
+    if (format_space) free(format_space);
+    stack_destroy();
+}
+
+
 static int set_array_section(sdf_block_t *b)
 {
     return sdf_block_set_array_section(b, array_ndims, array_starts,
@@ -1661,7 +1671,7 @@ int close_files(sdf_file_t *h)
 #ifdef PARALLEL
     MPI_Finalize();
 #endif
-    stack_destroy();
+    free_memory();
 
     return 0;
 }
