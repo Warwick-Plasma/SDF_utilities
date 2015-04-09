@@ -1661,6 +1661,7 @@ int close_files(sdf_file_t *h)
 #ifdef PARALLEL
     MPI_Finalize();
 #endif
+    stack_destroy();
 
     return 0;
 }
