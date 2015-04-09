@@ -518,14 +518,22 @@ Block_dealloc(PyObject *self)
     if (ob->units) {
         Py_XDECREF(ob->units);
     }
+    if (ob->dict) {
+        Py_XDECREF(ob->dict);
+    }
     if (ob->data) {
         Py_XDECREF(ob->data);
     }
     if (ob->parent) {
         Py_XDECREF(ob->parent);
     }
-    if (ob->sdfref) Py_XDECREF(ob->sdf);
-    self->ob_type->tp_free(self);
+    if (ob->sdfref > 0) {
+        ob->sdfref--;
+        Py_XDECREF(ob->sdf);
+    }
+
+    /* Object should not free itself unless tp_alloc has been defined */
+    //self->ob_type->tp_free(self);
 }
 
 
@@ -1304,10 +1312,10 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
 
     free(mesh_id);
 
-    Py_DECREF(sdf);
-
-    if (use_dict)
+    if (use_dict) {
+        Py_DECREF(sdf);
         return (PyObject*)dict;
+    }
 
     type = &BlockListType;
     blocklist = (BlockList*)type->tp_alloc(type, 0);
@@ -1316,6 +1324,7 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
         return NULL;
     }
     blocklist->dict = dict;
+    Py_INCREF(dict);
 
     /* Mangle dictionary names */
     items_list = PyDict_Items(dict);
@@ -1374,7 +1383,9 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
         Py_DECREF(value);
         free(ckey);
     }
+    Py_DECREF(items_list);
 
+    Py_DECREF(sdf);
     return (PyObject*)blocklist;
 }
 
