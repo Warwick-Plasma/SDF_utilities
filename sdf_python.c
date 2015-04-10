@@ -1326,7 +1326,6 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
         return NULL;
     }
     blocklist->dict = dict;
-    Py_INCREF(dict);
 
     /* Mangle dictionary names */
     items_list = PyDict_Items(dict);
