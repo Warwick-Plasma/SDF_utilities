@@ -1296,6 +1296,8 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
     mesh_id = malloc(len_id);
 
     while (PyDict_Next(dict, &pos, &key, &value)) {
+        if (!PyObject_TypeCheck(value, &BlockType))
+            continue;
         block = (Block*)value;
         b = block->b;
         if (!b) continue;
