@@ -1382,7 +1382,6 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
 
         PyDict_DelItem(dict, key);
         PyDict_SetItemString(dict, ckey, value);
-        Py_DECREF(value);
         free(ckey);
     }
     Py_DECREF(items_list);
