@@ -1206,6 +1206,7 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
     Block *block;
     Py_ssize_t pos = 0;
     int i, convert, use_mmap, use_dict, use_derived, mode, len_id;
+    int mangled;
     comm_t comm;
     const char *file;
     char *mesh_id;
@@ -1333,6 +1334,9 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
         PyObject *key = PyTuple_GET_ITEM(item, 0);
         PyObject *value = PyTuple_GET_ITEM(item, 1);
         char *ckey, *ptr;
+
+        mangled = 0;
+
         ckey = strdup(PyString_AsString(key));
         for (ptr = ckey; *ptr != '\0'; ptr++) {
             if (*ptr >= '0' && *ptr <= '9')
@@ -1342,10 +1346,14 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
             if (*ptr >= 'a' && *ptr <= 'z')
                 continue;
             *ptr = '_';
+            mangled = 1;
         }
 
-        PyDict_DelItem(dict, key);
-        PyDict_SetItemString(dict, ckey, value);
+        if (mangled) {
+            PyDict_DelItem(dict, key);
+            PyDict_SetItemString(dict, ckey, value);
+        }
+
         free(ckey);
     }
     Py_DECREF(items_list);
