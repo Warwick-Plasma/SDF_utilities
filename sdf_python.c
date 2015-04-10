@@ -1206,7 +1206,6 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
     Block *block;
     Py_ssize_t pos = 0;
     int i, convert, use_mmap, use_dict, use_derived, mode, len_id;
-    int mangled_num = 0;
     comm_t comm;
     const char *file;
     char *mesh_id;
@@ -1343,40 +1342,6 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
             if (*ptr >= 'a' && *ptr <= 'z')
                 continue;
             *ptr = '_';
-        }
-        /* Mangle python keywords */
-        if (memcmp(ckey, "and", 4) == 0
-                || memcmp(ckey, "assert", 7) == 0
-                || memcmp(ckey, "break", 6) == 0
-                || memcmp(ckey, "class", 6) == 0
-                || memcmp(ckey, "continue", 9) == 0
-                || memcmp(ckey, "def", 4) == 0
-                || memcmp(ckey, "del", 4) == 0
-                || memcmp(ckey, "elif", 5) == 0
-                || memcmp(ckey, "else", 5) == 0
-                || memcmp(ckey, "except", 7) == 0
-                || memcmp(ckey, "exec", 5) == 0
-                || memcmp(ckey, "finally", 8) == 0
-                || memcmp(ckey, "for", 4) == 0
-                || memcmp(ckey, "from", 5) == 0
-                || memcmp(ckey, "global", 7) == 0
-                || memcmp(ckey, "if", 3) == 0
-                || memcmp(ckey, "import", 7) == 0
-                || memcmp(ckey, "in", 3) == 0
-                || memcmp(ckey, "is", 3) == 0
-                || memcmp(ckey, "lambda", 7) == 0
-                || memcmp(ckey, "not", 4) == 0
-                || memcmp(ckey, "or", 3) == 0
-                || memcmp(ckey, "pass", 5) == 0
-                || memcmp(ckey, "print", 6) == 0
-                || memcmp(ckey, "raise", 6) == 0
-                || memcmp(ckey, "return", 7) == 0
-                || memcmp(ckey, "try", 4) == 0
-                || memcmp(ckey, "while", 6) == 0
-                || memcmp(ckey, "yield", 6) == 0) {
-            free(ckey);
-            ckey = malloc(16);
-            sprintf(ckey, "mangled%i", mangled_num++);
         }
 
         PyDict_DelItem(dict, key);
