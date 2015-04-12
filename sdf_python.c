@@ -61,7 +61,8 @@ static const int typemap[] = {
     0,
 #endif
     NPY_CHAR,
-    NPY_CHAR,
+    NPY_BOOL,
+    NPY_VOID,
 };
 
 
@@ -98,6 +99,8 @@ struct Block_struct {
     PyObject *mult;
     PyObject *stagger;
     PyObject *dict;
+    PyObject *material_names;
+    PyObject *material_ids;
     Block *grid;
     Block *grid_mid;
     Block *parent;
@@ -277,6 +280,18 @@ static PyMemberDef BlockPointMesh_members[] = {
     {NULL}  /* Sentinel */
 };
 
+static PyMemberDef BlockStitchedMaterial_members[] = {
+    {"stagger", T_OBJECT_EX, offsetof(Block, stagger), 0, "Grid stagger"},
+    {"material_names", T_OBJECT_EX, offsetof(Block, material_names), 0,
+     "Material names"},
+    {"material_ids", T_OBJECT_EX, offsetof(Block, material_ids), 0,
+     "Material IDs"},
+    {"grid", T_OBJECT_EX, offsetof(Block, grid), 0, "Associated mesh"},
+    {"grid_mid", T_OBJECT_EX, offsetof(Block, grid_mid), 0,
+     "Associated median mesh"},
+    {NULL}  /* Sentinel */
+};
+
 
 static PyObject *Block_getdata(Block *block, void *closure);
 
@@ -319,6 +334,7 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
             type = &BlockStationType;
             break;
         case SDF_BLOCKTYPE_STITCHED_MATERIAL:
+        case SDF_BLOCKTYPE_CONTIGUOUS_MATERIAL:
             type = &BlockStitchedMaterialType;
             break;
         case SDF_BLOCKTYPE_NAMEVALUE:
@@ -427,6 +443,8 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
     switch(b->blocktype) {
         case SDF_BLOCKTYPE_PLAIN_MESH:
         case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
+        case SDF_BLOCKTYPE_STITCHED_MATERIAL:
+        case SDF_BLOCKTYPE_CONTIGUOUS_MATERIAL:
             ob->stagger = PyLong_FromLong(b->stagger);
             if (!ob->stagger) goto error;
             break;
@@ -490,6 +508,12 @@ Block_dealloc(PyObject *self)
     }
     if (ob->parent) {
         Py_XDECREF(ob->parent);
+    }
+    if (ob->material_names) {
+        Py_XDECREF(ob->material_names);
+    }
+    if (ob->material_ids) {
+        Py_XDECREF(ob->material_ids);
     }
     if (ob->sdfref > 0) {
         ob->sdfref--;
@@ -962,17 +986,49 @@ static PyObject *fill_header(sdf_file_t *h)
 }
 
 
-static PyObject *material_names(sdf_block_t *b)
+static PyObject *
+setup_materials(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
 {
-    PyObject *matnames = PyList_New(b->ndims), *name;
+    char *block_name = NULL;
+    Block *block = NULL;
+    PyObject *name = NULL;
     Py_ssize_t i;
 
-    for ( i=0; i<b->ndims; i++ ) {
-        name = PyString_FromString(b->material_names[i]);
-        PyList_SET_ITEM(matnames, i, name);
+    if (!sdf->h || !b) return NULL;
+
+    block_name = b->name;
+
+    block = (Block*)Block_alloc(sdf, b);
+    if (!block) goto free_mem;
+
+    if (b->material_names) {
+        block->material_names = PyList_New(b->ndims);
+        if (!block->material_names) goto free_mem;
+
+        for (i=0; i < b->ndims; i++) {
+            name = PyString_FromString(b->material_names[i]);
+            PyList_SET_ITEM(block->material_names, i, name);
+        }
     }
 
-    return matnames;
+    if (b->variable_ids) {
+        block->material_ids = PyList_New(b->ndims);
+        if (!block->material_ids) goto free_mem;
+
+        for (i=0; i < b->ndims; i++) {
+            name = PyString_FromString(b->variable_ids[i]);
+            PyList_SET_ITEM(block->material_ids, i, name);
+        }
+    }
+
+    PyDict_SetItemString(dict, block_name, (PyObject*)block);
+    Py_DECREF(block);
+
+    return (PyObject*)block;
+
+free_mem:
+    if (block) Py_DECREF(block);
+    return NULL;
 }
 
 
@@ -1140,6 +1196,8 @@ static Block *dict_find_mesh_id(PyObject *dict, char *id)
     Py_ssize_t pos = 0, len = strlen(id) + 1;
 
     while (PyDict_Next(dict, &pos, &key, &value)) {
+        if (!PyObject_TypeCheck(value, &BlockType))
+            continue;
         block = (Block*)value;
         if (!block->b)
             continue;
@@ -1155,6 +1213,68 @@ static Block *dict_find_mesh_id(PyObject *dict, char *id)
     }
 
     return NULL;
+}
+
+
+static void dict_find_variable_ids(PyObject *dict, Block *station)
+{
+    PyObject *key, *value;
+    Block *block;
+    char *block_id;
+    Py_ssize_t pos = 0, len, i, *find, nfind, found;
+    sdf_block_t *b;
+
+    b = station->b;
+    if (!station->b)
+        return;
+
+    nfind = b->ndims;
+    find = malloc(nfind * sizeof(Py_ssize_t));
+    for (i=0; i < nfind; i++)
+        find[i] = i;
+
+    while (PyDict_Next(dict, &pos, &key, &value)) {
+        if (!PyObject_TypeCheck(value, &BlockType))
+            continue;
+        block = (Block*)value;
+        if (!block->b)
+            continue;
+        block_id = PyString_AsString(block->id);
+        if (!block_id)
+            continue;
+        len = strlen(block_id) + 1;
+
+        // Loop over remaining variable_ids and check for a match
+        found = -1;
+        for (i=0; i < nfind; i++) {
+            found = find[i];
+            if (memcmp(block_id, b->variable_ids[found], len) == 0)
+                break;
+            found = -1;
+        }
+
+        if (found < 0) continue;
+
+        if (!station->data) {
+            station->data = PyList_New(b->ndims);
+            if (!station->data) return;
+        }
+
+        // Found one of our variable_ids. Insert it into the station list and
+        // remove it from the find list.
+        PyList_SET_ITEM(station->data, found, (PyObject*)block);
+
+        nfind--;
+        // Stop searching if we've found them all
+        if (nfind <= 0) break;
+
+        for (i=found; i < nfind; i++)
+            find[i] = find[i+1];
+    }
+
+    free(find);
+
+    return;
 }
 
 
@@ -1245,9 +1365,8 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
                         dict);
                 break;
             case SDF_BLOCKTYPE_STITCHED_MATERIAL:
-                sub = material_names(b);
-                PyDict_SetItemString(dict, "Materials", sub);
-                Py_DECREF(sub);
+            case SDF_BLOCKTYPE_CONTIGUOUS_MATERIAL:
+                setup_materials(sdf, dict, b);
                 break;
         }
         b = h->current_block = b->next;
@@ -1262,12 +1381,17 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
         block = (Block*)value;
         b = block->b;
         if (!b) continue;
-        if (b->blocktype == SDF_BLOCKTYPE_PLAIN_VARIABLE) {
+        if (b->blocktype == SDF_BLOCKTYPE_PLAIN_VARIABLE
+                || b->blocktype == SDF_BLOCKTYPE_STITCHED_MATERIAL
+                || b->blocktype == SDF_BLOCKTYPE_CONTIGUOUS_MATERIAL) {
             block->grid = dict_find_mesh_id(dict, b->mesh_id);
             len_id = strlen(b->mesh_id);
             memcpy(mesh_id, b->mesh_id, len_id);
             memcpy(mesh_id+len_id, "_mid", 5);
             block->grid_mid = dict_find_mesh_id(dict, mesh_id);
+            if (b->blocktype == SDF_BLOCKTYPE_STITCHED_MATERIAL
+                    || b->blocktype == SDF_BLOCKTYPE_CONTIGUOUS_MATERIAL)
+                dict_find_variable_ids(dict, block);
         } else if (b->blocktype == SDF_BLOCKTYPE_POINT_VARIABLE) {
             block->grid = dict_find_mesh_id(dict, b->mesh_id);
         }
@@ -1372,7 +1496,7 @@ MOD_INIT(sdf)
     if (!m)
         return MOD_ERROR_VAL;
 
-    PyModule_AddStringConstant(m, "__version__", "2.0.0");
+    PyModule_AddStringConstant(m, "__version__", "2.1.0");
 
     SDFType.tp_dealloc = SDF_dealloc;
     SDFType.tp_flags = Py_TPFLAGS_DEFAULT;
@@ -1414,9 +1538,10 @@ MOD_INIT(sdf)
 
     ADD_TYPE(BlockConstant, BlockBase);
     ADD_TYPE(BlockStation, BlockBase);
-    ADD_TYPE(BlockStitchedMaterial, BlockBase);
+
     BlockBase.tp_getset = Block_getset;
     ADD_TYPE(BlockArray, BlockBase);
+
     BlockBase.tp_getset = 0;
     BlockBase.tp_dictoffset = offsetof(Block, dict);
     ADD_TYPE(BlockNameValue, BlockBase);
@@ -1424,6 +1549,9 @@ MOD_INIT(sdf)
     BlockBase.tp_dictoffset = 0;
     BlockBase.tp_members = BlockMesh_members;
     ADD_TYPE(BlockMesh, BlockBase);
+
+    BlockBase.tp_members = BlockStitchedMaterial_members;
+    ADD_TYPE(BlockStitchedMaterial, BlockBase);
 
     BlockBase.tp_base = &BlockArrayType;
     BlockBase.tp_getset = Block_getset;
