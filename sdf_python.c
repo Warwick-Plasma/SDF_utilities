@@ -435,42 +435,6 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
     return (PyObject *)ob;
 
 error:
-    if (ob->id) {
-        Py_XDECREF(ob->id);
-    }
-    if (ob->name) {
-        Py_XDECREF(ob->name);
-    }
-    if (ob->data_length) {
-        Py_XDECREF(ob->data_length);
-    }
-    if (ob->datatype) {
-        Py_XDECREF(ob->datatype);
-    }
-    if (ob->dims) {
-        Py_XDECREF(ob->dims);
-    }
-    if (ob->extents) {
-        Py_XDECREF(ob->extents);
-    }
-    if (ob->geometry) {
-        Py_XDECREF(ob->geometry);
-    }
-    if (ob->species_id) {
-        Py_XDECREF(ob->species_id);
-    }
-    if (ob->mult) {
-        Py_XDECREF(ob->mult);
-    }
-    if (ob->stagger) {
-        Py_XDECREF(ob->stagger);
-    }
-    if (ob->labels) {
-        Py_XDECREF(ob->labels);
-    }
-    if (ob->units) {
-        Py_XDECREF(ob->units);
-    }
     Py_DECREF(ob);
 
     return NULL;
@@ -822,7 +786,6 @@ free_mem:
     if (block_name) free(block_name);
     if (mesh_id) free(mesh_id);
     if (block) Py_DECREF(block);
-    if (block->parent) Py_DECREF(block->parent);
     if (ob) Py_DECREF(ob);
 }
 
