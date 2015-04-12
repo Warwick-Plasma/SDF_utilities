@@ -712,7 +712,7 @@ SDF_dealloc(PyObject* self)
     sdf_file_t *h = ((SDFObject*)self)->h;
     if (h) {
         sdf_close(h);
-        stack_destroy();
+        stack_free();
     }
     self->ob_type->tp_free(self);
 }
@@ -1240,8 +1240,6 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
 
     if (convert) h->use_float = 1;
 
-    stack_init();
-
     if (use_derived)
         sdf_read_blocklist_all(h);
     else
@@ -1482,6 +1480,7 @@ MOD_INIT(sdf)
     ADD_TYPE(BlockPointMesh, BlockBase);
 
     import_array();   /* required NumPy initialization */
+    stack_init();
 
     return MOD_SUCCESS_VAL(m);
 }
