@@ -323,9 +323,11 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
             type = &BlockLagrangianMeshType;
             break;
         case SDF_BLOCKTYPE_PLAIN_VARIABLE:
+        case SDF_BLOCKTYPE_PLAIN_DERIVED:
             type = &BlockPlainVariableType;
             break;
         case SDF_BLOCKTYPE_POINT_VARIABLE:
+        case SDF_BLOCKTYPE_POINT_DERIVED:
             type = &BlockPointVariableType;
             break;
         case SDF_BLOCKTYPE_ARRAY:
@@ -399,7 +401,9 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
             ob->geometry = PyLong_FromLong(b->geometry);
             if (!ob->geometry) goto error;
         case SDF_BLOCKTYPE_PLAIN_VARIABLE:
+        case SDF_BLOCKTYPE_PLAIN_DERIVED:
         case SDF_BLOCKTYPE_POINT_VARIABLE:
+        case SDF_BLOCKTYPE_POINT_DERIVED:
         case SDF_BLOCKTYPE_ARRAY:
             ob->sdfref = 1;
             Py_INCREF(ob->sdf);
@@ -421,6 +425,7 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
     switch(b->blocktype) {
         case SDF_BLOCKTYPE_POINT_MESH:
         case SDF_BLOCKTYPE_POINT_VARIABLE:
+        case SDF_BLOCKTYPE_POINT_DERIVED:
             if (b->material_id) {
                 ob->species_id = PyString_FromString(b->material_id);
                 if (!ob->species_id) goto error;
@@ -430,7 +435,9 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
 
     switch(b->blocktype) {
         case SDF_BLOCKTYPE_PLAIN_VARIABLE:
+        case SDF_BLOCKTYPE_PLAIN_DERIVED:
         case SDF_BLOCKTYPE_POINT_VARIABLE:
+        case SDF_BLOCKTYPE_POINT_DERIVED:
             if (b->mult) {
                 ob->mult = PyFloat_FromDouble(b->mult);
                 if (!ob->mult) goto error;
@@ -1356,7 +1363,9 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
                 setup_mesh(sdf, dict, b);
                 break;
             case SDF_BLOCKTYPE_PLAIN_VARIABLE:
+            case SDF_BLOCKTYPE_PLAIN_DERIVED:
             case SDF_BLOCKTYPE_POINT_VARIABLE:
+            case SDF_BLOCKTYPE_POINT_DERIVED:
             case SDF_BLOCKTYPE_ARRAY:
                 setup_array(sdf, dict, b);
                 break;
@@ -1394,8 +1403,11 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
         b = block->b;
         if (!b) continue;
         if (b->blocktype == SDF_BLOCKTYPE_PLAIN_VARIABLE
+                || b->blocktype == SDF_BLOCKTYPE_PLAIN_DERIVED
                 || b->blocktype == SDF_BLOCKTYPE_STITCHED_MATERIAL
                 || b->blocktype == SDF_BLOCKTYPE_CONTIGUOUS_MATERIAL) {
+            if (!b->mesh_id)
+                continue;
             block->grid = dict_find_mesh_id(dict, b->mesh_id);
             len_id = strlen(b->mesh_id);
             memcpy(mesh_id, b->mesh_id, len_id);
@@ -1404,7 +1416,8 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
             if (b->blocktype == SDF_BLOCKTYPE_STITCHED_MATERIAL
                     || b->blocktype == SDF_BLOCKTYPE_CONTIGUOUS_MATERIAL)
                 dict_find_variable_ids(dict, block);
-        } else if (b->blocktype == SDF_BLOCKTYPE_POINT_VARIABLE) {
+        } else if (b->blocktype == SDF_BLOCKTYPE_POINT_VARIABLE
+                || b->blocktype == SDF_BLOCKTYPE_POINT_DERIVED) {
             block->grid = dict_find_mesh_id(dict, b->mesh_id);
         }
     }
