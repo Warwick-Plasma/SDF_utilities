@@ -101,6 +101,7 @@ struct Block_struct {
     PyObject *dict;
     PyObject *material_names;
     PyObject *material_ids;
+    PyObject *grid_id;
     Block *grid;
     Block *grid_mid;
     Block *parent;
@@ -255,6 +256,7 @@ static PyMemberDef BlockMeshVariable_members[] = {
     {"grid", T_OBJECT_EX, offsetof(Block, grid), 0, "Associated mesh"},
     {"grid_mid", T_OBJECT_EX, offsetof(Block, grid_mid), 0,
      "Associated median mesh"},
+    {"grid_id", T_OBJECT_EX, offsetof(Block, grid_id), 0, "Associated mesh id"},
     {"units", T_OBJECT_EX, offsetof(Block, units), 0, "Units of variable"},
     {"mult", T_OBJECT_EX, offsetof(Block, mult), 0, "Multiplication factor"},
     {NULL}  /* Sentinel */
@@ -264,6 +266,7 @@ static PyMemberDef BlockPointVariable_members[] = {
     {"grid", T_OBJECT_EX, offsetof(Block, grid), 0, "Associated mesh"},
     {"grid_mid", T_OBJECT_EX, offsetof(Block, grid_mid), 0,
      "Associated median mesh"},
+    {"grid_id", T_OBJECT_EX, offsetof(Block, grid_id), 0, "Associated mesh id"},
     {"units", T_OBJECT_EX, offsetof(Block, units), 0, "Units of variable"},
     {"mult", T_OBJECT_EX, offsetof(Block, mult), 0, "Multiplication factor"},
     {"species_id", T_OBJECT_EX, offsetof(Block, species_id), 0, "Species ID"},
@@ -289,6 +292,7 @@ static PyMemberDef BlockStitchedMaterial_members[] = {
     {"grid", T_OBJECT_EX, offsetof(Block, grid), 0, "Associated mesh"},
     {"grid_mid", T_OBJECT_EX, offsetof(Block, grid_mid), 0,
      "Associated median mesh"},
+    {"grid_id", T_OBJECT_EX, offsetof(Block, grid_id), 0, "Associated mesh id"},
     {NULL}  /* Sentinel */
 };
 
@@ -359,6 +363,11 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
     if (b->name) {
         ob->name = PyString_FromString(b->name);
         if (!ob->name) goto error;
+    }
+
+    if (b->mesh_id) {
+        ob->grid_id = PyString_FromString(b->mesh_id);
+        if (!ob->grid_id) goto error;
     }
 
     ob->data_length = PyLong_FromLongLong(b->data_length);
@@ -514,6 +523,9 @@ Block_dealloc(PyObject *self)
     }
     if (ob->material_ids) {
         Py_XDECREF(ob->material_ids);
+    }
+    if (ob->grid_id) {
+        Py_XDECREF(ob->grid_id);
     }
     if (ob->sdfref > 0) {
         ob->sdfref--;
