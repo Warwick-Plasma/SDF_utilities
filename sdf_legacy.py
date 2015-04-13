@@ -30,7 +30,10 @@ def _error_message():
 def _check_validity():
     if not hasattr(sdf, "__version__"):
         return _error_message()
-    if sdf.__version__ != _sdf_version:
+    our_version = map(int, v.split("."))
+    lib_version = map(int, v.split("."))
+    # Just check that major version number matches
+    if our_version[0] != lib_version[0]:
         return _error_message()
 
 _check_validity()
@@ -88,6 +91,10 @@ def read(*args, **kwargs):
             for n in range(len(value.dims)):
                 newkey = base + '/' + value.labels[n]
                 sdfdict[newkey] = value.data[n]
+
+        # Add material block
+        if t == sdf.BlockStitchedMaterial:
+            sdfdict["Materials"] = value.material_names
 
     return sdfdict
 
