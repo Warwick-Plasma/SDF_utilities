@@ -528,13 +528,13 @@ char *parse_args(int *argc, char ***argv)
 }
 
 
-void free_memory(void)
+void free_memory(sdf_file_t *h)
 {
 
     if (format_int) free(format_int);
     if (format_float) free(format_float);
     if (format_space) free(format_space);
-    stack_destroy();
+    sdf_stack_destroy(h);
 }
 
 
@@ -1504,7 +1504,7 @@ int main(int argc, char **argv)
     h->use_float = single;
     h->print = debug;
     if (ignore_summary) h->use_summary = 0;
-    stack_init();
+    sdf_stack_init(h);
 
     sdf_read_header(h);
     h->current_block = NULL;
@@ -1667,11 +1667,11 @@ int main(int argc, char **argv)
 
 int close_files(sdf_file_t *h)
 {
+    free_memory(h);
     sdf_close(h);
 #ifdef PARALLEL
     MPI_Finalize();
 #endif
-    free_memory();
 
     return 0;
 }
