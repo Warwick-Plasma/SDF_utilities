@@ -718,7 +718,7 @@ SDF_dealloc(PyObject* self)
 {
     sdf_file_t *h = ((SDFObject*)self)->h;
     if (h) {
-        sdf_stack_free(h);
+        sdf_stack_destroy(h);
         sdf_close(h);
     }
     self->ob_type->tp_free(self);
