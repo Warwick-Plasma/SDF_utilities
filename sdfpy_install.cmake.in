@@ -1,4 +1,4 @@
-execute_process(COMMAND ${PYTHON} setup.py install
+execute_process(COMMAND ${PYTHON_EXECUTABLE} setup.py install
    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
    RESULT_VARIABLE RET)
 if(RET)
