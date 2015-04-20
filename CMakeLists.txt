@@ -21,11 +21,11 @@ target_link_libraries(sdffilter sdfc dl m)
 
 add_custom_target(sdf-utilities DEPENDS sdf2ascii sdffilter)
 
-find_program(PYTHON "python")
+find_package(PythonInterp)
 configure_file(setup.py.in setup.py)
 configure_file(setup.cfg.in setup.cfg)
 add_custom_command(OUTPUT build/timestamp
-   COMMAND ${PYTHON} setup.py build ${DEBUG_OPT}
+   COMMAND ${PYTHON_EXECUTABLE} setup.py build ${DEBUG_OPT}
    COMMAND ${CMAKE_COMMAND} -E touch build/timestamp
    DEPENDS setup.py sdf_python.c sdfc)
 add_custom_target(sdfpy ALL DEPENDS build/timestamp)
