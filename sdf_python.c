@@ -725,7 +725,8 @@ SDF_dealloc(PyObject* self)
 }
 
 
-static void setup_mesh(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
+static void
+setup_mesh(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
 {
     char *block_name = NULL;
     char *mesh_id = NULL;
@@ -1005,7 +1006,7 @@ static PyObject *fill_header(sdf_file_t *h)
 }
 
 
-static PyObject *
+static void
 setup_materials(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
 {
     char *block_name = NULL;
@@ -1043,15 +1044,15 @@ setup_materials(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
     PyDict_SetItemString(dict, block_name, (PyObject*)block);
     Py_DECREF(block);
 
-    return (PyObject*)block;
+    return;
 
 free_mem:
     if (block) Py_DECREF(block);
-    return NULL;
+    return;
 }
 
 
-static PyObject *
+static void
 setup_array(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
 {
     char *block_name = NULL;
@@ -1072,15 +1073,15 @@ setup_array(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
     PyDict_SetItemString(dict, block_name, (PyObject*)block);
     Py_DECREF(block);
 
-    return (PyObject*)block;
+    return;
 
 free_mem:
     if (block) Py_DECREF(block);
-    return NULL;
+    return;
 }
 
 
-static PyObject *
+static void
 setup_constant(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
 {
     Block *block = NULL;
@@ -1122,11 +1123,11 @@ setup_constant(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
 
     Py_DECREF(block);
 
-    return (PyObject*)block;
+    return;
 }
 
 
-static PyObject *
+static void
 setup_namevalue(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
 {
     Block *block = NULL;
@@ -1199,11 +1200,11 @@ setup_namevalue(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
 
     Py_DECREF(block);
 
-    return (PyObject*)block;
+    return;
 
 free_mem:
     if (block) Py_DECREF(block);
-    return NULL;
+    return;
 }
 
 
