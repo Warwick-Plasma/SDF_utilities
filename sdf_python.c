@@ -480,60 +480,24 @@ Block_dealloc(PyObject *self)
 {
     Block *ob = (Block*)self;
     if (!ob) return;
-    if (ob->id) {
-        Py_XDECREF(ob->id);
-    }
-    if (ob->name) {
-        Py_XDECREF(ob->name);
-    }
-    if (ob->data_length) {
-        Py_XDECREF(ob->data_length);
-    }
-    if (ob->datatype) {
-        Py_XDECREF(ob->datatype);
-    }
-    if (ob->dims) {
-        Py_XDECREF(ob->dims);
-    }
-    if (ob->extents) {
-        Py_XDECREF(ob->extents);
-    }
-    if (ob->geometry) {
-        Py_XDECREF(ob->geometry);
-    }
-    if (ob->species_id) {
-        Py_XDECREF(ob->species_id);
-    }
-    if (ob->mult) {
-        Py_XDECREF(ob->mult);
-    }
-    if (ob->stagger) {
-        Py_XDECREF(ob->stagger);
-    }
-    if (ob->labels) {
-        Py_XDECREF(ob->labels);
-    }
-    if (ob->units) {
-        Py_XDECREF(ob->units);
-    }
-    if (ob->dict) {
-        Py_XDECREF(ob->dict);
-    }
-    if (ob->data) {
-        Py_XDECREF(ob->data);
-    }
-    if (ob->parent) {
-        Py_XDECREF(ob->parent);
-    }
-    if (ob->material_names) {
-        Py_XDECREF(ob->material_names);
-    }
-    if (ob->material_ids) {
-        Py_XDECREF(ob->material_ids);
-    }
-    if (ob->grid_id) {
-        Py_XDECREF(ob->grid_id);
-    }
+    Py_XDECREF(ob->id);
+    Py_XDECREF(ob->name);
+    Py_XDECREF(ob->data_length);
+    Py_XDECREF(ob->datatype);
+    Py_XDECREF(ob->dims);
+    Py_XDECREF(ob->extents);
+    Py_XDECREF(ob->geometry);
+    Py_XDECREF(ob->species_id);
+    Py_XDECREF(ob->mult);
+    Py_XDECREF(ob->stagger);
+    Py_XDECREF(ob->labels);
+    Py_XDECREF(ob->units);
+    Py_XDECREF(ob->dict);
+    Py_XDECREF(ob->data);
+    Py_XDECREF(ob->parent);
+    Py_XDECREF(ob->material_names);
+    Py_XDECREF(ob->material_ids);
+    Py_XDECREF(ob->grid_id);
     if (ob->sdfref > 0) {
         ob->sdfref--;
         Py_XDECREF(ob->sdf);
