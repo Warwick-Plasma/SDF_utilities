@@ -1488,7 +1488,7 @@ MOD_INIT(sdf)
     if (!m)
         return MOD_ERROR_VAL;
 
-    PyModule_AddStringConstant(m, "__version__", "2.1.1");
+    PyModule_AddStringConstant(m, "__version__", "2.2.0");
 
     SDFType.tp_dealloc = SDF_dealloc;
     SDFType.tp_flags = Py_TPFLAGS_DEFAULT;
@@ -1510,6 +1510,8 @@ MOD_INIT(sdf)
     BlockListType.tp_dictoffset = offsetof(BlockList, dict);
     BlockListType.tp_members = BlockList_members;
     if (PyType_Ready(&BlockListType) < 0)
+        return MOD_ERROR_VAL;
+    if (PyModule_AddObject(m, "BlockList", (PyObject *)&BlockListType) < 0)
         return MOD_ERROR_VAL;
 
     BlockType.tp_flags = Py_TPFLAGS_DEFAULT;
