@@ -978,7 +978,7 @@ setup_materials(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
     PyObject *name = NULL;
     Py_ssize_t i;
 
-    if (!sdf->h || !b) return NULL;
+    if (!sdf->h || !b) return;
 
     block_name = b->name;
 
@@ -1022,7 +1022,7 @@ setup_array(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
     char *block_name = NULL;
     Block *block = NULL;
 
-    if (!sdf->h || !b) return NULL;
+    if (!sdf->h || !b) return;
 
     block_name = b->name;
 
@@ -1055,7 +1055,7 @@ setup_constant(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
     char cc;
 
     block = (Block*)Block_alloc(sdf, b);
-    if (!block) return NULL;
+    if (!block) return;
 
     switch(b->datatype) {
         case SDF_DATATYPE_REAL4:
@@ -1104,7 +1104,7 @@ setup_namevalue(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
     Py_ssize_t i;
 
     block = (Block*)Block_alloc(sdf, b);
-    if (!block) return NULL;
+    if (!block) return;
 
     block->dict = PyDict_New();
     if (!block->dict) goto free_mem;
@@ -1488,7 +1488,7 @@ MOD_INIT(sdf)
     if (!m)
         return MOD_ERROR_VAL;
 
-    PyModule_AddStringConstant(m, "__version__", "2.1.1");
+    PyModule_AddStringConstant(m, "__version__", "2.2.0");
 
     SDFType.tp_dealloc = SDF_dealloc;
     SDFType.tp_flags = Py_TPFLAGS_DEFAULT;
@@ -1510,6 +1510,8 @@ MOD_INIT(sdf)
     BlockListType.tp_dictoffset = offsetof(BlockList, dict);
     BlockListType.tp_members = BlockList_members;
     if (PyType_Ready(&BlockListType) < 0)
+        return MOD_ERROR_VAL;
+    if (PyModule_AddObject(m, "BlockList", (PyObject *)&BlockListType) < 0)
         return MOD_ERROR_VAL;
 
     BlockType.tp_flags = Py_TPFLAGS_DEFAULT;
