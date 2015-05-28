@@ -312,6 +312,8 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
     PyTypeObject *type;
     Py_ssize_t i;
 
+    if (!b->datatype_out) return NULL;
+
     switch(b->blocktype) {
         case SDF_BLOCKTYPE_PLAIN_MESH:
             type = &BlockPlainMeshType;
