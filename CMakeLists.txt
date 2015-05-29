@@ -24,17 +24,19 @@ add_executable(sdffilter sdffilter.c)
 target_link_libraries(sdffilter sdfc dl m)
 
 add_custom_target(sdf-utilities DEPENDS sdf2ascii sdffilter)
-
-find_package(PythonInterp)
-configure_file(setup.py.in setup.py)
-configure_file(setup.cfg.in setup.cfg)
-add_custom_command(OUTPUT build/timestamp
-   COMMAND ${PYTHON_EXECUTABLE} setup.py build ${DEBUG_OPT}
-   COMMAND ${CMAKE_COMMAND} -E touch build/timestamp
-   DEPENDS setup.py sdf_python.c sdfc)
-add_custom_target(sdfpy ALL DEPENDS build/timestamp)
-
 install(TARGETS sdf2ascii sdffilter DESTINATION bin COMPONENT sdf-utilities)
 
-configure_file(sdfpy_install.cmake.in sdfpy_install.cmake)
-install(SCRIPT ${PROJECT_BINARY_DIR}/sdfpy_install.cmake COMPONENT sdfpy)
+set(BUILD_SDFPY ON CACHE BOOL "Build the Python interface")
+if(BUILD_SDFPY)
+   find_package(PythonInterp)
+   configure_file(setup.py.in setup.py)
+   configure_file(setup.cfg.in setup.cfg)
+   add_custom_command(OUTPUT build/timestamp
+      COMMAND ${PYTHON_EXECUTABLE} setup.py build ${DEBUG_OPT}
+      COMMAND ${CMAKE_COMMAND} -E touch build/timestamp
+      DEPENDS setup.py sdf_python.c sdfc)
+   add_custom_target(sdfpy ALL DEPENDS build/timestamp)
+
+   configure_file(sdfpy_install.cmake.in sdfpy_install.cmake)
+   install(SCRIPT ${PROJECT_BINARY_DIR}/sdfpy_install.cmake COMPONENT sdfpy)
+endif()
