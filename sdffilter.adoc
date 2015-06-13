@@ -89,6 +89,8 @@ Some stuff about 1D slicing.
 *-J, --format-index*::
         Show the array indices before each array element.
 
+*-p, --purge-duplicate*::
+        Delete duplicated block IDs
 
 EXAMPLES
 --------
