@@ -4,10 +4,13 @@
 #include <getopt.h>
 #include <sys/stat.h>
 #include "sdf.h"
+#include "commit_info.h"
 
 #ifdef PARALLEL
 #include <mpi.h>
 #endif
+
+#define VERSION "2.2.0"
 
 #define DBG_FLUSH() do { \
         if (h && h->dbg_buf) { \
@@ -48,6 +51,7 @@ void usage(int err)
   -i --no-summary      Ignore the metadata summary\n\
   -C --count=n         When printing array contents, write 'n' elements per\n\
                        line.\n\
+  -V --version         Print version information and exit\n\
 ");
 /*
   -D --debug           Show the contents of the debug buffer\n\
@@ -81,6 +85,7 @@ char *parse_args(int *argc, char ***argv)
         { "no-metadata",   no_argument,       NULL, 'n' },
         { "single",        no_argument,       NULL, 's' },
         { "variable",      required_argument, NULL, 'v' },
+        { "version",       no_argument,       NULL, 'V' },
         { NULL,            0,                 NULL,  0  }
         //{ "debug",         no_argument,       NULL, 'D' },
     };
@@ -93,7 +98,7 @@ char *parse_args(int *argc, char ***argv)
     sz = sizeof(struct range_type);
 
     while ((c = getopt_long(*argc, *argv,
-            "cC:himnsv:", longopts, NULL)) != -1) {
+            "cC:himnsv:V", longopts, NULL)) != -1) {
         switch (c) {
         case 'c':
             contents = 1;
@@ -116,6 +121,11 @@ char *parse_args(int *argc, char ***argv)
             break;
         case 's':
             single = 1;
+            break;
+        case 'V':
+            printf("sdf2ascii version %s\n", VERSION);
+            printf("commit info: %s, %s\n", SDF_COMMIT_ID, SDF_COMMIT_DATE);
+            exit(0);
             break;
         case 'v':
             if (*optarg >= '0' && *optarg <= '9') {
