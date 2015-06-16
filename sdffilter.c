@@ -431,6 +431,8 @@ char *parse_args(int *argc, char ***argv)
         case 'V':
             printf("sdffilter version %s\n", VERSION);
             printf("commit info: %s, %s\n", SDF_COMMIT_ID, SDF_COMMIT_DATE);
+            printf("library commit info: %s, %s\n",
+                   sdf_get_library_commit_id(), sdf_get_library_commit_date());
             exit(0);
             break;
         case 'v':
