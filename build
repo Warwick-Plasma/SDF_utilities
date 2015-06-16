@@ -1,10 +1,10 @@
 #! /bin/sh
 
-SDFDIR=../C/src
+SDFDIR=../C
 EXTDIR=../extension
 
 clean=0
-CFLAGS="-DSDF_DEBUG_ALL -D_XOPEN_SOURCE=600 -I$SDFDIR/../include"
+CFLAGS="-DSDF_DEBUG_ALL -D_XOPEN_SOURCE=600 -I$SDFDIR/include -L$SDFDIR/lib"
 OPT="$CFLAGS -O3"
 
 while getopts crdph name
@@ -32,18 +32,8 @@ if [ $clean -ge 1 ] ; then
   rm -rf pybuild
 fi
 if [ $clean -le 1 ] ; then
-  gcc $OPT -o sdf2ascii sdf2ascii.c \
-      $SDFDIR/sdf_control.c $SDFDIR/sdf_input.c $SDFDIR/sdf_input_cartesian.c \
-      $SDFDIR/sdf_input_point.c $SDFDIR/sdf_input_station.c $SDFDIR/sdf_util.c \
-      $SDFDIR/sdf_modify.c $SDFDIR/sdf_output.c \
-      -ldl
-  gcc $OPT -o sdffilter sdffilter.c \
-      $SDFDIR/sdf_control.c $SDFDIR/sdf_input.c $SDFDIR/sdf_input_cartesian.c \
-      $SDFDIR/sdf_input_point.c $SDFDIR/sdf_input_station.c $SDFDIR/sdf_util.c \
-      $SDFDIR/sdf_extension_util.c $SDFDIR/sdf_derived.c \
-      $SDFDIR/sdf_helper.c $SDFDIR/stack_allocator.c \
-      $SDFDIR/sdf_modify.c $SDFDIR/sdf_output.c \
-      -ldl -lm
+  gcc $OPT -o sdf2ascii sdf2ascii.c -ldl -lsdf
+  gcc $OPT -o sdffilter sdffilter.c -ldl -lm -lsdf
   # Test if python is new enough for the --user flag
   user=$(python -c 'import sys, os
 newenough = sys.hexversion > 0x02060000

@@ -29,17 +29,14 @@ def get_numpy_dir():
   sys.exit(1)
 
 
-sdfdir = os.path.join('..','C','src')
-sdffiles = ['sdf_control.c', 'sdf_derived.c', 'sdf_extension_util.c',
-            'sdf_helper.c', 'sdf_input.c', 'sdf_input_cartesian.c',
-            'sdf_input_point.c', 'sdf_input_station.c', 'sdf_modify.c',
-            'sdf_output.c', 'sdf_util.c', 'stack_allocator.c']
-sdffiles = [os.path.join(sdfdir,x) for x in sdffiles]
+sdfdir = os.path.join('..','C')
 
-srcfiles = ['sdf_python.c'] + sdffiles
+srcfiles = ['sdf_python.c']
 
-incdirs = [get_numpy_dir()] + [sdfdir]
+incdirs = [get_numpy_dir()] + [os.path.join(sdfdir,'src')]
+libdirs = [os.path.join(sdfdir,'lib')]
 
 setup(name="sdf", version="1.0",
-      ext_modules=[Extension("sdf", srcfiles, include_dirs=incdirs)],
+      ext_modules=[Extension("sdf", srcfiles, include_dirs=incdirs,
+      library_dirs=libdirs, libraries=['sdf'])],
       py_modules=["sdf_legacy"])
