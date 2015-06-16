@@ -32,6 +32,7 @@ if [ $clean -ge 1 ] ; then
   rm -rf pybuild
 fi
 if [ $clean -le 1 ] ; then
+  sh gen_commit_string.sh
   gcc $OPT -o sdf2ascii sdf2ascii.c -ldl -lsdf
   gcc $OPT -o sdffilter sdffilter.c -ldl -lm -lsdf
   # Test if python is new enough for the --user flag

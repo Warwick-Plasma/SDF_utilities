@@ -8,6 +8,7 @@
 #include "sdf_extension.h"
 #include "sdf_helper.h"
 #include "stack_allocator.h"
+#include "commit_info.h"
 
 /* Backwards compatibility */
 
@@ -1494,6 +1495,8 @@ MOD_INIT(sdf)
         return MOD_ERROR_VAL;
 
     PyModule_AddStringConstant(m, "__version__", "2.2.0");
+    PyModule_AddStringConstant(m, "__commit_id__", SDF_COMMIT_ID);
+    PyModule_AddStringConstant(m, "__commit_date__", SDF_COMMIT_DATE);
 
     SDFType.tp_dealloc = SDF_dealloc;
     SDFType.tp_flags = Py_TPFLAGS_DEFAULT;
