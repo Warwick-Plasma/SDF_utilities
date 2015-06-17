@@ -33,8 +33,8 @@ if [ $clean -ge 1 ] ; then
 fi
 if [ $clean -le 1 ] ; then
   sh gen_commit_string.sh
-  gcc $OPT -o sdf2ascii sdf2ascii.c -ldl -lsdf
-  gcc $OPT -o sdffilter sdffilter.c -ldl -lm -lsdf
+  gcc $OPT -o sdf2ascii sdf2ascii.c -ldl -lsdfc
+  gcc $OPT -o sdffilter sdffilter.c -ldl -lm -lsdfc
   # Test if python is new enough for the --user flag
   user=$(python -c 'import sys, os
 newenough = sys.hexversion > 0x02060000
