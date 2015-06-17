@@ -13,6 +13,10 @@ add_definitions(-D_XOPEN_SOURCE=600)
 
 include_directories(${SDFC_INCLUDE_DIR})
 
+
+execute_process(COMMAND sh gen_commit_string.sh
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
 add_executable(sdf2ascii sdf2ascii.c)
 target_link_libraries(sdf2ascii sdfc dl)
 

@@ -10,10 +10,13 @@
 #include "sdf_list_type.h"
 #include "sdf_helper.h"
 #include "stack_allocator.h"
+#include "commit_info.h"
 
 #ifdef PARALLEL
 #include <mpi.h>
 #endif
+
+#define VERSION "2.2.0"
 
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 
@@ -128,6 +131,7 @@ void usage(int err)
   -R --format-rowindex Show array indices before each row of array elements.\n\
   -J --format-index    Show array indices before each array element.\n\
   -p --purge-duplicate Delete duplicated block IDs\n\
+  -V --version         Print version information and exit\n\
 ");
 /*
   -o --output          Output filename\n\
@@ -314,6 +318,7 @@ char *parse_args(int *argc, char ***argv)
         { "variable",        required_argument, NULL, 'v' },
         { "exclude",         required_argument, NULL, 'x' },
         { "purge-duplicate", no_argument,       NULL, 'p' },
+        { "version",         no_argument,       NULL, 'V' },
         { NULL,              0,                 NULL,  0  }
         //{ "debug",           no_argument,       NULL, 'D' },
         //{ "output",          required_argument, NULL, 'o' },
@@ -344,7 +349,7 @@ char *parse_args(int *argc, char ***argv)
     got_include = got_exclude = 0;
 
     while ((c = getopt_long(*argc, *argv,
-            "1:a:cC:dF:hHiIjJKlmnN:RsS:v:x:p", longopts, NULL)) != -1) {
+            "1:a:cC:dF:hHiIjJKlmnN:RsS:v:x:pV", longopts, NULL)) != -1) {
         switch (c) {
         case '1':
             contents = 1;
@@ -422,6 +427,13 @@ char *parse_args(int *argc, char ***argv)
             free(format_space);
             format_space = malloc(strlen(optarg)+1);
             memcpy(format_space, optarg, strlen(optarg)+1);
+            break;
+        case 'V':
+            printf("sdffilter version %s\n", VERSION);
+            printf("commit info: %s, %s\n", SDF_COMMIT_ID, SDF_COMMIT_DATE);
+            printf("library commit info: %s, %s\n",
+                   sdf_get_library_commit_id(), sdf_get_library_commit_date());
+            exit(0);
             break;
         case 'v':
         case 'x':

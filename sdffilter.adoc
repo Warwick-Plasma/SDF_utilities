@@ -92,6 +92,9 @@ Some stuff about 1D slicing.
 *-p, --purge-duplicate*::
         Delete duplicated block IDs
 
+*-V, --version*::
+        Print version information and exit
+
 EXAMPLES
 --------
 
