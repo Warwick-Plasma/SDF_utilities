@@ -8,11 +8,14 @@
 #include "sdf_extension.h"
 #include "sdf_helper.h"
 #include "stack_allocator.h"
+#include "commit_info.h"
 
 /* Backwards compatibility */
 
 #if PY_MAJOR_VERSION < 3
     #define PyInt_FromLong PyLong_FromLong
+    #define PyBytes_FromString PyString_FromString
+    #define PyBytes_AsString PyString_AsString
 #endif
 
 #ifndef NPY_ARRAY_F_CONTIGUOUS
@@ -360,17 +363,17 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
     ob->sdfref = 0;
 
     if (b->id) {
-        ob->id = PyString_FromString(b->id);
+        ob->id = PyBytes_FromString(b->id);
         if (!ob->id) goto error;
     }
 
     if (b->name) {
-        ob->name = PyString_FromString(b->name);
+        ob->name = PyBytes_FromString(b->name);
         if (!ob->name) goto error;
     }
 
     if (b->mesh_id) {
-        ob->grid_id = PyString_FromString(b->mesh_id);
+        ob->grid_id = PyBytes_FromString(b->mesh_id);
         if (!ob->grid_id) goto error;
     }
 
@@ -429,7 +432,7 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
         case SDF_BLOCKTYPE_POINT_VARIABLE:
         case SDF_BLOCKTYPE_POINT_DERIVED:
             if (b->material_id) {
-                ob->species_id = PyString_FromString(b->material_id);
+                ob->species_id = PyBytes_FromString(b->material_id);
                 if (!ob->species_id) goto error;
             }
             break;
@@ -719,11 +722,11 @@ setup_mesh(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
     if (!block->units) goto free_mem;
 
     for (n = 0; n < b->ndims; n++) {
-        ob = PyString_FromString(b->dim_labels[n]);
+        ob = PyBytes_FromString(b->dim_labels[n]);
         if (!ob) goto free_mem;
         PyTuple_SetItem(block->labels, n, ob);
 
-        ob = PyString_FromString(b->dim_units[n]);
+        ob = PyBytes_FromString(b->dim_units[n]);
         if (!ob) goto free_mem;
         PyTuple_SetItem(block->units, n, ob);
     }
@@ -759,11 +762,11 @@ setup_mesh(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
         block->adims[n]--;
         PyTuple_SetItem(block->dims, n, PyLong_FromLong(block->adims[n]));
 
-        ob = PyString_FromString(b->dim_labels[n]);
+        ob = PyBytes_FromString(b->dim_labels[n]);
         if (!ob) goto free_mem;
         PyTuple_SetItem(block->labels, n, ob);
 
-        ob = PyString_FromString(b->dim_units[n]);
+        ob = PyBytes_FromString(b->dim_units[n]);
         if (!ob) goto free_mem;
         PyTuple_SetItem(block->units, n, ob);
     }
@@ -776,13 +779,13 @@ setup_mesh(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
     memcpy(mesh_id+len_id, "_mid", 5);
 
     Py_DECREF(block->id);
-    block->id = PyString_FromString(mesh_id);
+    block->id = PyBytes_FromString(mesh_id);
     if (!block->id) goto free_mem;
 
     free(mesh_id);
 
     Py_DECREF(block->name);
-    block->name = PyString_FromString(block_name);
+    block->name = PyBytes_FromString(block_name);
     if (!block->name) goto free_mem;
 
     PyDict_SetItemString(dict, block_name, (PyObject*)block);
@@ -821,7 +824,7 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *stations,
         stat = (long *)calloc(nstat, sizeof(long));
         nstat = 0;
         for ( ii=0; ii<h->current_block->nstations; ii++ ) {
-            sub = PyInt_FromLong(ii+1);
+            sub = PyLong_FromLong(ii+1);
             if ( PySequence_Contains(stations, sub) ) {
                 stat[nstat] = ii;
                 nstat++;
@@ -849,7 +852,7 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *stations,
     var_names = (char **)malloc(nvars*sizeof(char *));
     for ( i=0; i<nvars; i++ ) {
         sub = PyList_GetItem(variables, i);
-        var_names[i] = PyString_AsString(sub);
+        var_names[i] = PyBytes_AsString(sub);
         if ( !var_names[i] ) {
             free(var_names);
             free(stat);
@@ -926,7 +929,7 @@ int append_station_metadata(sdf_block_t *b, PyObject *dict)
         station = PyList_New(b->station_nvars[i]);
 
         for ( j=0; j<b->station_nvars[i]; j++ ) {
-            variable = PyString_FromString(b->material_names[i+j+1]);
+            variable = PyBytes_FromString(b->material_names[i+j+1]);
             PyList_SET_ITEM(station, j, variable);
         }
 
@@ -992,7 +995,7 @@ setup_materials(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
         if (!block->material_names) goto free_mem;
 
         for (i=0; i < b->ndims; i++) {
-            name = PyString_FromString(b->material_names[i]);
+            name = PyBytes_FromString(b->material_names[i]);
             PyList_SET_ITEM(block->material_names, i, name);
         }
     }
@@ -1002,7 +1005,7 @@ setup_materials(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
         if (!block->material_ids) goto free_mem;
 
         for (i=0; i < b->ndims; i++) {
-            name = PyString_FromString(b->variable_ids[i]);
+            name = PyBytes_FromString(b->variable_ids[i]);
             PyList_SET_ITEM(block->material_ids, i, name);
         }
     }
@@ -1032,7 +1035,7 @@ setup_array(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
     if (!block) goto free_mem;
 
     if (b->units) {
-        block->units = PyString_FromString(b->units);
+        block->units = PyBytes_FromString(b->units);
         if (!block->units) goto free_mem;
     }
 
@@ -1191,7 +1194,7 @@ static Block *dict_find_mesh_id(PyObject *dict, char *id)
             case SDF_BLOCKTYPE_PLAIN_MESH:
             case SDF_BLOCKTYPE_POINT_MESH:
             case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
-                mesh_id = PyString_AsString(block->id);
+                mesh_id = PyBytes_AsString(block->id);
                 if (mesh_id && memcmp(mesh_id, id, len) == 0)
                     return block;
                 break;
@@ -1225,7 +1228,7 @@ static void dict_find_variable_ids(PyObject *dict, Block *station)
         block = (Block*)value;
         if (!block->b)
             continue;
-        block_id = PyString_AsString(block->id);
+        block_id = PyBytes_AsString(block->id);
         if (!block_id)
             continue;
         len = strlen(block_id) + 1;
@@ -1417,7 +1420,7 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
 
         mangled = 0;
 
-        ckey = strdup(PyString_AsString(key));
+        ckey = strdup(PyBytes_AsString(key));
         for (ptr = ckey; *ptr != '\0'; ptr++) {
             if (*ptr >= '0' && *ptr <= '9')
                 continue;
@@ -1491,7 +1494,13 @@ MOD_INIT(sdf)
     if (!m)
         return MOD_ERROR_VAL;
 
-    PyModule_AddStringConstant(m, "__version__", "2.2.1");
+    PyModule_AddStringConstant(m, "__version__", "2.3.0");
+    PyModule_AddStringConstant(m, "__commit_id__", SDF_COMMIT_ID);
+    PyModule_AddStringConstant(m, "__commit_date__", SDF_COMMIT_DATE);
+    PyModule_AddStringConstant(m, "__library_commit_id__",
+                               sdf_get_library_commit_id());
+    PyModule_AddStringConstant(m, "__library_commit_date__",
+                               sdf_get_library_commit_date());
 
     SDFType.tp_dealloc = SDF_dealloc;
     SDFType.tp_flags = Py_TPFLAGS_DEFAULT;

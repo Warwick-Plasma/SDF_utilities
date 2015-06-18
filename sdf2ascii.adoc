@@ -41,6 +41,9 @@ OPTIONS
 *-C, --count=<count>*::
         When printing array contents, write '<count>' elements per line.
 
+*-V, --version*::
+        Print version information and exit
+
 
 SEE ALSO
 --------

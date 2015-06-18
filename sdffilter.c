@@ -10,10 +10,13 @@
 #include "sdf_list_type.h"
 #include "sdf_helper.h"
 #include "stack_allocator.h"
+#include "commit_info.h"
 
 #ifdef PARALLEL
 #include <mpi.h>
 #endif
+
+#define VERSION "2.3.0"
 
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 
@@ -21,6 +24,7 @@ int metadata, contents, debug, single, use_mmap, ignore_summary, ascii_header;
 int exclude_variables, derived, index_offset, element_count;
 int just_id, verbose_metadata, special_format, scale_factor;
 int format_rowindex, format_index, format_number;
+int purge_duplicate;
 int64_t array_ndims, *array_starts, *array_ends, *array_strides;
 int slice_direction, slice_dim[3];
 char *output_file;
@@ -126,6 +130,8 @@ void usage(int err)
   -K --format-number   Show block number before each row of array elements.\n\
   -R --format-rowindex Show array indices before each row of array elements.\n\
   -J --format-index    Show array indices before each array element.\n\
+  -p --purge-duplicate Delete duplicated block IDs\n\
+  -V --version         Print version information and exit\n\
 ");
 /*
   -o --output          Output filename\n\
@@ -289,37 +295,40 @@ char *parse_args(int *argc, char ***argv)
     struct range_type *range_tmp;
     struct stat statbuf;
     static struct option longopts[] = {
-        { "1dslice",       required_argument, NULL, '1' },
-        { "array-section", required_argument, NULL, 'a' },
-        { "contents",      no_argument,       NULL, 'c' },
-        { "count",         required_argument, NULL, 'C' },
-        { "derived",       no_argument,       NULL, 'd' },
-        { "help",          no_argument,       NULL, 'h' },
-        { "no-ascii-header",no_argument,      NULL, 'H' },
-        { "format-float",  required_argument, NULL, 'F' },
-        { "no-summary",    no_argument,       NULL, 'i' },
-        { "c-indexing",    no_argument,       NULL, 'I' },
-        { "just-id",       no_argument,       NULL, 'j' },
-        { "format-index",  no_argument,       NULL, 'J' },
-        { "format-number", no_argument,       NULL, 'K' },
-        { "less-verbose",  no_argument,       NULL, 'l' },
-        { "mmap",          no_argument,       NULL, 'm' },
-        { "no-metadata",   no_argument,       NULL, 'n' },
-        { "format-int",    required_argument, NULL, 'N' },
-        { "format-rowindex",no_argument,      NULL, 'R' },
-        { "single",        no_argument,       NULL, 's' },
-        { "format-space",  required_argument, NULL, 'S' },
-        { "variable",      required_argument, NULL, 'v' },
-        { "exclude",       required_argument, NULL, 'x' },
-        { NULL,            0,                 NULL,  0  }
-        //{ "debug",         no_argument,       NULL, 'D' },
-        //{ "output",        required_argument, NULL, 'o' },
+        { "1dslice",         required_argument, NULL, '1' },
+        { "array-section",   required_argument, NULL, 'a' },
+        { "contents",        no_argument,       NULL, 'c' },
+        { "count",           required_argument, NULL, 'C' },
+        { "derived",         no_argument,       NULL, 'd' },
+        { "help",            no_argument,       NULL, 'h' },
+        { "no-ascii-header", no_argument,       NULL, 'H' },
+        { "format-float",    required_argument, NULL, 'F' },
+        { "no-summary",      no_argument,       NULL, 'i' },
+        { "c-indexing",      no_argument,       NULL, 'I' },
+        { "just-id",         no_argument,       NULL, 'j' },
+        { "format-index",    no_argument,       NULL, 'J' },
+        { "format-number",   no_argument,       NULL, 'K' },
+        { "less-verbose",    no_argument,       NULL, 'l' },
+        { "mmap",            no_argument,       NULL, 'm' },
+        { "no-metadata",     no_argument,       NULL, 'n' },
+        { "format-int",      required_argument, NULL, 'N' },
+        { "format-rowindex", no_argument,       NULL, 'R' },
+        { "single",          no_argument,       NULL, 's' },
+        { "format-space",    required_argument, NULL, 'S' },
+        { "variable",        required_argument, NULL, 'v' },
+        { "exclude",         required_argument, NULL, 'x' },
+        { "purge-duplicate", no_argument,       NULL, 'p' },
+        { "version",         no_argument,       NULL, 'V' },
+        { NULL,              0,                 NULL,  0  }
+        //{ "debug",           no_argument,       NULL, 'D' },
+        //{ "output",          required_argument, NULL, 'o' },
     };
 
     metadata = debug = index_offset = element_count = verbose_metadata = 1;
     ascii_header = 1;
     contents = single = use_mmap = ignore_summary = exclude_variables = 0;
     derived = format_rowindex = format_index = format_number = just_id = 0;
+    purge_duplicate = 0;
     slice_direction = -1;
     variable_ids = NULL;
     variable_last_id = NULL;
@@ -340,7 +349,7 @@ char *parse_args(int *argc, char ***argv)
     got_include = got_exclude = 0;
 
     while ((c = getopt_long(*argc, *argv,
-            "1:a:cC:dF:hHiIjJKlmnN:RsS:v:x:", longopts, NULL)) != -1) {
+            "1:a:cC:dF:hHiIjJKlmnN:RsS:v:x:pV", longopts, NULL)) != -1) {
         switch (c) {
         case '1':
             contents = 1;
@@ -411,10 +420,20 @@ char *parse_args(int *argc, char ***argv)
         case 's':
             single = 1;
             break;
+        case 'p':
+            purge_duplicate = 1;
+            break;
         case 'S':
             free(format_space);
             format_space = malloc(strlen(optarg)+1);
             memcpy(format_space, optarg, strlen(optarg)+1);
+            break;
+        case 'V':
+            printf("sdffilter version %s\n", VERSION);
+            printf("commit info: %s, %s\n", SDF_COMMIT_ID, SDF_COMMIT_DATE);
+            printf("library commit info: %s, %s\n",
+                   sdf_get_library_commit_id(), sdf_get_library_commit_date());
+            exit(0);
             break;
         case 'v':
         case 'x':
@@ -1526,6 +1545,8 @@ int main(int argc, char **argv)
     }
 
     if (!metadata && !contents) return close_files(h);
+
+    h->purge_duplicated_ids = purge_duplicate;
 
     if (derived)
         sdf_read_blocklist_all(h);
