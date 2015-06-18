@@ -1249,6 +1249,7 @@ static void dict_find_variable_ids(PyObject *dict, Block *station)
         // Found one of our variable_ids. Insert it into the station list and
         // remove it from the find list.
         PyList_SET_ITEM(station->data, found, (PyObject*)block);
+        Py_INCREF(block);
 
         nfind--;
         // Stop searching if we've found them all
