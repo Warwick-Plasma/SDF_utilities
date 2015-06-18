@@ -1249,6 +1249,7 @@ static void dict_find_variable_ids(PyObject *dict, Block *station)
         // Found one of our variable_ids. Insert it into the station list and
         // remove it from the find list.
         PyList_SET_ITEM(station->data, found, (PyObject*)block);
+        Py_INCREF(block);
 
         nfind--;
         // Stop searching if we've found them all
@@ -1490,7 +1491,7 @@ MOD_INIT(sdf)
     if (!m)
         return MOD_ERROR_VAL;
 
-    PyModule_AddStringConstant(m, "__version__", "2.2.0");
+    PyModule_AddStringConstant(m, "__version__", "2.2.1");
 
     SDFType.tp_dealloc = SDF_dealloc;
     SDFType.tp_flags = Py_TPFLAGS_DEFAULT;
