@@ -21,11 +21,13 @@ __version__ = "2.0.0"
 _module_name = "sdf_legacy"
 _sdf_version = __version__
 
+
 def _error_message():
-    raise ImportError(r"Your sdf python module is too old for this version " \
-        "of " + _module_name + ".\n" \
-        "Either upgrade to sdf python " + _sdf_version + " or newer, or " \
-        "downgrade " + _module_name)
+    raise ImportError(r"Your sdf python module is too old for this version "
+                      "of " + _module_name + ".\n"
+                      "Either upgrade to sdf python " + _sdf_version +
+                      " or newer, or downgrade " + _module_name)
+
 
 def _check_validity():
     if not hasattr(sdf, "__version__"):
@@ -42,9 +44,11 @@ _check_validity()
 class SDFObject:
     filename = None
     convert = 0
+
     def __init__(self, filename, convert):
         self.filename = filename
         self.convert = convert
+
     def read(self, *args, **kwargs):
         """Reads the SDF file associated with this object and returns a
         dictionary of NumPy arrays containing the file data."""
@@ -67,7 +71,7 @@ def read(*args, **kwargs):
     data = sdf.read(*args, **kwargs)
 
     sdfdict = {}
-    for key,value in data.__dict__.items():
+    for key, value in data.__dict__.items():
         if hasattr(value, "name"):
             if hasattr(value, "data"):
                 sdfdict[value.name] = value.data
@@ -97,4 +101,3 @@ def read(*args, **kwargs):
             sdfdict["Materials"] = value.material_names
 
     return sdfdict
-

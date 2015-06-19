@@ -32,6 +32,11 @@ if [ $clean -ge 1 ] ; then
   rm -rf pybuild
 fi
 if [ $clean -le 1 ] ; then
+  if [ ! -r $SDFDIR/lib/libsdfc.a ]; then
+    echo "ERROR: SDF C library must be built first"
+    echo "Switch to the C directory and type make"
+    exit 1
+  fi
   sh gen_commit_string.sh
   gcc $OPT -o sdf2ascii sdf2ascii.c -ldl -lsdfc
   gcc $OPT -o sdffilter sdffilter.c -ldl -lm -lsdfc
