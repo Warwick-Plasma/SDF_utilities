@@ -4,6 +4,8 @@ import numpy
 
 os.environ['CC'] = "${CMAKE_C_COMPILER}"
 os.environ['CPP'] = "${CMAKE_CXX_COMPILER}"
+os.environ['CFLAGS'] = "${CFLAGS}"
+os.environ['CXXFLAGS'] = "${CXXFLAGS}"
 
 setup(
     name='sdfpy',
