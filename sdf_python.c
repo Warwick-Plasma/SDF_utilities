@@ -301,9 +301,11 @@ static PyMemberDef BlockStitchedMaterial_members[] = {
 
 
 static PyObject *Block_getdata(Block *block, void *closure);
+static int Block_setdata(Block *block, PyObject *value, void *closure);
 
 static PyGetSetDef Block_getset[] = {
-    {"data", (getter)Block_getdata, NULL, "Block data contents", NULL},
+    {"data", (getter)Block_getdata, (setter)Block_setdata,
+     "Block data contents", NULL},
     {NULL}  /* Sentinel */
 };
 
@@ -512,6 +514,30 @@ Block_dealloc(PyObject *self)
     //self->ob_type->tp_free(self);
 }
 
+/* FIXME:
+ * The functions Block_getdata, Block_setdata can give the following
+ * weird behaviour:
+ *
+ *  >>> print block.data
+ *  array([0., 1., ..., 100.]
+ *  >>> del block.data
+ *  >>> print block.data
+ *  array([0., 1., ..., 100.]
+ *
+ *  where we would expect an error, because block.data shouldn't
+ *  exist anymore.
+ *
+ *  Possible solutions:
+ *     - add a flag 'data_deleted', that is checked by Block_getdata
+ *       before it tries to reload
+ *     - replace 'block.data' with the method 'block.get_data()'
+ *       that returns a numpy array that can just be deleted, without
+ *       any need for Block_setdata.
+ *       Obviously this solution breaks backward compatibility.
+ *
+ *  AMW - 2015-07-16
+ */
+
 
 static PyObject *Block_getdata(Block *block, void *closure)
 {
@@ -675,6 +701,18 @@ free_mem:
     if (array) Py_DECREF(array);
     sdf_free_block_data(sdf->h, b);
     return PyErr_Format(PyExc_Exception, "Error whilst reading SDF block\n");
+}
+
+
+static int
+Block_setdata(Block *block, PyObject *value, void *closure)
+{
+    Py_XDECREF(block->data);
+    if ( value != NULL )
+        Py_INCREF(value);
+    block->data = value;
+
+    return 0;
 }
 
 
