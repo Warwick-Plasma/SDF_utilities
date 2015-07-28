@@ -1530,6 +1530,7 @@ static PyMethodDef SDF_methods[] = {
 MOD_INIT(sdf)
 {
     PyObject *m;
+    char *s;
 
     MOD_DEF(m, "sdf", "SDF file reading library", SDF_methods)
 
@@ -1539,10 +1540,14 @@ MOD_INIT(sdf)
     PyModule_AddStringConstant(m, "__version__", "2.3.3");
     PyModule_AddStringConstant(m, "__commit_id__", SDF_COMMIT_ID);
     PyModule_AddStringConstant(m, "__commit_date__", SDF_COMMIT_DATE);
-    PyModule_AddStringConstant(m, "__library_commit_id__",
-                               sdf_get_library_commit_id());
-    PyModule_AddStringConstant(m, "__library_commit_date__",
-                               sdf_get_library_commit_date());
+    s = sdf_get_library_commit_id();
+    PyModule_AddStringConstant(m, "__library_commit_id__", s);
+    if (s)
+       free(s);
+    s = sdf_get_library_commit_date();
+    PyModule_AddStringConstant(m, "__library_commit_date__", s);
+    if (s)
+       free(s);
 
     SDFType.tp_dealloc = SDF_dealloc;
     SDFType.tp_flags = Py_TPFLAGS_DEFAULT;
