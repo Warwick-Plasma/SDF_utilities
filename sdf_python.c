@@ -1389,6 +1389,7 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
                 if ( !sub ) {
                     sub = PyDict_New();
                     PyDict_SetItemString(dict, "StationBlocks", sub);
+                    Py_DECREF(sub);
                 }
                 append_station_metadata(b, sub);
                 extract_station_time_histories(h, stations, variables, t0, t1,
