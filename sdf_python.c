@@ -511,7 +511,7 @@ Block_dealloc(PyObject *self)
     }
 
     /* Object should not free itself unless tp_alloc has been defined */
-    //self->ob_type->tp_free(self);
+    self->ob_type->tp_free(self);
 }
 
 /* FIXME:
