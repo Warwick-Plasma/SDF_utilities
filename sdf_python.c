@@ -301,9 +301,11 @@ static PyMemberDef BlockStitchedMaterial_members[] = {
 
 
 static PyObject *Block_getdata(Block *block, void *closure);
+static int Block_setdata(Block *block, PyObject *value, void *closure);
 
 static PyGetSetDef Block_getset[] = {
-    {"data", (getter)Block_getdata, NULL, "Block data contents", NULL},
+    {"data", (getter)Block_getdata, (setter)Block_setdata,
+     "Block data contents", NULL},
     {NULL}  /* Sentinel */
 };
 
@@ -509,8 +511,32 @@ Block_dealloc(PyObject *self)
     }
 
     /* Object should not free itself unless tp_alloc has been defined */
-    //self->ob_type->tp_free(self);
+    self->ob_type->tp_free(self);
 }
+
+/* FIXME:
+ * The functions Block_getdata, Block_setdata can give the following
+ * weird behaviour:
+ *
+ *  >>> print block.data
+ *  array([0., 1., ..., 100.]
+ *  >>> del block.data
+ *  >>> print block.data
+ *  array([0., 1., ..., 100.]
+ *
+ *  where we would expect an error, because block.data shouldn't
+ *  exist anymore.
+ *
+ *  Possible solutions:
+ *     - add a flag 'data_deleted', that is checked by Block_getdata
+ *       before it tries to reload
+ *     - replace 'block.data' with the method 'block.get_data()'
+ *       that returns a numpy array that can just be deleted, without
+ *       any need for Block_setdata.
+ *       Obviously this solution breaks backward compatibility.
+ *
+ *  AMW - 2015-07-16
+ */
 
 
 static PyObject *Block_getdata(Block *block, void *closure)
@@ -675,6 +701,18 @@ free_mem:
     if (array) Py_DECREF(array);
     sdf_free_block_data(sdf->h, b);
     return PyErr_Format(PyExc_Exception, "Error whilst reading SDF block\n");
+}
+
+
+static int
+Block_setdata(Block *block, PyObject *value, void *closure)
+{
+    Py_XDECREF(block->data);
+    if ( value != NULL )
+        Py_INCREF(value);
+    block->data = value;
+
+    return 0;
 }
 
 
@@ -1179,26 +1217,23 @@ free_mem:
 
 static Block *dict_find_mesh_id(PyObject *dict, char *id)
 {
-    PyObject *key, *value;
+    PyObject *value;
     Block *block;
-    char *mesh_id;
-    Py_ssize_t pos = 0, len = strlen(id) + 1;
 
-    while (PyDict_Next(dict, &pos, &key, &value)) {
-        if (!PyObject_TypeCheck(value, &BlockType))
-            continue;
-        block = (Block*)value;
-        if (!block->b)
-            continue;
-        switch(block->b->blocktype) {
-            case SDF_BLOCKTYPE_PLAIN_MESH:
-            case SDF_BLOCKTYPE_POINT_MESH:
-            case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
-                mesh_id = PyBytes_AsString(block->id);
-                if (mesh_id && memcmp(mesh_id, id, len) == 0)
-                    return block;
-                break;
-        }
+    value = PyDict_GetItemString(dict, id);
+    if ( !value )
+       return NULL;
+
+    if ( !PyObject_TypeCheck(value, &BlockType) )
+       return NULL;
+
+    block = (Block*)value;
+
+    switch(block->b->blocktype) {
+        case SDF_BLOCKTYPE_PLAIN_MESH:
+        case SDF_BLOCKTYPE_POINT_MESH:
+        case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
+           return block;
     }
 
     return NULL;
@@ -1274,7 +1309,7 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
     PyTypeObject *type = &SDFType;
     sdf_file_t *h;
     sdf_block_t *b;
-    PyObject *dict, *sub, *key, *value;
+    PyObject *dict, *dict_id, *sub, *key, *value;
     PyObject *items_list;
     Block *block;
     Py_ssize_t pos = 0;
@@ -1321,6 +1356,7 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
         sdf_read_blocklist(h);
 
     dict = PyDict_New();
+    dict_id = PyDict_New();
 
     /* Add header */
     sub = fill_header(h);
@@ -1353,6 +1389,7 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
                 if ( !sub ) {
                     sub = PyDict_New();
                     PyDict_SetItemString(dict, "StationBlocks", sub);
+                    Py_DECREF(sub);
                 }
                 append_station_metadata(b, sub);
                 extract_station_time_histories(h, stations, variables, t0, t1,
@@ -1363,6 +1400,9 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
                 setup_materials(sdf, dict, b);
                 break;
         }
+        sub = PyDict_GetItemString(dict, b->name);
+        if ( sub )
+            PyDict_SetItemString(dict_id, b->id, sub);
         b = h->current_block = b->next;
     }
 
@@ -1381,23 +1421,24 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
                 || b->blocktype == SDF_BLOCKTYPE_CONTIGUOUS_MATERIAL) {
             if (!b->mesh_id)
                 continue;
-            block->grid = dict_find_mesh_id(dict, b->mesh_id);
+            block->grid = dict_find_mesh_id(dict_id, b->mesh_id);
             len_id = strlen(b->mesh_id);
             memcpy(mesh_id, b->mesh_id, len_id);
             memcpy(mesh_id+len_id, "_mid", 5);
-            block->grid_mid = dict_find_mesh_id(dict, mesh_id);
+            block->grid_mid = dict_find_mesh_id(dict_id, mesh_id);
             if (b->blocktype == SDF_BLOCKTYPE_STITCHED_MATERIAL
                     || b->blocktype == SDF_BLOCKTYPE_CONTIGUOUS_MATERIAL)
                 dict_find_variable_ids(dict, block);
         } else if (b->blocktype == SDF_BLOCKTYPE_POINT_VARIABLE
                 || b->blocktype == SDF_BLOCKTYPE_POINT_DERIVED) {
-            block->grid = dict_find_mesh_id(dict, b->mesh_id);
+            block->grid = dict_find_mesh_id(dict_id, b->mesh_id);
         }
     }
 
     free(mesh_id);
 
     if (use_dict) {
+        Py_DECREF(dict_id);
         Py_DECREF(sdf);
         return (PyObject*)dict;
     }
@@ -1405,6 +1446,7 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
     type = &BlockListType;
     blocklist = (BlockList*)type->tp_alloc(type, 0);
     if (!blocklist) {
+        Py_DECREF(dict_id);
         PyErr_Format(PyExc_MemoryError, "Failed to allocate BlockList object");
         return NULL;
     }
@@ -1441,6 +1483,7 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
     }
     Py_DECREF(items_list);
 
+    Py_DECREF(dict_id);
     Py_DECREF(sdf);
     return (PyObject*)blocklist;
 }
@@ -1488,19 +1531,24 @@ static PyMethodDef SDF_methods[] = {
 MOD_INIT(sdf)
 {
     PyObject *m;
+    char *s;
 
     MOD_DEF(m, "sdf", "SDF file reading library", SDF_methods)
 
     if (!m)
         return MOD_ERROR_VAL;
 
-    PyModule_AddStringConstant(m, "__version__", "2.3.3");
+    PyModule_AddStringConstant(m, "__version__", "2.4.0");
     PyModule_AddStringConstant(m, "__commit_id__", SDF_COMMIT_ID);
     PyModule_AddStringConstant(m, "__commit_date__", SDF_COMMIT_DATE);
-    PyModule_AddStringConstant(m, "__library_commit_id__",
-                               sdf_get_library_commit_id());
-    PyModule_AddStringConstant(m, "__library_commit_date__",
-                               sdf_get_library_commit_date());
+    s = sdf_get_library_commit_id();
+    PyModule_AddStringConstant(m, "__library_commit_id__", s);
+    if (s)
+       free(s);
+    s = sdf_get_library_commit_date();
+    PyModule_AddStringConstant(m, "__library_commit_date__", s);
+    if (s)
+       free(s);
 
     SDFType.tp_dealloc = SDF_dealloc;
     SDFType.tp_flags = Py_TPFLAGS_DEFAULT;
