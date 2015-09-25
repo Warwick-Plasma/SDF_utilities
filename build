@@ -47,7 +47,7 @@ newenough = sys.hexversion > 0x02060000
 if newenough: sys.exit(newenough)
 for p in sys.path:
   if p.startswith(os.environ["HOME"]) and p.find("site-packages") != -1:
-    print "/".join(p.split("/")[:-3])
+    print("/".join(p.split("/")[:-3]))
     break
 sys.exit(newenough)')
   if [ $? -eq 0 ]; then
