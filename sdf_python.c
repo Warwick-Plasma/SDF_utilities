@@ -414,11 +414,9 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
         case SDF_BLOCKTYPE_ARRAY:
             ob->sdfref = 1;
             Py_INCREF(ob->sdf);
-            if (b->dims && ob->dims) {
-                for (i=0; i < b->ndims; i++) {
-                    ob->adims[i] = b->dims[i];
-                    PyTuple_SetItem(ob->dims, i, PyLong_FromLong(b->dims[i]));
-                }
+            for (i=0; i < b->ndims; i++) {
+                ob->adims[i] = b->dims[i];
+                PyTuple_SetItem(ob->dims, i, PyLong_FromLong(b->dims[i]));
             }
             break;
         case SDF_BLOCKTYPE_NAMEVALUE:
