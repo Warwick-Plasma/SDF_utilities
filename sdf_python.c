@@ -414,11 +414,9 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
         case SDF_BLOCKTYPE_ARRAY:
             ob->sdfref = 1;
             Py_INCREF(ob->sdf);
-            if (b->dims && ob->dims) {
-                for (i=0; i < b->ndims; i++) {
-                    ob->adims[i] = b->dims[i];
-                    PyTuple_SetItem(ob->dims, i, PyLong_FromLong(b->dims[i]));
-                }
+            for (i=0; i < b->ndims; i++) {
+                ob->adims[i] = b->dims[i];
+                PyTuple_SetItem(ob->dims, i, PyLong_FromLong(b->dims[i]));
             }
             break;
         case SDF_BLOCKTYPE_NAMEVALUE:
@@ -1458,11 +1456,19 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
         PyObject *item = PyList_GET_ITEM(items_list, i);
         PyObject *key = PyTuple_GET_ITEM(item, 0);
         PyObject *value = PyTuple_GET_ITEM(item, 1);
+        PyObject *ascii;
         char *ckey, *ptr;
 
         mangled = 0;
 
+#if PY_MAJOR_VERSION < 3
         ckey = strdup(PyBytes_AsString(key));
+#else
+        ascii = PyUnicode_AsASCIIString(key);
+        ckey = strdup(PyBytes_AsString(ascii));
+        Py_DECREF(ascii);
+#endif
+
         for (ptr = ckey; *ptr != '\0'; ptr++) {
             if (*ptr >= '0' && *ptr <= '9')
                 continue;
@@ -1538,7 +1544,7 @@ MOD_INIT(sdf)
     if (!m)
         return MOD_ERROR_VAL;
 
-    PyModule_AddStringConstant(m, "__version__", "2.4.0");
+    PyModule_AddStringConstant(m, "__version__", "2.4.1");
     PyModule_AddStringConstant(m, "__commit_id__", SDF_COMMIT_ID);
     PyModule_AddStringConstant(m, "__commit_date__", SDF_COMMIT_DATE);
     s = sdf_get_library_commit_id();

@@ -4,6 +4,7 @@ SDFDIR=../C
 EXTDIR=../extension
 
 clean=0
+errcode=0
 CFLAGS="-DSDF_DEBUG_ALL -D_XOPEN_SOURCE=600 -I$SDFDIR/include -L$SDFDIR/lib"
 OPT="$CFLAGS -O3"
 
@@ -38,15 +39,15 @@ if [ $clean -le 1 ] ; then
     exit 1
   fi
   sh gen_commit_string.sh
-  gcc $OPT -o sdf2ascii sdf2ascii.c -ldl -lsdfc
-  gcc $OPT -o sdffilter sdffilter.c -ldl -lm -lsdfc
+  gcc $OPT -o sdf2ascii sdf2ascii.c -lsdfc -ldl || errcode=1
+  gcc $OPT -o sdffilter sdffilter.c -lsdfc -ldl -lm || errcode=1
   # Test if python is new enough for the --user flag
   user=$(python -c 'import sys, os
 newenough = sys.hexversion > 0x02060000
 if newenough: sys.exit(newenough)
 for p in sys.path:
   if p.startswith(os.environ["HOME"]) and p.find("site-packages") != -1:
-    print "/".join(p.split("/")[:-3])
+    print("/".join(p.split("/")[:-3]))
     break
 sys.exit(newenough)')
   if [ $? -eq 0 ]; then
@@ -66,3 +67,5 @@ sys.exit(newenough)')
     done
   fi
 fi
+
+exit $errcode
