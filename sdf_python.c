@@ -1462,7 +1462,12 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
 
         mangled = 0;
 
+#if PY_MAJOR_VERSION < 3
         ckey = strdup(PyBytes_AsString(key));
+#else
+        ckey = strdup(PyBytes_AsString(PyUnicode_AsASCIIString(key)));
+#endif
+
         for (ptr = ckey; *ptr != '\0'; ptr++) {
             if (*ptr >= '0' && *ptr <= '9')
                 continue;
