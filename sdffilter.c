@@ -63,12 +63,16 @@ static char width_fmt[16];
         SET_WIDTH_LEN(_l); \
     } while(0)
 
-#define PRINT(name,variable,fmt) do { \
-        if (!(variable)) break; \
+#define PRINTC(name,variable,fmt) do { \
         printf(indent, 1); \
         printf(width_fmt, (name)); \
         printf(" " fmt, (variable)); \
         printf("\n"); \
+    } while(0)
+
+#define PRINT(name,variable,fmt) do { \
+        if (!(variable)) break; \
+        PRINTC(name,variable,fmt); \
     } while(0)
 
 #define PRINTAR(name,array,fmt,len) do { \
@@ -985,6 +989,36 @@ static void pretty_print(sdf_file_t *h, sdf_block_t *b, int idnum)
 }
 
 
+static void print_header(sdf_file_t *h)
+{
+    printf("Block 0: File header\n");
+    if (just_id) return;
+
+    sprintf(indent, default_indent, 1);
+
+    SET_WIDTH("first_block_location:");
+    PRINTC("endianness:", h->endianness, "%#8.8x");
+    PRINTC("file_version:", h->file_version, "%i");
+    PRINTC("file_revision:", h->file_revision, "%i");
+    PRINTC("code_name:", h->code_name, "%s");
+    PRINTC("first_block_location:", h->first_block_location, "%#8.8llx");
+    PRINTC("summary_location:", h->summary_location, "%#8.8llx");
+    PRINTC("summary_size:", h->summary_size, "%i");
+    PRINTC("nblocks_file:", h->nblocks_file, "%i");
+    PRINTC("block_header_length:", h->block_header_length, "%i");
+    PRINTC("step:", h->step, "%i");
+    PRINTC("time:", h->time, "%g");
+    printf(indent, 1);
+    printf(width_fmt, "jobid:");
+    printf(" %i.%i\n", h->jobid1, h->jobid2);
+    PRINTC("string_length:", h->string_length, "%i");
+    PRINTC("code_io_version:", h->code_io_version, "%i");
+    PRINTC("restart_flag:", h->restart_flag, "%i");
+    PRINTC("other_domains:", h->other_domains, "%i");
+    printf("\n");
+}
+
+
 static void print_metadata_plain_mesh(sdf_block_t *b)
 {
     // Metadata is
@@ -1558,6 +1592,9 @@ int main(int argc, char **argv)
     if (derived && extension_info) sdf_extension_print_version(h);
 
     if (!metadata && !contents) return close_files(h);
+
+    if (nrange == 0 || (nrange > 0 && range_list[0].start == 0))
+        print_header(h);
 
     h->purge_duplicated_ids = purge_duplicate;
 
