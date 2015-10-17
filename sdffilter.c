@@ -6,6 +6,7 @@
 #include <math.h>
 #include <time.h>
 #include <float.h>
+#include <limits.h>
 #include "sdf.h"
 #include "sdf_list_type.h"
 #include "sdf_helper.h"
@@ -465,14 +466,14 @@ char *parse_args(int *argc, char ***argv)
                         "exclude variables.\n");
                 exit(1);
             }
-            if (*optarg >= '0' && *optarg <= '9') {
+            if ((*optarg >= '0' && *optarg <= '9') || *optarg == '-') {
                 ptr = optarg;
                 range = 0;
                 while (ptr < optarg + strlen(optarg) + 1) {
                     if (range) {
                         i = (int)strtol(ptr, &ptr, 10);
                         if (i == 0)
-                            range_list[nrange-1].end = -1;
+                            range_list[nrange-1].end = INT_MAX;
                         else if (i < range_list[nrange-1].start)
                             nrange--;
                         else
@@ -484,11 +485,11 @@ char *parse_args(int *argc, char ***argv)
                         if (nrange > nrange_max) {
                             if (nrange_max == 0) {
                                 nrange_max = 128;
-                                range_list = malloc(nrange_max * sz);
+                                range_list = calloc(nrange_max, sz);
                             } else {
                                 i = 2 * nrange_max;
 
-                                range_tmp = malloc(i * sz);
+                                range_tmp = calloc(i, sz);
                                 memcpy(range_tmp, range_list, nrange_max * sz);
                                 free(range_list);
                                 range_list = range_tmp;
@@ -497,10 +498,15 @@ char *parse_args(int *argc, char ***argv)
                             }
                         }
 
-                        i = (int)strtol(ptr, &ptr, 10);
-                        range_list[nrange-1].start = i;
-                        range_list[nrange-1].end = i;
-                        if (*ptr == '-') range = 1;
+                        if (*ptr == '-') {
+                            range = 1;
+                            range_list[nrange-1].end = INT_MAX;
+                        } else {
+                            i = (int)strtol(ptr, &ptr, 10);
+                            range_list[nrange-1].start = i;
+                            range_list[nrange-1].end = i;
+                            if (*ptr == '-') range = 1;
+                        }
                     }
 
                     ptr++;
