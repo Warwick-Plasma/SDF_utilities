@@ -1006,6 +1006,7 @@ static PyObject *fill_header(sdf_file_t *h)
     SET_ENTRY(i, code_io_version);
     SET_BOOL(restart_flag);
     SET_BOOL(other_domains);
+    SET_BOOL(station_flag);
 
     return dict;
 }
@@ -1544,7 +1545,7 @@ MOD_INIT(sdf)
     if (!m)
         return MOD_ERROR_VAL;
 
-    PyModule_AddStringConstant(m, "__version__", "2.4.0");
+    PyModule_AddStringConstant(m, "__version__", "2.4.1");
     PyModule_AddStringConstant(m, "__commit_id__", SDF_COMMIT_ID);
     PyModule_AddStringConstant(m, "__commit_date__", SDF_COMMIT_DATE);
     s = sdf_get_library_commit_id();
