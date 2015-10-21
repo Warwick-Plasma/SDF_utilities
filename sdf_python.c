@@ -1006,7 +1006,7 @@ static PyObject *fill_header(sdf_file_t *h)
     SET_ENTRY(i, code_io_version);
     SET_BOOL(restart_flag);
     SET_BOOL(other_domains);
-    SET_BOOL(station_flag);
+    SET_BOOL(station_file);
 
     return dict;
 }
