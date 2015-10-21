@@ -1457,8 +1457,10 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
         PyObject *item = PyList_GET_ITEM(items_list, i);
         PyObject *key = PyTuple_GET_ITEM(item, 0);
         PyObject *value = PyTuple_GET_ITEM(item, 1);
-        PyObject *ascii;
         char *ckey, *ptr;
+#if PY_MAJOR_VERSION >= 3
+        PyObject *ascii;
+#endif
 
         mangled = 0;
 
