@@ -1457,8 +1457,10 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
         PyObject *item = PyList_GET_ITEM(items_list, i);
         PyObject *key = PyTuple_GET_ITEM(item, 0);
         PyObject *value = PyTuple_GET_ITEM(item, 1);
-        PyObject *ascii;
         char *ckey, *ptr;
+#if PY_MAJOR_VERSION >= 3
+        PyObject *ascii;
+#endif
 
         mangled = 0;
 
@@ -1545,7 +1547,7 @@ MOD_INIT(sdf)
     if (!m)
         return MOD_ERROR_VAL;
 
-    PyModule_AddStringConstant(m, "__version__", "2.4.1");
+    PyModule_AddStringConstant(m, "__version__", "2.4.3");
     PyModule_AddStringConstant(m, "__commit_id__", SDF_COMMIT_ID);
     PyModule_AddStringConstant(m, "__commit_date__", SDF_COMMIT_DATE);
     s = sdf_get_library_commit_id();
