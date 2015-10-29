@@ -1198,7 +1198,6 @@ setup_namevalue(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
                 else
                     sub = Py_False;
                 PyDict_SetItemString(block->dict, b->material_names[i], sub);
-                Py_DECREF(sub);
                 cc++;
             }
             break;
