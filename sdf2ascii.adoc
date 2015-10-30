@@ -38,6 +38,9 @@ OPTIONS
 *-i, --no-summary*::
         Ignore the metadata summary
 
+*-b, --no-nblocks*::
+        Ignore the header value for nblocks
+
 *-C, --count=<count>*::
         When printing array contents, write '<count>' elements per line.
 
