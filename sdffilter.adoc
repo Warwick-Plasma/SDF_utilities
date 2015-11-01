@@ -47,6 +47,9 @@ OPTIONS
 *-i, --no-summary*::
         Ignore the metadata summary
 
+*-b, --no-nblocks*::
+        Ignore the header value for nblocks
+
 *-a, --array-section=<section>*::
         Read in the specified array section. The array section '<section>'
         mimics Python's slicing notation.
