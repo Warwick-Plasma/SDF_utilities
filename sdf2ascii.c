@@ -10,7 +10,7 @@
 #include <mpi.h>
 #endif
 
-#define VERSION "2.4.4"
+#define VERSION "2.4.5"
 
 #define DBG_FLUSH() do { \
         if (h && h->dbg_buf) { \
@@ -25,7 +25,7 @@
     } while (0)
 
 int metadata, contents, debug, single, use_mmap, ignore_summary;
-int element_count;
+int element_count, ignore_nblocks;
 struct id_list {
     char *id;
     struct id_list *next;
@@ -49,6 +49,7 @@ void usage(int err)
   -v --variable=id     Find the block with id matching 'id'\n\
   -m --mmap            Use mmap'ed file I/O\n\
   -i --no-summary      Ignore the metadata summary\n\
+  -b --no-nblocks      Ignore the header value for nblocks\n\
   -C --count=n         When printing array contents, write 'n' elements per\n\
                        line.\n\
   -V --version         Print version information and exit\n\
@@ -77,6 +78,7 @@ char *parse_args(int *argc, char ***argv)
     struct range_type *range_tmp;
     struct stat statbuf;
     static struct option longopts[] = {
+        { "no-nblocks",    no_argument,       NULL, 'b' },
         { "contents",      no_argument,       NULL, 'c' },
         { "count",         required_argument, NULL, 'C' },
         { "help",          no_argument,       NULL, 'h' },
@@ -91,15 +93,18 @@ char *parse_args(int *argc, char ***argv)
     };
 
     metadata = debug = 1;
-    contents = single = use_mmap = ignore_summary = 0;
+    contents = single = use_mmap = ignore_summary = ignore_nblocks = 0;
     variable_ids = NULL;
     last_id = NULL;
     nbuf = nrange = element_count = 0;
     sz = sizeof(struct range_type);
 
     while ((c = getopt_long(*argc, *argv,
-            "cC:himnsv:V", longopts, NULL)) != -1) {
+            "bcC:himnsv:V", longopts, NULL)) != -1) {
         switch (c) {
+        case 'b':
+            ignore_nblocks = 1;
+            break;
         case 'c':
             contents = 1;
             break;
@@ -250,6 +255,7 @@ int main(int argc, char **argv)
     h->use_float = single;
     h->print = debug;
     if (ignore_summary) h->use_summary = 0;
+    if (ignore_nblocks) h->ignore_nblocks = 1;
 
     sdf_read_header(h);
     h->current_block = NULL;
