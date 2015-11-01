@@ -731,7 +731,7 @@ SDF_dealloc(PyObject* self)
 
 
 static void
-setup_mesh(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
+setup_mesh(SDFObject *sdf, PyObject *dict, sdf_block_t *b, PyObject *dict_id)
 {
     char *block_name = NULL;
     char *mesh_id = NULL;
@@ -766,6 +766,8 @@ setup_mesh(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
         if (!ob) goto free_mem;
         PyTuple_SetItem(block->units, n, ob);
     }
+
+    PyDict_SetItemString(dict_id, b->id, (PyObject*)block);
 
     PyDict_SetItemString(dict, block_name, (PyObject*)block);
     Py_DECREF(block);
@@ -1196,7 +1198,6 @@ setup_namevalue(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
                 else
                     sub = Py_False;
                 PyDict_SetItemString(block->dict, b->material_names[i], sub);
-                Py_DECREF(sub);
                 cc++;
             }
             break;
@@ -1368,7 +1369,7 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
             case SDF_BLOCKTYPE_PLAIN_MESH:
             case SDF_BLOCKTYPE_POINT_MESH:
             case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
-                setup_mesh(sdf, dict, b);
+                setup_mesh(sdf, dict, b, dict_id);
                 break;
             case SDF_BLOCKTYPE_PLAIN_VARIABLE:
             case SDF_BLOCKTYPE_PLAIN_DERIVED:
@@ -1399,9 +1400,6 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
                 setup_materials(sdf, dict, b);
                 break;
         }
-        sub = PyDict_GetItemString(dict, b->name);
-        if ( sub )
-            PyDict_SetItemString(dict_id, b->id, sub);
         b = h->current_block = b->next;
     }
 
@@ -1547,7 +1545,7 @@ MOD_INIT(sdf)
     if (!m)
         return MOD_ERROR_VAL;
 
-    PyModule_AddStringConstant(m, "__version__", "2.4.4");
+    PyModule_AddStringConstant(m, "__version__", "2.4.5");
     PyModule_AddStringConstant(m, "__commit_id__", SDF_COMMIT_ID);
     PyModule_AddStringConstant(m, "__commit_date__", SDF_COMMIT_DATE);
     s = sdf_get_library_commit_id();
