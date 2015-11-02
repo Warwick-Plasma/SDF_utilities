@@ -6,6 +6,7 @@
 #include <math.h>
 #include <time.h>
 #include <float.h>
+#include <limits.h>
 #include "sdf.h"
 #include "sdf_list_type.h"
 #include "sdf_helper.h"
@@ -16,12 +17,12 @@
 #include <mpi.h>
 #endif
 
-#define VERSION "2.4.5"
+#define VERSION "2.4.6"
 
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 
 int metadata, contents, debug, single, use_mmap, ignore_summary, ascii_header;
-int exclude_variables, derived, index_offset, element_count;
+int exclude_variables, derived, extension_info, index_offset, element_count;
 int just_id, verbose_metadata, special_format, scale_factor;
 int format_rowindex, format_index, format_number;
 int purge_duplicate, ignore_nblocks;
@@ -63,12 +64,16 @@ static char width_fmt[16];
         SET_WIDTH_LEN(_l); \
     } while(0)
 
-#define PRINT(name,variable,fmt) do { \
-        if (!(variable)) break; \
+#define PRINTC(name,variable,fmt) do { \
         printf(indent, 1); \
         printf(width_fmt, (name)); \
         printf(" " fmt, (variable)); \
         printf("\n"); \
+    } while(0)
+
+#define PRINT(name,variable,fmt) do { \
+        if (!(variable)) break; \
+        PRINTC(name,variable,fmt); \
     } while(0)
 
 #define PRINTAR(name,array,fmt,len) do { \
@@ -114,6 +119,7 @@ void usage(int err)
   -a --array-section=s Read in the specified array section. The array section\n\
                        's' mimics Python's slicing notation.\n\
   -d --derived         Add derived blocks\n\
+  -e --extension-info  Print information about any loaded extension module\n\
   -I --c-indexing      Array indexing starts from 1 by default. If this flag\n\
                        is used then the indexing starts from 0.\n\
   -1 --1dslice=arg     Output 1D slice as a multi-column gnuplot file.\n\
@@ -302,6 +308,7 @@ char *parse_args(int *argc, char ***argv)
         { "contents",        no_argument,       NULL, 'c' },
         { "count",           required_argument, NULL, 'C' },
         { "derived",         no_argument,       NULL, 'd' },
+        { "extension-info",  no_argument,       NULL, 'e' },
         { "help",            no_argument,       NULL, 'h' },
         { "no-ascii-header", no_argument,       NULL, 'H' },
         { "format-float",    required_argument, NULL, 'F' },
@@ -330,7 +337,7 @@ char *parse_args(int *argc, char ***argv)
     ascii_header = 1;
     contents = single = use_mmap = ignore_summary = exclude_variables = 0;
     derived = format_rowindex = format_index = format_number = just_id = 0;
-    purge_duplicate = ignore_nblocks = 0;
+    purge_duplicate = ignore_nblocks = extension_info = 0;
     slice_direction = -1;
     variable_ids = NULL;
     variable_last_id = NULL;
@@ -351,7 +358,7 @@ char *parse_args(int *argc, char ***argv)
     got_include = got_exclude = 0;
 
     while ((c = getopt_long(*argc, *argv,
-            "1:a:bcC:dF:hHiIjJKlmnN:RsS:v:x:pV", longopts, NULL)) != -1) {
+            "1:a:bcC:deF:hHiIjJKlmnN:RsS:v:x:pV", longopts, NULL)) != -1) {
         switch (c) {
         case '1':
             contents = 1;
@@ -373,6 +380,9 @@ char *parse_args(int *argc, char ***argv)
             break;
         case 'd':
             derived = 1;
+            break;
+        case 'e':
+            extension_info = 1;
             break;
         case 'F':
             free(format_float);
@@ -456,14 +466,14 @@ char *parse_args(int *argc, char ***argv)
                         "exclude variables.\n");
                 exit(1);
             }
-            if (*optarg >= '0' && *optarg <= '9') {
+            if ((*optarg >= '0' && *optarg <= '9') || *optarg == '-') {
                 ptr = optarg;
                 range = 0;
                 while (ptr < optarg + strlen(optarg) + 1) {
                     if (range) {
                         i = (int)strtol(ptr, &ptr, 10);
                         if (i == 0)
-                            range_list[nrange-1].end = -1;
+                            range_list[nrange-1].end = INT_MAX;
                         else if (i < range_list[nrange-1].start)
                             nrange--;
                         else
@@ -475,11 +485,11 @@ char *parse_args(int *argc, char ***argv)
                         if (nrange > nrange_max) {
                             if (nrange_max == 0) {
                                 nrange_max = 128;
-                                range_list = malloc(nrange_max * sz);
+                                range_list = calloc(nrange_max, sz);
                             } else {
                                 i = 2 * nrange_max;
 
-                                range_tmp = malloc(i * sz);
+                                range_tmp = calloc(i, sz);
                                 memcpy(range_tmp, range_list, nrange_max * sz);
                                 free(range_list);
                                 range_list = range_tmp;
@@ -488,10 +498,15 @@ char *parse_args(int *argc, char ***argv)
                             }
                         }
 
-                        i = (int)strtol(ptr, &ptr, 10);
-                        range_list[nrange-1].start = i;
-                        range_list[nrange-1].end = i;
-                        if (*ptr == '-') range = 1;
+                        if (*ptr == '-') {
+                            range = 1;
+                            range_list[nrange-1].end = INT_MAX;
+                        } else {
+                            i = (int)strtol(ptr, &ptr, 10);
+                            range_list[nrange-1].start = i;
+                            range_list[nrange-1].end = i;
+                            if (*ptr == '-') range = 1;
+                        }
                     }
 
                     ptr++;
@@ -977,6 +992,36 @@ static void pretty_print(sdf_file_t *h, sdf_block_t *b, int idnum)
 
     for (i = 0; i < b->ndims; i++) free(fmt[i]);
     free(fmt);
+}
+
+
+static void print_header(sdf_file_t *h)
+{
+    printf("Block 0: File header\n");
+    if (just_id) return;
+
+    sprintf(indent, default_indent, 1);
+
+    SET_WIDTH("first_block_location:");
+    PRINTC("endianness:", h->endianness, "%#8.8x");
+    PRINTC("file_version:", h->file_version, "%i");
+    PRINTC("file_revision:", h->file_revision, "%i");
+    PRINTC("code_name:", h->code_name, "%s");
+    PRINTC("first_block_location:", (long long)h->first_block_location, "%#8.8llx");
+    PRINTC("summary_location:", (long long)h->summary_location, "%#8.8llx");
+    PRINTC("summary_size:", h->summary_size, "%i");
+    PRINTC("nblocks_file:", h->nblocks_file, "%i");
+    PRINTC("block_header_length:", h->block_header_length, "%i");
+    PRINTC("step:", h->step, "%i");
+    PRINTC("time:", h->time, "%g");
+    printf(indent, 1);
+    printf(width_fmt, "jobid:");
+    printf(" %i.%i\n", h->jobid1, h->jobid2);
+    PRINTC("string_length:", h->string_length, "%i");
+    PRINTC("code_io_version:", h->code_io_version, "%i");
+    PRINTC("restart_flag:", h->restart_flag, "%i");
+    PRINTC("other_domains:", h->other_domains, "%i");
+    printf("\n");
 }
 
 
@@ -1550,7 +1595,12 @@ int main(int argc, char **argv)
         sdf_close(oh);
     }
 
+    if (derived && extension_info) sdf_extension_print_version(h);
+
     if (!metadata && !contents) return close_files(h);
+
+    if (nrange == 0 || (nrange > 0 && range_list[0].start == 0))
+        print_header(h);
 
     h->purge_duplicated_ids = purge_duplicate;
 
