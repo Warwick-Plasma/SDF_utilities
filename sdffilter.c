@@ -1007,8 +1007,8 @@ static void print_header(sdf_file_t *h)
     PRINTC("file_version:", h->file_version, "%i");
     PRINTC("file_revision:", h->file_revision, "%i");
     PRINTC("code_name:", h->code_name, "%s");
-    PRINTC("first_block_location:", h->first_block_location, "%#8.8llx");
-    PRINTC("summary_location:", h->summary_location, "%#8.8llx");
+    PRINTC("first_block_location:", (long long)h->first_block_location, "%#8.8llx");
+    PRINTC("summary_location:", (long long)h->summary_location, "%#8.8llx");
     PRINTC("summary_size:", h->summary_size, "%i");
     PRINTC("nblocks_file:", h->nblocks_file, "%i");
     PRINTC("block_header_length:", h->block_header_length, "%i");
