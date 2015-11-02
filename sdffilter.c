@@ -21,7 +21,7 @@
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 
 int metadata, contents, debug, single, use_mmap, ignore_summary, ascii_header;
-int exclude_variables, derived, index_offset, element_count;
+int exclude_variables, derived, extension_info, index_offset, element_count;
 int just_id, verbose_metadata, special_format, scale_factor;
 int format_rowindex, format_index, format_number;
 int purge_duplicate, ignore_nblocks;
@@ -114,6 +114,7 @@ void usage(int err)
   -a --array-section=s Read in the specified array section. The array section\n\
                        's' mimics Python's slicing notation.\n\
   -d --derived         Add derived blocks\n\
+  -e --extension-info  Print information about any loaded extension module\n\
   -I --c-indexing      Array indexing starts from 1 by default. If this flag\n\
                        is used then the indexing starts from 0.\n\
   -1 --1dslice=arg     Output 1D slice as a multi-column gnuplot file.\n\
@@ -302,6 +303,7 @@ char *parse_args(int *argc, char ***argv)
         { "contents",        no_argument,       NULL, 'c' },
         { "count",           required_argument, NULL, 'C' },
         { "derived",         no_argument,       NULL, 'd' },
+        { "extension-info",  no_argument,       NULL, 'e' },
         { "help",            no_argument,       NULL, 'h' },
         { "no-ascii-header", no_argument,       NULL, 'H' },
         { "format-float",    required_argument, NULL, 'F' },
@@ -330,7 +332,7 @@ char *parse_args(int *argc, char ***argv)
     ascii_header = 1;
     contents = single = use_mmap = ignore_summary = exclude_variables = 0;
     derived = format_rowindex = format_index = format_number = just_id = 0;
-    purge_duplicate = ignore_nblocks = 0;
+    purge_duplicate = ignore_nblocks = extension_info = 0;
     slice_direction = -1;
     variable_ids = NULL;
     variable_last_id = NULL;
@@ -351,7 +353,7 @@ char *parse_args(int *argc, char ***argv)
     got_include = got_exclude = 0;
 
     while ((c = getopt_long(*argc, *argv,
-            "1:a:bcC:dF:hHiIjJKlmnN:RsS:v:x:pV", longopts, NULL)) != -1) {
+            "1:a:bcC:deF:hHiIjJKlmnN:RsS:v:x:pV", longopts, NULL)) != -1) {
         switch (c) {
         case '1':
             contents = 1;
@@ -373,6 +375,9 @@ char *parse_args(int *argc, char ***argv)
             break;
         case 'd':
             derived = 1;
+            break;
+        case 'e':
+            extension_info = 1;
             break;
         case 'F':
             free(format_float);
@@ -1549,6 +1554,8 @@ int main(int argc, char **argv)
         oh = sdf_open(output_file, comm, SDF_WRITE, 0);
         sdf_close(oh);
     }
+
+    if (derived && extension_info) sdf_extension_print_version(h);
 
     if (!metadata && !contents) return close_files(h);
 

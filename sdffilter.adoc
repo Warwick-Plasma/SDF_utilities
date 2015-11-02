@@ -57,6 +57,9 @@ OPTIONS
 *-d, --derived*::
         Add derived blocks
 
+*-e, --extension-info*::
+        Print information about any loaded extension module
+
 *-I, --c-indexing*::
         Array indexing starts from 1 by default. If this flag is used then
         the indexing starts from 0.
