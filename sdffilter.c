@@ -17,7 +17,7 @@
 #include <mpi.h>
 #endif
 
-#define VERSION "2.4.6"
+#define VERSION "2.4.7"
 
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 
@@ -1599,7 +1599,8 @@ int main(int argc, char **argv)
 
     if (!metadata && !contents) return close_files(h);
 
-    if (nrange == 0 || (nrange > 0 && range_list[0].start == 0))
+    if ((nrange == 0 && !variable_ids)
+            || (nrange > 0 && range_list[0].start == 0))
         print_header(h);
 
     h->purge_duplicated_ids = purge_duplicate;
