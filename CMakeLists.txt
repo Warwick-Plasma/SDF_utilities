@@ -17,16 +17,18 @@ else()
 endif()
 add_definitions(-D_XOPEN_SOURCE=600)
 
-include_directories(${SDFC_INCLUDE_DIR})
+include_directories(${SDFC_INCLUDE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
-
-execute_process(COMMAND sh gen_commit_string.sh
-                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+add_custom_target(
+    commit_info.h
+    COMMAND ${CMAKE_COMMAND} -DSRC_DIR:PATH=${CMAKE_CURRENT_SOURCE_DIR} -P
+        ${CMAKE_CURRENT_SOURCE_DIR}/gen_commit_string.cmake)
 
 add_executable(sdf2ascii sdf2ascii.c)
 target_link_libraries(sdf2ascii sdfc dl)
 
 add_executable(sdffilter sdffilter.c)
+add_dependencies(sdffilter commit_info.h)
 target_link_libraries(sdffilter sdfc dl m)
 
 add_custom_target(sdf-utilities DEPENDS sdf2ascii sdffilter)
