@@ -587,14 +587,16 @@ static int set_array_section(sdf_block_t *b)
 static void print_value(void *data, int datatype)
 {
     int exponent;
+    int64_t i64;
     double r8;
 
     switch (datatype) {
     case SDF_DATATYPE_INTEGER4:
-        printf(format_int, *((uint32_t*)data));
+        i64 = *((int32_t*)data);
+        printf(format_int, i64);
         break;
     case SDF_DATATYPE_INTEGER8:
-        printf(format_int, *((uint64_t*)data));
+        printf(format_int, *((int64_t*)data));
         break;
     case SDF_DATATYPE_REAL4:
         if (special_format) {
