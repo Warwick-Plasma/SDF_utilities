@@ -72,7 +72,6 @@ static char width_fmt[16];
     } while(0)
 
 #define PRINT(name,variable,fmt) do { \
-        if (!(variable)) break; \
         PRINTC(name,variable,fmt); \
     } while(0)
 
