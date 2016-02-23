@@ -1,3 +1,21 @@
+/*
+ * sdffilter - filter the contents of an SDF file
+ * Copyright (C) 2013-2016 SDF Development Team
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,7 +35,7 @@
 #include <mpi.h>
 #endif
 
-#define VERSION "2.4.8"
+#define VERSION "2.4.9"
 
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 
@@ -72,7 +90,6 @@ static char width_fmt[16];
     } while(0)
 
 #define PRINT(name,variable,fmt) do { \
-        if (!(variable)) break; \
         PRINTC(name,variable,fmt); \
     } while(0)
 
@@ -587,14 +604,16 @@ static int set_array_section(sdf_block_t *b)
 static void print_value(void *data, int datatype)
 {
     int exponent;
+    int64_t i64;
     double r8;
 
     switch (datatype) {
     case SDF_DATATYPE_INTEGER4:
-        printf(format_int, *((uint32_t*)data));
+        i64 = *((int32_t*)data);
+        printf(format_int, i64);
         break;
     case SDF_DATATYPE_INTEGER8:
-        printf(format_int, *((uint64_t*)data));
+        printf(format_int, *((int64_t*)data));
         break;
     case SDF_DATATYPE_REAL4:
         if (special_format) {
