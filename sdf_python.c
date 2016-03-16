@@ -804,7 +804,6 @@ setup_mesh(SDFObject *sdf, PyObject *dict, sdf_block_t *b, PyObject *dict_id)
     }
 
     PyDict_SetItemString(dict_id, b->id, (PyObject*)block);
-
     PyDict_SetItemString(dict, block_name, (PyObject*)block);
     Py_DECREF(block);
 
@@ -856,15 +855,15 @@ setup_mesh(SDFObject *sdf, PyObject *dict, sdf_block_t *b, PyObject *dict_id)
     block->id = PyASCII_FromString(mesh_id);
     if (!block->id) goto free_mem;
 
-    free(mesh_id);
-
     Py_DECREF(block->name);
     block->name = PyASCII_FromString(block_name);
     if (!block->name) goto free_mem;
 
+    PyDict_SetItemString(dict_id, mesh_id, (PyObject*)block);
     PyDict_SetItemString(dict, block_name, (PyObject*)block);
     Py_DECREF(block);
 
+    free(mesh_id);
     free(block_name);
 
     return;
