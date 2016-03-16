@@ -49,7 +49,6 @@
 #if PY_MAJOR_VERSION < 3
     #define PyInt_FromLong PyLong_FromLong
     #define PyASCII_FromString PyString_FromString
-    #define PyBytes_AsString PyString_AsString
 #else
     #define PyASCII_FromString PyUnicode_FromString
 #endif
@@ -938,7 +937,7 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *stations,
     var_names = (char **)malloc(nvars*sizeof(char *));
     for ( i=0; i<nvars; i++ ) {
         sub = PyList_GetItem(variables, i);
-        var_names[i] = PyBytes_AsString(sub);
+        var_names[i] = PyBytes_As_C(sub);
         if ( !var_names[i] ) {
             free(var_names);
             free(stat);
@@ -1311,7 +1310,7 @@ static void dict_find_variable_ids(PyObject *dict, Block *station)
         block = (Block*)value;
         if (!block->b)
             continue;
-        block_id = PyBytes_AsString(block->id);
+        block_id = PyBytes_As_C(block->id);
         if (!block_id)
             continue;
         len = strlen(block_id) + 1;
