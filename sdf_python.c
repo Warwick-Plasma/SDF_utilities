@@ -1328,7 +1328,7 @@ static void dict_find_variable_ids(PyObject *dict, Block *station)
 
         if (!station->data) {
             station->data = PyList_New(b->ndims);
-            if (!station->data) return;
+            if (!station->data) goto free_mem;
         }
 
         // Found one of our variable_ids. Insert it into the station list and
@@ -1344,6 +1344,7 @@ static void dict_find_variable_ids(PyObject *dict, Block *station)
             find[i] = find[i+1];
     }
 
+free_mem:
     free(find);
 
     return;
