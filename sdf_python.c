@@ -204,6 +204,19 @@ static PyTypeObject SDFType = {
 };
 
 
+static inline char *PyBytes_As_C(PyObject *ob)
+{
+#if PY_MAJOR_VERSION < 3
+    return PyString_AsString(ob);
+#else
+    PyObject *ascii = PyUnicode_AsASCIIString(ob);
+    char *str = PyBytes_AsString(ascii);
+    Py_DECREF(ascii);
+    return str;
+#endif
+}
+
+
 /*
  * Array type methods
  ******************************************************************************/
@@ -1491,19 +1504,9 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
         PyObject *key = PyTuple_GET_ITEM(item, 0);
         PyObject *value = PyTuple_GET_ITEM(item, 1);
         char *ckey, *ptr;
-#if PY_MAJOR_VERSION >= 3
-        PyObject *ascii;
-#endif
 
         mangled = 0;
-
-#if PY_MAJOR_VERSION < 3
-        ckey = strdup(PyBytes_AsString(key));
-#else
-        ascii = PyUnicode_AsASCIIString(key);
-        ckey = strdup(PyBytes_AsString(ascii));
-        Py_DECREF(ascii);
-#endif
+        ckey = strdup(PyBytes_As_C(key));
 
         for (ptr = ckey; *ptr != '\0'; ptr++) {
             if (*ptr >= '0' && *ptr <= '9')
