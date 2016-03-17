@@ -2,24 +2,29 @@
 
 SDFDIR=../C
 EXTDIR=../extension
+PYTHONCMD=`which python`
 
 clean=0
 errcode=0
 CFLAGS="-DSDF_DEBUG_ALL -D_XOPEN_SOURCE=600 -I$SDFDIR/include -L$SDFDIR/lib"
 OPT="$CFLAGS -O3"
 
-while getopts crdph name
+while getopts crdph23 name
 do
    case $name in
       c) clean=2 ;;
       r) clean=1 ;;
       d) OPT="$CFLAGS -g -O0 -Wall -Wno-unused-function -std=c99 -pedantic";
          PYDBG="-g" ;;
+      2) PYTHONCMD=`which python2` ;;
+      3) PYTHONCMD=`which python3` ;;
       h) cat <<EOF
 build script options:
   -c: Clean up files. Do not build anything.
   -r: Rebuild. Clean up files and then build.
   -d: Build with debugging flags enabled.
+  -2: Build for python2
+  -3: Build for python3
 EOF
          exit ;;
    esac
@@ -42,7 +47,7 @@ if [ $clean -le 1 ] ; then
   gcc $OPT -o sdf2ascii sdf2ascii.c -lsdfc -ldl || errcode=1
   gcc $OPT -o sdffilter sdffilter.c -lsdfc -ldl -lm || errcode=1
   # Test if python is new enough for the --user flag
-  user=$(python -c 'import sys, os
+  user=$($PYTHONCMD -c 'import sys, os
 newenough = sys.hexversion > 0x02060000
 if newenough: sys.exit(newenough)
 for p in sys.path:
@@ -51,10 +56,10 @@ for p in sys.path:
     break
 sys.exit(newenough)')
   if [ $? -eq 0 ]; then
-    CFLAGS="$OPT" python setup.py build $PYDBG -b pybuild install \
+    CFLAGS="$OPT" $PYTHONCMD setup.py build $PYDBG -b pybuild install \
         --prefix="$user" --record pybuild/files.txt
   else
-    CFLAGS="$OPT" python setup.py build $PYDBG -b pybuild install \
+    CFLAGS="$OPT" $PYTHONCMD setup.py build $PYDBG -b pybuild install \
         --prefix= --user --record pybuild/files.txt
   fi
   which a2x > /dev/null 2>&1
