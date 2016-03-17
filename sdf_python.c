@@ -804,7 +804,6 @@ setup_mesh(SDFObject *sdf, PyObject *dict, sdf_block_t *b, PyObject *dict_id)
     }
 
     PyDict_SetItemString(dict_id, b->id, (PyObject*)block);
-
     PyDict_SetItemString(dict, block_name, (PyObject*)block);
     Py_DECREF(block);
 
@@ -856,15 +855,15 @@ setup_mesh(SDFObject *sdf, PyObject *dict, sdf_block_t *b, PyObject *dict_id)
     block->id = PyASCII_FromString(mesh_id);
     if (!block->id) goto free_mem;
 
-    free(mesh_id);
-
     Py_DECREF(block->name);
     block->name = PyASCII_FromString(block_name);
     if (!block->name) goto free_mem;
 
+    PyDict_SetItemString(dict_id, mesh_id, (PyObject*)block);
     PyDict_SetItemString(dict, block_name, (PyObject*)block);
     Py_DECREF(block);
 
+    free(mesh_id);
     free(block_name);
 
     return;
@@ -1581,7 +1580,7 @@ MOD_INIT(sdf)
     if (!m)
         return MOD_ERROR_VAL;
 
-    PyModule_AddStringConstant(m, "__version__", "2.4.9");
+    PyModule_AddStringConstant(m, "__version__", "2.4.10");
     PyModule_AddStringConstant(m, "__commit_id__", SDF_COMMIT_ID);
     PyModule_AddStringConstant(m, "__commit_date__", SDF_COMMIT_DATE);
     s = sdf_get_library_commit_id();
