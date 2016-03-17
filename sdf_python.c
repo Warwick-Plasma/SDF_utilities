@@ -49,7 +49,6 @@
 #if PY_MAJOR_VERSION < 3
     #define PyInt_FromLong PyLong_FromLong
     #define PyASCII_FromString PyString_FromString
-    #define PyBytes_AsString PyString_AsString
 #else
     #define PyASCII_FromString PyUnicode_FromString
 #endif
@@ -202,6 +201,19 @@ static PyTypeObject SDFType = {
     sizeof(SDFObject),         /* tp_basicsize      */
     0,                         /* tp_itemsize       */
 };
+
+
+static inline char *PyBytes_As_C(PyObject *ob)
+{
+#if PY_MAJOR_VERSION < 3
+    return PyString_AsString(ob);
+#else
+    PyObject *ascii = PyUnicode_AsASCIIString(ob);
+    char *str = PyBytes_AsString(ascii);
+    Py_DECREF(ascii);
+    return str;
+#endif
+}
 
 
 /*
@@ -925,7 +937,7 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *stations,
     var_names = (char **)malloc(nvars*sizeof(char *));
     for ( i=0; i<nvars; i++ ) {
         sub = PyList_GetItem(variables, i);
-        var_names[i] = PyBytes_AsString(sub);
+        var_names[i] = PyBytes_As_C(sub);
         if ( !var_names[i] ) {
             free(var_names);
             free(stat);
@@ -1298,7 +1310,7 @@ static void dict_find_variable_ids(PyObject *dict, Block *station)
         block = (Block*)value;
         if (!block->b)
             continue;
-        block_id = PyBytes_AsString(block->id);
+        block_id = PyBytes_As_C(block->id);
         if (!block_id)
             continue;
         len = strlen(block_id) + 1;
@@ -1316,7 +1328,7 @@ static void dict_find_variable_ids(PyObject *dict, Block *station)
 
         if (!station->data) {
             station->data = PyList_New(b->ndims);
-            if (!station->data) return;
+            if (!station->data) goto free_mem;
         }
 
         // Found one of our variable_ids. Insert it into the station list and
@@ -1332,6 +1344,7 @@ static void dict_find_variable_ids(PyObject *dict, Block *station)
             find[i] = find[i+1];
     }
 
+free_mem:
     free(find);
 
     return;
@@ -1491,19 +1504,9 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
         PyObject *key = PyTuple_GET_ITEM(item, 0);
         PyObject *value = PyTuple_GET_ITEM(item, 1);
         char *ckey, *ptr;
-#if PY_MAJOR_VERSION >= 3
-        PyObject *ascii;
-#endif
 
         mangled = 0;
-
-#if PY_MAJOR_VERSION < 3
-        ckey = strdup(PyBytes_AsString(key));
-#else
-        ascii = PyUnicode_AsASCIIString(key);
-        ckey = strdup(PyBytes_AsString(ascii));
-        Py_DECREF(ascii);
-#endif
+        ckey = strdup(PyBytes_As_C(key));
 
         for (ptr = ckey; *ptr != '\0'; ptr++) {
             if (*ptr >= '0' && *ptr <= '9')
