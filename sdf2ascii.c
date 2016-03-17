@@ -28,7 +28,7 @@
 #include <mpi.h>
 #endif
 
-#define VERSION "2.4.10"
+#define VERSION "2.4.11"
 
 #define DBG_FLUSH() do { \
         if (h && h->dbg_buf) { \
