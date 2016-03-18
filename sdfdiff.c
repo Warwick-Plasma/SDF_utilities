@@ -1289,7 +1289,7 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
     float *r4_1, *r4_2;
     double *r8_1, *r8_2;
     char *l_1, *l_2;
-    double val1, val2, res;
+    double val1, val2;
     int64_t n;
 
     switch (b1->blocktype) {
@@ -1311,7 +1311,7 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
             val1 = i4_1[n];
             val2 = i4_2[n];
             if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr)
-                printf("%s (%i): %g %g\n", b1->id, n, val1, val2);
+                printf("%s (%" PRIi64 "): %g %g\n", b1->id, n, val1, val2);
         }
         break;
     case(SDF_DATATYPE_INTEGER8):
@@ -1321,7 +1321,7 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
             val1 = i8_1[n];
             val2 = i8_2[n];
             if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr)
-                printf("%s (%i): %g %g\n", b1->id, n, val1, val2);
+                printf("%s (%" PRIi64 "): %g %g\n", b1->id, n, val1, val2);
         }
         break;
     case(SDF_DATATYPE_REAL4):
@@ -1331,7 +1331,7 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
             val1 = r4_1[n];
             val2 = r4_2[n];
             if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr)
-                printf("%s (%i): %g %g\n", b1->id, n, val1, val2);
+                printf("%s (%" PRIi64 "): %g %g\n", b1->id, n, val1, val2);
         }
         break;
     case(SDF_DATATYPE_REAL8):
@@ -1340,9 +1340,8 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
         for (n = 0; n < b1->nelements_local; n++) {
             val1 = r8_1[n];
             val2 = r8_2[n];
-            res = ABS(val1 - val2) / MIN(ABS(val1), ABS(val2));
             if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr)
-                printf("%s (%i): %g %g\n", b1->id, n, val1, val2);
+                printf("%s (%" PRIi64 "): %g %g\n", b1->id, n, val1, val2);
         }
         break;
     case(SDF_DATATYPE_LOGICAL):
@@ -1352,7 +1351,7 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
             val1 = l_1[n];
             val2 = l_2[n];
             if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr)
-                printf("%s (%i): %g %g\n", b1->id, n, val1, val2);
+                printf("%s (%" PRIi64 "): %g %g\n", b1->id, n, val1, val2);
         }
         break;
     }
@@ -1367,7 +1366,8 @@ int main(int argc, char **argv)
     int i, n, block, err, found, idx, len, range_start;
     int nelements_max;
     sdf_file_t *h, *h2, **handles;
-    sdf_block_t *b, *b2, *next, *mesh, *mesh0;
+    sdf_block_t *b, *b2, *next, *mesh0;
+    //sdf_block_t *mesh;
     list_t *station_blocks;
     comm_t comm;
     char zero[16] = {0};
