@@ -1288,9 +1288,11 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
     int64_t *i8_1, *i8_2;
     float *r4_1, *r4_2;
     double *r8_1, *r8_2;
-    char *l_1, *l_2;
+    char *l_1, *l_2, clogical[2] = {'F', 'T'};
     double val1, val2;
+    int i1, i2;
     int64_t n;
+    static int first = 1;
 
     switch (b1->blocktype) {
     case SDF_BLOCKTYPE_PLAIN_DERIVED:
@@ -1298,6 +1300,12 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
         break;
     default:
         return 0;
+    }
+
+    if (first) {
+        first = 0;
+        printf("---%s\n", handles[0]->filename);
+        printf("+++%s\n", handles[1]->filename);
     }
 
     sdf_helper_read_data(handles[0], b1);
@@ -1310,8 +1318,10 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
         for (n = 0; n < b1->nelements_local; n++) {
             val1 = i4_1[n];
             val2 = i4_2[n];
-            if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr)
-                printf("%s (%" PRIi64 "): %g %g\n", b1->id, n, val1, val2);
+            if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr) {
+                printf("-%s (%" PRIi64 "): %i\n", b1->id, n, i4_1[n]);
+                printf("+%s (%" PRIi64 "): %i\n", b1->id, n, i4_2[n]);
+            }
         }
         break;
     case(SDF_DATATYPE_INTEGER8):
@@ -1320,8 +1330,10 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
         for (n = 0; n < b1->nelements_local; n++) {
             val1 = i8_1[n];
             val2 = i8_2[n];
-            if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr)
-                printf("%s (%" PRIi64 "): %g %g\n", b1->id, n, val1, val2);
+            if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr) {
+                printf("-%s (%" PRIi64 "): %" PRIi64 "\n", b1->id, n, i8_1[n]);
+                printf("+%s (%" PRIi64 "): %" PRIi64 "\n", b1->id, n, i8_2[n]);
+            }
         }
         break;
     case(SDF_DATATYPE_REAL4):
@@ -1330,8 +1342,10 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
         for (n = 0; n < b1->nelements_local; n++) {
             val1 = r4_1[n];
             val2 = r4_2[n];
-            if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr)
-                printf("%s (%" PRIi64 "): %g %g\n", b1->id, n, val1, val2);
+            if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr) {
+                printf("-%s (%" PRIi64 "): %27.18e\n", b1->id, n, val1);
+                printf("+%s (%" PRIi64 "): %27.18e\n", b1->id, n, val2);
+            }
         }
         break;
     case(SDF_DATATYPE_REAL8):
@@ -1340,18 +1354,22 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
         for (n = 0; n < b1->nelements_local; n++) {
             val1 = r8_1[n];
             val2 = r8_2[n];
-            if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr)
-                printf("%s (%" PRIi64 "): %g %g\n", b1->id, n, val1, val2);
+            if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr) {
+                printf("-%s (%" PRIi64 "): %27.18e\n", b1->id, n, val1);
+                printf("+%s (%" PRIi64 "): %27.18e\n", b1->id, n, val2);
+            }
         }
         break;
     case(SDF_DATATYPE_LOGICAL):
         l_1 = b1->data;
         l_2 = b2->data;
         for (n = 0; n < b1->nelements_local; n++) {
-            val1 = l_1[n];
-            val2 = l_2[n];
-            if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr)
-                printf("%s (%" PRIi64 "): %g %g\n", b1->id, n, val1, val2);
+            i1 = l_1[n];
+            i2 = l_2[n];
+            if (i1 != i2) {
+                printf("-%s (%" PRIi64 "): %c\n", b1->id, n, clogical[i1]);
+                printf("+%s (%" PRIi64 "): %c\n", b1->id, n, clogical[i2]);
+            }
         }
         break;
     }
