@@ -44,7 +44,7 @@ int metadata, debug, ignore_summary, ascii_header;
 int exclude_variables, derived, extension_info, index_offset;
 int just_id, verbose_metadata, special_format, scale_factor;
 int format_rowindex, format_index, format_number;
-int purge_duplicate, ignore_nblocks, quiet;
+int purge_duplicate, ignore_nblocks, quiet, show_errors;
 int64_t array_ndims, *array_starts, *array_ends, *array_strides;
 char *format_float, *format_int, *format_space;
 double relerr = 1.0e-15;
@@ -128,6 +128,7 @@ void usage(int err)
   -i --no-summary      Ignore the metadata summary\n\
   -b --no-nblocks      Ignore the header value for nblocks\n\
   -d --derived         Add derived blocks\n\
+  -E --show-errors     Print error values\n\
   -e --extension-info  Print information about any loaded extension module\n\
   -I --c-indexing      Array indexing starts from 1 by default. If this flag\n\
                        is used then the indexing starts from 0.\n\
@@ -196,6 +197,7 @@ char **parse_args(int *argc, char ***argv)
         { "no-nblocks",      no_argument,       NULL, 'b' },
         { "derived",         no_argument,       NULL, 'd' },
         { "extension-info",  no_argument,       NULL, 'e' },
+        { "show-errors",     no_argument,       NULL, 'E' },
         { "format-float",    required_argument, NULL, 'F' },
         { "help",            no_argument,       NULL, 'h' },
         { "no-ascii-header", no_argument,       NULL, 'H' },
@@ -224,7 +226,7 @@ char **parse_args(int *argc, char ***argv)
     ascii_header = 1;
     metadata = ignore_summary = exclude_variables = 0;
     derived = format_rowindex = format_index = format_number = just_id = 0;
-    purge_duplicate = ignore_nblocks = extension_info = quiet = 0;
+    purge_duplicate = ignore_nblocks = extension_info = quiet = show_errors = 0;
     variable_ids = NULL;
     variable_last_id = NULL;
     array_starts = array_ends = array_strides = NULL;
@@ -243,7 +245,7 @@ char **parse_args(int *argc, char ***argv)
     got_include = got_exclude = 0;
 
     while ((c = getopt_long(*argc, *argv,
-            "bdeF:hHiIjJKlmN:qr::RS:v:x:pV", longopts, NULL)) != -1) {
+            "bdeEF:hHiIjJKlmN:qr::RS:v:x:pV", longopts, NULL)) != -1) {
         switch (c) {
         case 'b':
             ignore_nblocks = 1;
@@ -253,6 +255,9 @@ char **parse_args(int *argc, char ***argv)
             break;
         case 'e':
             extension_info = 1;
+            break;
+        case 'E':
+            show_errors = 1;
             break;
         case 'F':
             free(format_float);
@@ -1507,6 +1512,9 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             printf("+%s%s): ", prestr, idxstr);
             printf(format_int, ival);
             printf("\n");
+            if (show_errors)
+                printf(" Error absolute %25.17e, relative %25.17e\n",
+                       abserr_val, relerr_val);
         }
         break;
     case(SDF_DATATYPE_INTEGER8):
@@ -1551,6 +1559,9 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             printf("+%s%s): ", prestr, idxstr);
             printf(format_int, ival);
             printf("\n");
+            if (show_errors)
+                printf(" Error absolute %25.17e, relative %25.17e\n",
+                       abserr_val, relerr_val);
         }
         break;
     case(SDF_DATATYPE_REAL4):
@@ -1591,6 +1602,9 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             printf("+%s%s): ", prestr, idxstr);
             printf(format_float, val2);
             printf("\n");
+            if (show_errors)
+                printf(" Error absolute %25.17e, relative %25.17e\n",
+                       abserr_val, relerr_val);
         }
         break;
     case(SDF_DATATYPE_REAL8):
@@ -1631,6 +1645,9 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             printf("+%s%s): ", prestr, idxstr);
             printf(format_float, val2);
             printf("\n");
+            if (show_errors)
+                printf(" Error absolute %25.17e, relative %25.17e\n",
+                       abserr_val, relerr_val);
         }
         break;
     case(SDF_DATATYPE_LOGICAL):
