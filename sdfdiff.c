@@ -44,7 +44,7 @@ int metadata, debug, ignore_summary, ascii_header;
 int exclude_variables, derived, extension_info, index_offset;
 int just_id, verbose_metadata, special_format, scale_factor;
 int format_rowindex, format_index, format_number;
-int purge_duplicate, ignore_nblocks;
+int purge_duplicate, ignore_nblocks, quiet;
 int64_t array_ndims, *array_starts, *array_ends, *array_strides;
 char *format_float, *format_int, *format_space;
 double relerr = 1.0e-15;
@@ -117,6 +117,8 @@ void usage(int err)
     fprintf(stderr, "usage: sdfdiff [options] <sdf_filename1> <sdf_filename2>\n");
     fprintf(stderr, "\noptions:\n\
   -h --help            Show this usage message\n\
+  -q --quiet           Do not print output. Exit with zero status if files are\n\
+                       the same and non-zero if they differ.\n\
   -m --metadata        Show metadata blocks (not shown by default)\n\
   -j --just-id         Only show ID and number for metadata blocks\n\
   -l --less-verbose    Print metadata less verbosely\n\
@@ -204,6 +206,7 @@ char **parse_args(int *argc, char ***argv)
         { "less-verbose",    no_argument,       NULL, 'l' },
         { "metadata",        no_argument,       NULL, 'm' },
         { "format-int",      required_argument, NULL, 'N' },
+        { "quiet",           no_argument,       NULL, 'q' },
         { "relerr",          required_argument, NULL, 'r' },
         { "format-rowindex", no_argument,       NULL, 'R' },
         { "format-space",    required_argument, NULL, 'S' },
@@ -220,7 +223,7 @@ char **parse_args(int *argc, char ***argv)
     ascii_header = 1;
     metadata = ignore_summary = exclude_variables = 0;
     derived = format_rowindex = format_index = format_number = just_id = 0;
-    purge_duplicate = ignore_nblocks = extension_info = 0;
+    purge_duplicate = ignore_nblocks = extension_info = quiet = 0;
     variable_ids = NULL;
     variable_last_id = NULL;
     array_starts = array_ends = array_strides = NULL;
@@ -239,7 +242,7 @@ char **parse_args(int *argc, char ***argv)
     got_include = got_exclude = 0;
 
     while ((c = getopt_long(*argc, *argv,
-            "bdeF:hHiIjJKlmN:r:RS:v:x:pV", longopts, NULL)) != -1) {
+            "bdeF:hHiIjJKlmN:qr:RS:v:x:pV", longopts, NULL)) != -1) {
         switch (c) {
         case 'b':
             ignore_nblocks = 1;
@@ -286,6 +289,9 @@ char **parse_args(int *argc, char ***argv)
             free(format_int);
             format_int = malloc(strlen(optarg)+1);
             memcpy(format_int, optarg, strlen(optarg)+1);
+            break;
+        case 'q':
+            quiet = 1;
             break;
         case 'r':
             relerr = atof(optarg);
@@ -1367,7 +1373,7 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
         return gotdiff;
     }
 
-    if (!gotdiff) {
+    if (!gotdiff && !quiet) {
         name = handles[0]->filename;
         stat(name, &st);
         tm = localtime(&st.st_mtime);
@@ -1433,9 +1439,11 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
             if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) < relerr)
                 continue;
             /* If we got here then the numbers differ */
-            if (!gotdiff)
+            if (!gotdiff && !quiet)
                 printf("%s", firststr);
             gotdiff = 1;
+            if (quiet)
+                continue;
             get_index_str(b, n, idx, fac, fmt, idxstr);
             printf("-%s%s): %i\n", prestr, idxstr, i4_1[n]);
             printf("+%s%s): %i\n", prestr, idxstr, i4_2[n]);
@@ -1452,9 +1460,11 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
             if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) < relerr)
                 continue;
             /* If we got here then the numbers differ */
-            if (!gotdiff)
+            if (!gotdiff && !quiet)
                 printf("%s", firststr);
             gotdiff = 1;
+            if (quiet)
+                continue;
             get_index_str(b, n, idx, fac, fmt, idxstr);
             printf("-%s%s): %lli\n", prestr, idxstr, i8_1[n]);
             printf("+%s%s): %lli\n", prestr, idxstr, i8_2[n]);
@@ -1472,9 +1482,11 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
             if (ABS(val1 - val2) / denom < relerr)
                 continue;
             /* If we got here then the numbers differ */
-            if (!gotdiff)
+            if (!gotdiff && !quiet)
                 printf("%s", firststr);
             gotdiff = 1;
+            if (quiet)
+                continue;
             get_index_str(b, n, idx, fac, fmt, idxstr);
             printf("-%s%s): %27.18e\n", prestr, idxstr, val1);
             printf("+%s%s): %27.18e\n", prestr, idxstr, val2);
@@ -1492,9 +1504,11 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
             if (ABS(val1 - val2) / denom < relerr)
                 continue;
             /* If we got here then the numbers differ */
-            if (!gotdiff)
+            if (!gotdiff && !quiet)
                 printf("%s", firststr);
             gotdiff = 1;
+            if (quiet)
+                continue;
             get_index_str(b, n, idx, fac, fmt, idxstr);
             printf("-%s%s): %27.18e\n", prestr, idxstr, val1);
             printf("+%s%s): %27.18e\n", prestr, idxstr, val2);
@@ -1509,9 +1523,11 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
             if (i1 == i2)
                 continue;
             /* If we got here then the numbers differ */
-            if (!gotdiff)
+            if (!gotdiff && !quiet)
                 printf("%s", firststr);
             gotdiff = 1;
+            if (quiet)
+                continue;
             get_index_str(b, n, idx, fac, fmt, idxstr);
             printf("-%s%s): %c\n", prestr, idxstr, clogical[i1]);
             printf("+%s%s): %c\n", prestr, idxstr, clogical[i2]);
