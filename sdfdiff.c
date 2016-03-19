@@ -187,7 +187,8 @@ void parse_format(void)
 
 char **parse_args(int *argc, char ***argv)
 {
-    char *ptr, **files;
+    char *ptr, **files, *tmp_optarg;
+    char **pargv = *argv;
     int c, i, err, range, sz, nrange_max, got_include, got_exclude, len;
     struct range_type *range_tmp;
     struct stat statbuf;
@@ -207,7 +208,7 @@ char **parse_args(int *argc, char ***argv)
         { "metadata",        no_argument,       NULL, 'm' },
         { "format-int",      required_argument, NULL, 'N' },
         { "quiet",           no_argument,       NULL, 'q' },
-        { "relerr",          required_argument, NULL, 'r' },
+        { "relerr",          optional_argument, NULL, 'r' },
         { "format-rowindex", no_argument,       NULL, 'R' },
         { "format-space",    required_argument, NULL, 'S' },
         { "variable",        required_argument, NULL, 'v' },
@@ -242,7 +243,7 @@ char **parse_args(int *argc, char ***argv)
     got_include = got_exclude = 0;
 
     while ((c = getopt_long(*argc, *argv,
-            "bdeF:hHiIjJKlmN:qr:RS:v:x:pV", longopts, NULL)) != -1) {
+            "bdeF:hHiIjJKlmN:qr::RS:v:x:pV", longopts, NULL)) != -1) {
         switch (c) {
         case 'b':
             ignore_nblocks = 1;
@@ -294,7 +295,16 @@ char **parse_args(int *argc, char ***argv)
             quiet = 1;
             break;
         case 'r':
-            relerr = atof(optarg);
+            tmp_optarg = optarg;
+            if (!optarg && NULL != pargv[optind] && '-' != pargv[optind][0])
+                tmp_optarg = pargv[optind++];
+            if (tmp_optarg)
+                relerr = atof(tmp_optarg);
+            else {
+                printf("Relative error flag requires an argument.\n");
+                printf("Default value is %g\n", relerr);
+                exit(0);
+            }
             break;
         case 'R':
             format_rowindex = 1;
