@@ -49,7 +49,7 @@ int64_t array_ndims, *array_starts, *array_ends, *array_strides;
 char *format_float, *format_int, *format_space;
 double relerr = 1.0e-15;
 //static char *default_float = "%9.6fE%+2.2d1p";
-static char *default_float = "%13.6E";
+static char *default_float = "%27.18e";
 static char *default_int   = "%" PRIi64;
 static char *default_space = "    ";
 static char *default_indent = "  ";
@@ -1357,7 +1357,7 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
     char *l_1, *l_2, clogical[2] = {'F', 'T'};
     double val1, val2, denom;
     int i1, i2;
-    int64_t n;
+    int64_t n, ival;
     static int gotdiff = 0;
     int *idx, *fac;
     int i, rem, left, digit, len, gotblock;
@@ -1472,8 +1472,14 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             if (just_id)
                 continue;
             get_index_str(b, n, idx, fac, fmt, idxstr);
-            printf("-%s%s): %i\n", prestr, idxstr, i4_1[n]);
-            printf("+%s%s): %i\n", prestr, idxstr, i4_2[n]);
+            ival = i4_1[n];
+            printf("-%s%s): ", prestr, idxstr);
+            printf(format_int, ival);
+            printf("\n");
+            ival = i4_2[n];
+            printf("+%s%s): ", prestr, idxstr);
+            printf(format_int, ival);
+            printf("\n");
         }
         break;
     case(SDF_DATATYPE_INTEGER8):
@@ -1499,8 +1505,14 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             if (just_id)
                 continue;
             get_index_str(b, n, idx, fac, fmt, idxstr);
-            printf("-%s%s): %lli\n", prestr, idxstr, i8_1[n]);
-            printf("+%s%s): %lli\n", prestr, idxstr, i8_2[n]);
+            ival = i8_1[n];
+            printf("-%s%s): ", prestr, idxstr);
+            printf(format_int, ival);
+            printf("\n");
+            ival = i8_2[n];
+            printf("+%s%s): ", prestr, idxstr);
+            printf(format_int, ival);
+            printf("\n");
         }
         break;
     case(SDF_DATATYPE_REAL4):
@@ -1527,8 +1539,12 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             if (just_id)
                 continue;
             get_index_str(b, n, idx, fac, fmt, idxstr);
-            printf("-%s%s): %27.18e\n", prestr, idxstr, val1);
-            printf("+%s%s): %27.18e\n", prestr, idxstr, val2);
+            printf("-%s%s): ", prestr, idxstr);
+            printf(format_float, val1);
+            printf("\n");
+            printf("+%s%s): ", prestr, idxstr);
+            printf(format_float, val2);
+            printf("\n");
         }
         break;
     case(SDF_DATATYPE_REAL8):
@@ -1555,8 +1571,12 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             if (just_id)
                 continue;
             get_index_str(b, n, idx, fac, fmt, idxstr);
-            printf("-%s%s): %27.18e\n", prestr, idxstr, val1);
-            printf("+%s%s): %27.18e\n", prestr, idxstr, val2);
+            printf("-%s%s): ", prestr, idxstr);
+            printf(format_float, val1);
+            printf("\n");
+            printf("+%s%s): ", prestr, idxstr);
+            printf(format_float, val2);
+            printf("\n");
         }
         break;
     case(SDF_DATATYPE_LOGICAL):
