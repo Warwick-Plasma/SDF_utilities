@@ -186,7 +186,7 @@ void parse_format(void)
 char **parse_args(int *argc, char ***argv)
 {
     char *ptr, **files;
-    int c, i, err, range, sz, nrange_max, got_include, got_exclude;
+    int c, i, err, range, sz, nrange_max, got_include, got_exclude, len;
     struct range_type *range_tmp;
     struct stat statbuf;
     static struct option longopts[] = {
@@ -396,6 +396,26 @@ char **parse_args(int *argc, char ***argv)
                 fprintf(stderr, "Error opening file %s\n", files[i]);
                 exit(1);
             }
+        }
+        if (S_ISDIR(statbuf.st_mode)) {
+            len = strlen(files[0]);
+            ptr = files[0] + len;
+            for (i = 0;  i < len; ++i, --ptr) {
+                if (*ptr == '/') {
+                    ptr++;
+                    break;
+                }
+            }
+            len = strlen(files[1]);
+            for (; len > 0; --len) {
+                if (files[1][len] != '/')
+                    break;
+            }
+
+            files[1] = malloc(len + strlen(ptr) + 1);
+            memcpy(files[1], (*argv)[optind+1], len);
+            memcpy(files[1]+len, ptr, strlen(ptr));
+            files[1][len + strlen(ptr)] = '\0';
         }
     } else {
         fprintf(stderr, "Must specify two files\n");
