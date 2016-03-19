@@ -1333,7 +1333,7 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
     double val1, val2;
     int i1, i2;
     int64_t n;
-    static int first = 1;
+    static int gotdiff = 0;
     int *idx, *fac;
     int i, rem, left, digit, len;
     static const int fmtlen = 32;
@@ -1341,6 +1341,8 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
     static const int idxlen = 64;
     char idxstr[idxlen];
     char prestr[idxlen];
+    static const int firstlen = 512;
+    char firststr[firstlen];
     sdf_block_t *b = b1;
     struct stat st;
     struct tm *tm;
@@ -1351,7 +1353,7 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
     case SDF_BLOCKTYPE_PLAIN_VARIABLE:
         break;
     default:
-        return 0;
+        return gotdiff;
     }
 
     switch (b->datatype) {
@@ -1362,24 +1364,23 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
     case(SDF_DATATYPE_LOGICAL):
         break;
     default:
-        return 0;
+        return gotdiff;
     }
 
-    if (first) {
-        first = 0;
-
+    if (!gotdiff) {
         name = handles[0]->filename;
         stat(name, &st);
         tm = localtime(&st.st_mtime);
         //strftime(prestr, idxlen, "%Y-%m-%d %H:%M:%S.%N %z", tm);
         strftime(prestr, idxlen, "%Y-%m-%d %H:%M:%S.000000000 %z", tm);
-        printf("--- %s\t%s\n", name, prestr);
+        snprintf(firststr, firstlen, "--- %s\t%s\n", name, prestr);
 
         name = handles[1]->filename;
         stat(name, &st);
         tm = localtime(&st.st_mtime);
         strftime(prestr, idxlen, "%Y-%m-%d %H:%M:%S.000000000 %z", tm);
-        printf("+++ %s\t%s\n", name, prestr);
+        len = strlen(firststr);
+        snprintf(firststr+len, firstlen-len, "+++ %s\t%s\n", name, prestr);
     }
 
     /* Get index format */
@@ -1428,6 +1429,10 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
             val1 = i4_1[n];
             val2 = i4_2[n];
             if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr) {
+                if (!gotdiff) {
+                    gotdiff = 1;
+                    printf("%s", firststr);
+                }
                 get_index_str(b, n, idx, fac, fmt, idxstr);
                 printf("-%s%s): %i\n", prestr, idxstr, i4_1[n]);
                 printf("+%s%s): %i\n", prestr, idxstr, i4_2[n]);
@@ -1441,6 +1446,10 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
             val1 = i8_1[n];
             val2 = i8_2[n];
             if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr) {
+                if (!gotdiff) {
+                    gotdiff = 1;
+                    printf("%s", firststr);
+                }
                 get_index_str(b, n, idx, fac, fmt, idxstr);
                 printf("-%s%s): %" PRIi64 "\n", prestr, idxstr, i8_1[n]);
                 printf("+%s%s): %" PRIi64 "\n", prestr, idxstr, i8_2[n]);
@@ -1454,6 +1463,10 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
             val1 = r4_1[n];
             val2 = r4_2[n];
             if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr) {
+                if (!gotdiff) {
+                    gotdiff = 1;
+                    printf("%s", firststr);
+                }
                 get_index_str(b, n, idx, fac, fmt, idxstr);
                 printf("-%s%s): %27.18e\n", prestr, idxstr, val1);
                 printf("+%s%s): %27.18e\n", prestr, idxstr, val2);
@@ -1467,6 +1480,10 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
             val1 = r8_1[n];
             val2 = r8_2[n];
             if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr) {
+                if (!gotdiff) {
+                    gotdiff = 1;
+                    printf("%s", firststr);
+                }
                 get_index_str(b, n, idx, fac, fmt, idxstr);
                 printf("-%s%s): %27.18e\n", prestr, idxstr, val1);
                 printf("+%s%s): %27.18e\n", prestr, idxstr, val2);
@@ -1480,6 +1497,10 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
             i1 = l_1[n];
             i2 = l_2[n];
             if (i1 != i2) {
+                if (!gotdiff) {
+                    gotdiff = 1;
+                    printf("%s", firststr);
+                }
                 get_index_str(b, n, idx, fac, fmt, idxstr);
                 printf("-%s%s): %c\n", prestr, idxstr, clogical[i1]);
                 printf("+%s%s): %c\n", prestr, idxstr, clogical[i2]);
@@ -1493,7 +1514,7 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
     free(idx);
     free(fac);
 
-    return 0;
+    return gotdiff;
 }
 
 
@@ -1508,6 +1529,7 @@ int main(int argc, char **argv)
     list_t *station_blocks;
     comm_t comm;
     char zero[16] = {0};
+    int gotdiff = 0;
 
     files = parse_args(&argc, &argv);
 
@@ -1606,7 +1628,7 @@ int main(int argc, char **argv)
             continue;
         }
 
-        diff_block(handles, b, b2);
+        gotdiff = diff_block(handles, b, b2);
 /*
         switch (b->blocktype) {
         case SDF_BLOCKTYPE_PLAIN_DERIVED:
@@ -1688,7 +1710,9 @@ int main(int argc, char **argv)
     list_destroy(&station_blocks);
     if (range_list) free(range_list);
 
-    return close_files(handles);
+    close_files(handles);
+
+    return gotdiff;
 }
 
 
