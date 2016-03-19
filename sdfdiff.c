@@ -1330,7 +1330,7 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
     float *r4_1, *r4_2;
     double *r8_1, *r8_2;
     char *l_1, *l_2, clogical[2] = {'F', 'T'};
-    double val1, val2;
+    double val1, val2, denom;
     int i1, i2;
     int64_t n;
     static int gotdiff = 0;
@@ -1426,34 +1426,38 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
         i4_1 = b1->data;
         i4_2 = b2->data;
         for (n = 0; n < b->nelements_local; n++) {
+            if (i4_1[n] == i4_2[n])
+                continue;
             val1 = i4_1[n];
             val2 = i4_2[n];
-            if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr) {
-                if (!gotdiff) {
-                    gotdiff = 1;
-                    printf("%s", firststr);
-                }
-                get_index_str(b, n, idx, fac, fmt, idxstr);
-                printf("-%s%s): %i\n", prestr, idxstr, i4_1[n]);
-                printf("+%s%s): %i\n", prestr, idxstr, i4_2[n]);
-            }
+            if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) < relerr)
+                continue;
+            /* If we got here then the numbers differ */
+            if (!gotdiff)
+                printf("%s", firststr);
+            gotdiff = 1;
+            get_index_str(b, n, idx, fac, fmt, idxstr);
+            printf("-%s%s): %i\n", prestr, idxstr, i4_1[n]);
+            printf("+%s%s): %i\n", prestr, idxstr, i4_2[n]);
         }
         break;
     case(SDF_DATATYPE_INTEGER8):
         i8_1 = b1->data;
         i8_2 = b2->data;
         for (n = 0; n < b->nelements_local; n++) {
+            if (i8_1[n] == i8_2[n])
+                continue;
             val1 = i8_1[n];
             val2 = i8_2[n];
-            if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr) {
-                if (!gotdiff) {
-                    gotdiff = 1;
-                    printf("%s", firststr);
-                }
-                get_index_str(b, n, idx, fac, fmt, idxstr);
-                printf("-%s%s): %" PRIi64 "\n", prestr, idxstr, i8_1[n]);
-                printf("+%s%s): %" PRIi64 "\n", prestr, idxstr, i8_2[n]);
-            }
+            if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) < relerr)
+                continue;
+            /* If we got here then the numbers differ */
+            if (!gotdiff)
+                printf("%s", firststr);
+            gotdiff = 1;
+            get_index_str(b, n, idx, fac, fmt, idxstr);
+            printf("-%s%s): %lli\n", prestr, idxstr, i8_1[n]);
+            printf("+%s%s): %lli\n", prestr, idxstr, i8_2[n]);
         }
         break;
     case(SDF_DATATYPE_REAL4):
@@ -1462,15 +1466,18 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
         for (n = 0; n < b->nelements_local; n++) {
             val1 = r4_1[n];
             val2 = r4_2[n];
-            if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr) {
-                if (!gotdiff) {
-                    gotdiff = 1;
-                    printf("%s", firststr);
-                }
-                get_index_str(b, n, idx, fac, fmt, idxstr);
-                printf("-%s%s): %27.18e\n", prestr, idxstr, val1);
-                printf("+%s%s): %27.18e\n", prestr, idxstr, val2);
-            }
+            denom = MIN(ABS(val1), ABS(val2));
+            if (denom < FLT_MIN)
+                continue;
+            if (ABS(val1 - val2) / denom < relerr)
+                continue;
+            /* If we got here then the numbers differ */
+            if (!gotdiff)
+                printf("%s", firststr);
+            gotdiff = 1;
+            get_index_str(b, n, idx, fac, fmt, idxstr);
+            printf("-%s%s): %27.18e\n", prestr, idxstr, val1);
+            printf("+%s%s): %27.18e\n", prestr, idxstr, val2);
         }
         break;
     case(SDF_DATATYPE_REAL8):
@@ -1479,15 +1486,18 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
         for (n = 0; n < b->nelements_local; n++) {
             val1 = r8_1[n];
             val2 = r8_2[n];
-            if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr) {
-                if (!gotdiff) {
-                    gotdiff = 1;
-                    printf("%s", firststr);
-                }
-                get_index_str(b, n, idx, fac, fmt, idxstr);
-                printf("-%s%s): %27.18e\n", prestr, idxstr, val1);
-                printf("+%s%s): %27.18e\n", prestr, idxstr, val2);
-            }
+            denom = MIN(ABS(val1), ABS(val2));
+            if (denom < DBL_MIN)
+                continue;
+            if (ABS(val1 - val2) / denom < relerr)
+                continue;
+            /* If we got here then the numbers differ */
+            if (!gotdiff)
+                printf("%s", firststr);
+            gotdiff = 1;
+            get_index_str(b, n, idx, fac, fmt, idxstr);
+            printf("-%s%s): %27.18e\n", prestr, idxstr, val1);
+            printf("+%s%s): %27.18e\n", prestr, idxstr, val2);
         }
         break;
     case(SDF_DATATYPE_LOGICAL):
@@ -1496,15 +1506,15 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
         for (n = 0; n < b->nelements_local; n++) {
             i1 = l_1[n];
             i2 = l_2[n];
-            if (i1 != i2) {
-                if (!gotdiff) {
-                    gotdiff = 1;
-                    printf("%s", firststr);
-                }
-                get_index_str(b, n, idx, fac, fmt, idxstr);
-                printf("-%s%s): %c\n", prestr, idxstr, clogical[i1]);
-                printf("+%s%s): %c\n", prestr, idxstr, clogical[i2]);
-            }
+            if (i1 == i2)
+                continue;
+            /* If we got here then the numbers differ */
+            if (!gotdiff)
+                printf("%s", firststr);
+            gotdiff = 1;
+            get_index_str(b, n, idx, fac, fmt, idxstr);
+            printf("-%s%s): %c\n", prestr, idxstr, clogical[i1]);
+            printf("+%s%s): %c\n", prestr, idxstr, clogical[i2]);
         }
         break;
     }
