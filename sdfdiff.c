@@ -1329,7 +1329,26 @@ void get_index_str(sdf_block_t *b, int64_t n, int *idx, int *fac, char **fmt,
 }
 
 
-int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
+static void print_metadata_id(sdf_block_t *b, int inum, int nblocks)
+{
+    int digit = 0;
+    static const int fmtlen = 32;
+    char fmt[fmtlen];
+
+    while (nblocks) {
+        nblocks /= 10;
+        digit++;
+    }
+
+    snprintf(fmt, fmtlen, "Block %%%ii, ID: %%s", digit);
+    printf(fmt, inum, b->id);
+    if (!b->in_file)
+        printf("  (derived)");
+    printf("\n");
+}
+
+
+int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
 {
     int32_t *i4_1, *i4_2;
     int64_t *i8_1, *i8_2;
@@ -1341,7 +1360,7 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
     int64_t n;
     static int gotdiff = 0;
     int *idx, *fac;
-    int i, rem, left, digit, len;
+    int i, rem, left, digit, len, gotblock;
     static const int fmtlen = 32;
     char **fmt;
     static const int idxlen = 64;
@@ -1427,6 +1446,8 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
     sdf_helper_read_data(handles[0], b1);
     sdf_helper_read_data(handles[1], b2);
 
+    gotblock = 0;
+
     switch (b->datatype) {
     case(SDF_DATATYPE_INTEGER4):
         i4_1 = b1->data;
@@ -1444,6 +1465,10 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
             gotdiff = 1;
             if (quiet)
                 continue;
+            if (!gotblock) {
+                gotblock = 1;
+                print_metadata_id(b, inum, handles[0]->nblocks);
+            }
             get_index_str(b, n, idx, fac, fmt, idxstr);
             printf("-%s%s): %i\n", prestr, idxstr, i4_1[n]);
             printf("+%s%s): %i\n", prestr, idxstr, i4_2[n]);
@@ -1465,6 +1490,10 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
             gotdiff = 1;
             if (quiet)
                 continue;
+            if (!gotblock) {
+                gotblock = 1;
+                print_metadata_id(b, inum, handles[0]->nblocks);
+            }
             get_index_str(b, n, idx, fac, fmt, idxstr);
             printf("-%s%s): %lli\n", prestr, idxstr, i8_1[n]);
             printf("+%s%s): %lli\n", prestr, idxstr, i8_2[n]);
@@ -1487,6 +1516,10 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
             gotdiff = 1;
             if (quiet)
                 continue;
+            if (!gotblock) {
+                gotblock = 1;
+                print_metadata_id(b, inum, handles[0]->nblocks);
+            }
             get_index_str(b, n, idx, fac, fmt, idxstr);
             printf("-%s%s): %27.18e\n", prestr, idxstr, val1);
             printf("+%s%s): %27.18e\n", prestr, idxstr, val2);
@@ -1509,6 +1542,10 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
             gotdiff = 1;
             if (quiet)
                 continue;
+            if (!gotblock) {
+                gotblock = 1;
+                print_metadata_id(b, inum, handles[0]->nblocks);
+            }
             get_index_str(b, n, idx, fac, fmt, idxstr);
             printf("-%s%s): %27.18e\n", prestr, idxstr, val1);
             printf("+%s%s): %27.18e\n", prestr, idxstr, val2);
@@ -1528,6 +1565,10 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
             gotdiff = 1;
             if (quiet)
                 continue;
+            if (!gotblock) {
+                gotblock = 1;
+                print_metadata_id(b, inum, handles[0]->nblocks);
+            }
             get_index_str(b, n, idx, fac, fmt, idxstr);
             printf("-%s%s): %c\n", prestr, idxstr, clogical[i1]);
             printf("+%s%s): %c\n", prestr, idxstr, clogical[i2]);
@@ -1654,7 +1695,7 @@ int main(int argc, char **argv)
             continue;
         }
 
-        gotdiff = diff_block(handles, b, b2);
+        gotdiff = diff_block(handles, b, b2, idx);
 /*
         switch (b->blocktype) {
         case SDF_BLOCKTYPE_PLAIN_DERIVED:
