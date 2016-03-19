@@ -120,7 +120,7 @@ void usage(int err)
   -q --quiet           Do not print output. Exit with zero status if files are\n\
                        the same and non-zero if they differ.\n\
   -m --metadata        Show metadata blocks (not shown by default)\n\
-  -j --just-id         Only show ID and number for metadata blocks\n\
+  -j --just-id         Only show ID and number of differing blocks\n\
   -l --less-verbose    Print metadata less verbosely\n\
   -r --relerr          Relative error for numerical difference\n\
   -v --variable=id     Find the block with id matching 'id'\n\
@@ -1469,6 +1469,8 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
                 gotblock = 1;
                 print_metadata_id(b, inum, handles[0]->nblocks);
             }
+            if (just_id)
+                continue;
             get_index_str(b, n, idx, fac, fmt, idxstr);
             printf("-%s%s): %i\n", prestr, idxstr, i4_1[n]);
             printf("+%s%s): %i\n", prestr, idxstr, i4_2[n]);
@@ -1494,6 +1496,8 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
                 gotblock = 1;
                 print_metadata_id(b, inum, handles[0]->nblocks);
             }
+            if (just_id)
+                continue;
             get_index_str(b, n, idx, fac, fmt, idxstr);
             printf("-%s%s): %lli\n", prestr, idxstr, i8_1[n]);
             printf("+%s%s): %lli\n", prestr, idxstr, i8_2[n]);
@@ -1520,6 +1524,8 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
                 gotblock = 1;
                 print_metadata_id(b, inum, handles[0]->nblocks);
             }
+            if (just_id)
+                continue;
             get_index_str(b, n, idx, fac, fmt, idxstr);
             printf("-%s%s): %27.18e\n", prestr, idxstr, val1);
             printf("+%s%s): %27.18e\n", prestr, idxstr, val2);
@@ -1546,6 +1552,8 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
                 gotblock = 1;
                 print_metadata_id(b, inum, handles[0]->nblocks);
             }
+            if (just_id)
+                continue;
             get_index_str(b, n, idx, fac, fmt, idxstr);
             printf("-%s%s): %27.18e\n", prestr, idxstr, val1);
             printf("+%s%s): %27.18e\n", prestr, idxstr, val2);
@@ -1569,6 +1577,8 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
                 gotblock = 1;
                 print_metadata_id(b, inum, handles[0]->nblocks);
             }
+            if (just_id)
+                continue;
             get_index_str(b, n, idx, fac, fmt, idxstr);
             printf("-%s%s): %c\n", prestr, idxstr, clogical[i1]);
             printf("+%s%s): %c\n", prestr, idxstr, clogical[i2]);
