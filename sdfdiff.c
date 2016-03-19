@@ -1383,7 +1383,7 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
     struct stat st;
     struct tm *tm;
     char *name;
-    double relerr_max, relerr_val;
+    double relerr_max, relerr_val, abserr_max, abserr_val;
 
     switch (b->blocktype) {
     case SDF_BLOCKTYPE_PLAIN_DERIVED:
@@ -1462,7 +1462,7 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
     sdf_helper_read_data(handles[1], b2);
 
     gotblock = 0;
-    relerr_max = 0.0;
+    abserr_max = relerr_max = 0.0;
 
     switch (b->datatype) {
     case(SDF_DATATYPE_INTEGER4):
@@ -1473,9 +1473,10 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
                 continue;
             val1 = i4_1[n];
             val2 = i4_2[n];
-            relerr_val = ABS(val1 - val2) / MIN(ABS(val1), ABS(val2));
-            if (relerr_val > relerr_max)
-                relerr_max = relerr_val;
+            abserr_val = ABS(val1 - val2);
+            relerr_val = abserr_val / MIN(ABS(val1), ABS(val2));
+            if (relerr_val > relerr_max) relerr_max = relerr_val;
+            if (abserr_val > abserr_max) abserr_max = abserr_val;
             if (relerr_val < relerr)
                 continue;
             /* If we got here then the numbers differ */
@@ -1509,9 +1510,10 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
                 continue;
             val1 = i8_1[n];
             val2 = i8_2[n];
-            relerr_val = ABS(val1 - val2) / MIN(ABS(val1), ABS(val2));
-            if (relerr_val > relerr_max)
-                relerr_max = relerr_val;
+            abserr_val = ABS(val1 - val2);
+            relerr_val = abserr_val / MIN(ABS(val1), ABS(val2));
+            if (relerr_val > relerr_max) relerr_max = relerr_val;
+            if (abserr_val > abserr_max) abserr_max = abserr_val;
             if (relerr_val < relerr)
                 continue;
             /* If we got here then the numbers differ */
@@ -1546,9 +1548,10 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             denom = MIN(ABS(val1), ABS(val2));
             if (denom < FLT_MIN)
                 continue;
-            relerr_val = ABS(val1 - val2) / denom;
-            if (relerr_val > relerr_max)
-                relerr_max = relerr_val;
+            abserr_val = ABS(val1 - val2);
+            relerr_val = abserr_val / denom;
+            if (relerr_val > relerr_max) relerr_max = relerr_val;
+            if (abserr_val > abserr_max) abserr_max = abserr_val;
             if (relerr_val < relerr)
                 continue;
             /* If we got here then the numbers differ */
@@ -1581,9 +1584,10 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             denom = MIN(ABS(val1), ABS(val2));
             if (denom < DBL_MIN)
                 continue;
-            relerr_val = ABS(val1 - val2) / denom;
-            if (relerr_val > relerr_max)
-                relerr_max = relerr_val;
+            abserr_val = ABS(val1 - val2);
+            relerr_val = abserr_val / denom;
+            if (relerr_val > relerr_max) relerr_max = relerr_val;
+            if (abserr_val > abserr_max) abserr_max = abserr_val;
             if (relerr_val < relerr)
                 continue;
             /* If we got here then the numbers differ */
@@ -1616,7 +1620,7 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             if (i1 == i2)
                 continue;
             /* If we got here then the numbers differ */
-            relerr_max = 1.0;
+            abserr_val = abserr_max = relerr_val = relerr_max = 1.0;
             if (!header)
                 printf("%s", firststr);
             header = gotdiff = 1;
@@ -1642,7 +1646,8 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
         header = 1;
         if (!gotblock)
             print_metadata_id(b, inum, handles[0]->nblocks);
-        printf("Max error %27.18e\n", relerr_max);
+        printf("Max error absolute %25.17e, relative %25.17e\n",
+               abserr_max, relerr_max);
     }
 
     for (i = 0; i < b->ndims; i++) free(fmt[i]);
