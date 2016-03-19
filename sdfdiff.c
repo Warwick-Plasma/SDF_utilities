@@ -1369,6 +1369,7 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
     int i1, i2;
     int64_t n, ival;
     static int gotdiff = 0;
+    static int header = 0;
     int *idx, *fac;
     int i, rem, left, digit, len, gotblock;
     static const int fmtlen = 32;
@@ -1382,6 +1383,7 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
     struct stat st;
     struct tm *tm;
     char *name;
+    double relerr_max, relerr_val;
 
     switch (b->blocktype) {
     case SDF_BLOCKTYPE_PLAIN_DERIVED:
@@ -1402,7 +1404,10 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
         return gotdiff;
     }
 
-    if (!gotdiff && !quiet) {
+    if (quiet)
+        header = 1;
+
+    if (!header) {
         name = handles[0]->filename;
         stat(name, &st);
         tm = localtime(&st.st_mtime);
@@ -1457,6 +1462,7 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
     sdf_helper_read_data(handles[1], b2);
 
     gotblock = 0;
+    relerr_max = 0.0;
 
     switch (b->datatype) {
     case(SDF_DATATYPE_INTEGER4):
@@ -1467,12 +1473,15 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
                 continue;
             val1 = i4_1[n];
             val2 = i4_2[n];
-            if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) < relerr)
+            relerr_val = ABS(val1 - val2) / MIN(ABS(val1), ABS(val2));
+            if (relerr_val > relerr_max)
+                relerr_max = relerr_val;
+            if (relerr_val < relerr)
                 continue;
             /* If we got here then the numbers differ */
-            if (!gotdiff && !quiet)
+            if (!header)
                 printf("%s", firststr);
-            gotdiff = 1;
+            header = gotdiff = 1;
             if (quiet)
                 continue;
             if (!gotblock) {
@@ -1500,12 +1509,15 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
                 continue;
             val1 = i8_1[n];
             val2 = i8_2[n];
-            if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) < relerr)
+            relerr_val = ABS(val1 - val2) / MIN(ABS(val1), ABS(val2));
+            if (relerr_val > relerr_max)
+                relerr_max = relerr_val;
+            if (relerr_val < relerr)
                 continue;
             /* If we got here then the numbers differ */
-            if (!gotdiff && !quiet)
+            if (!header)
                 printf("%s", firststr);
-            gotdiff = 1;
+            header = gotdiff = 1;
             if (quiet)
                 continue;
             if (!gotblock) {
@@ -1534,12 +1546,15 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             denom = MIN(ABS(val1), ABS(val2));
             if (denom < FLT_MIN)
                 continue;
-            if (ABS(val1 - val2) / denom < relerr)
+            relerr_val = ABS(val1 - val2) / denom;
+            if (relerr_val > relerr_max)
+                relerr_max = relerr_val;
+            if (relerr_val < relerr)
                 continue;
             /* If we got here then the numbers differ */
-            if (!gotdiff && !quiet)
+            if (!header)
                 printf("%s", firststr);
-            gotdiff = 1;
+            header = gotdiff = 1;
             if (quiet)
                 continue;
             if (!gotblock) {
@@ -1566,12 +1581,15 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             denom = MIN(ABS(val1), ABS(val2));
             if (denom < DBL_MIN)
                 continue;
-            if (ABS(val1 - val2) / denom < relerr)
+            relerr_val = ABS(val1 - val2) / denom;
+            if (relerr_val > relerr_max)
+                relerr_max = relerr_val;
+            if (relerr_val < relerr)
                 continue;
             /* If we got here then the numbers differ */
-            if (!gotdiff && !quiet)
+            if (!header)
                 printf("%s", firststr);
-            gotdiff = 1;
+            header = gotdiff = 1;
             if (quiet)
                 continue;
             if (!gotblock) {
@@ -1598,9 +1616,10 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             if (i1 == i2)
                 continue;
             /* If we got here then the numbers differ */
-            if (!gotdiff && !quiet)
+            relerr_max = 1.0;
+            if (!header)
                 printf("%s", firststr);
-            gotdiff = 1;
+            header = gotdiff = 1;
             if (quiet)
                 continue;
             if (!gotblock) {
@@ -1614,6 +1633,16 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             printf("+%s%s): %c\n", prestr, idxstr, clogical[i2]);
         }
         break;
+    }
+
+    //if (gotdiff && !quiet && !just_id)
+    if (!quiet && relerr_max > DBL_MIN) {
+        if (!header)
+            printf("%s", firststr);
+        header = 1;
+        if (!gotblock)
+            print_metadata_id(b, inum, handles[0]->nblocks);
+        printf("Max error %27.18e\n", relerr_max);
     }
 
     for (i = 0; i < b->ndims; i++) free(fmt[i]);
