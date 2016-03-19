@@ -1282,6 +1282,27 @@ static void print_data(sdf_block_t *b)
 }
 
 
+void get_index_str(sdf_block_t *b, int64_t n, int *idx, int *fac, char **fmt,
+                   char *str)
+{
+    int64_t rem, idx0;
+    int i, len;
+
+    rem = n;
+    for (i = b->ndims-1; i >= 0; i--) {
+        idx0 = idx[i] = rem / fac[i];
+        if (b->array_starts) idx[i] += b->array_starts[i];
+        rem -= idx0 * fac[i];
+    }
+
+    *str = '\0';
+    for (i = 0; i < b->ndims; i++) {
+        len = strlen(str);
+        sprintf(str+len, fmt[i], idx[i]);
+    }
+}
+
+
 int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
 {
     int32_t *i4_1, *i4_2;
@@ -1293,10 +1314,29 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
     int i1, i2;
     int64_t n;
     static int first = 1;
+    int *idx, *fac;
+    int i, rem, left, digit, len;
+    static const int fmtlen = 32;
+    char **fmt;
+    static const int idxlen = 64;
+    char idxstr[idxlen];
+    char prestr[idxlen];
+    sdf_block_t *b = b1;
 
-    switch (b1->blocktype) {
+    switch (b->blocktype) {
     case SDF_BLOCKTYPE_PLAIN_DERIVED:
     case SDF_BLOCKTYPE_PLAIN_VARIABLE:
+        break;
+    default:
+        return 0;
+    }
+
+    switch (b->datatype) {
+    case(SDF_DATATYPE_INTEGER4):
+    case(SDF_DATATYPE_INTEGER8):
+    case(SDF_DATATYPE_REAL4):
+    case(SDF_DATATYPE_REAL8):
+    case(SDF_DATATYPE_LOGICAL):
         break;
     default:
         return 0;
@@ -1308,71 +1348,116 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
         printf("+++%s\n", handles[1]->filename);
     }
 
+    /* Get index format */
+
+    idx = malloc(b->ndims * sizeof(*idx));
+    fac = malloc(b->ndims * sizeof(*fac));
+    fmt = malloc(b->ndims * sizeof(*fmt));
+
+    snprintf(prestr, idxlen, "%s[", b->id);
+
+    rem = 1;
+    for (i = 0; i < b->ndims; i++) {
+        if (b->array_starts)
+            left = b->array_ends[i] - b->array_starts[i];
+        else
+            left = b->local_dims[i];
+        fac[i] = rem;
+        rem *= left;
+        digit = 0;
+        if (b->array_ends)
+            left = b->array_ends[i] + index_offset - 1;
+        while (left) {
+            left /= 10;
+            digit++;
+        }
+        if (!digit) digit = 1;
+        fmt[i] = malloc(fmtlen * sizeof(**fmt));
+        if (i == 0)
+            snprintf(fmt[i], fmtlen, "%%%ii", digit);
+        else
+            snprintf(fmt[i], fmtlen, ",%%%ii", digit);
+        len = strlen(prestr);
+        snprintf(prestr+len, idxlen-len, fmt[i], b->dims[i]);
+    }
+    len = strlen(prestr);
+    snprintf(prestr+len, idxlen-len, "] (");
+
     sdf_helper_read_data(handles[0], b1);
     sdf_helper_read_data(handles[1], b2);
 
-    switch (b1->datatype) {
+    switch (b->datatype) {
     case(SDF_DATATYPE_INTEGER4):
         i4_1 = b1->data;
         i4_2 = b2->data;
-        for (n = 0; n < b1->nelements_local; n++) {
+        for (n = 0; n < b->nelements_local; n++) {
             val1 = i4_1[n];
             val2 = i4_2[n];
             if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr) {
-                printf("-%s (%" PRIi64 "): %i\n", b1->id, n, i4_1[n]);
-                printf("+%s (%" PRIi64 "): %i\n", b1->id, n, i4_2[n]);
+                get_index_str(b, n, idx, fac, fmt, idxstr);
+                printf("-%s%s): %i\n", prestr, idxstr, i4_1[n]);
+                printf("+%s%s): %i\n", prestr, idxstr, i4_2[n]);
             }
         }
         break;
     case(SDF_DATATYPE_INTEGER8):
         i8_1 = b1->data;
         i8_2 = b2->data;
-        for (n = 0; n < b1->nelements_local; n++) {
+        for (n = 0; n < b->nelements_local; n++) {
             val1 = i8_1[n];
             val2 = i8_2[n];
             if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr) {
-                printf("-%s (%" PRIi64 "): %" PRIi64 "\n", b1->id, n, i8_1[n]);
-                printf("+%s (%" PRIi64 "): %" PRIi64 "\n", b1->id, n, i8_2[n]);
+                get_index_str(b, n, idx, fac, fmt, idxstr);
+                printf("-%s%s): %" PRIi64 "\n", prestr, idxstr, i8_1[n]);
+                printf("+%s%s): %" PRIi64 "\n", prestr, idxstr, i8_2[n]);
             }
         }
         break;
     case(SDF_DATATYPE_REAL4):
         r4_1 = b1->data;
         r4_2 = b2->data;
-        for (n = 0; n < b1->nelements_local; n++) {
+        for (n = 0; n < b->nelements_local; n++) {
             val1 = r4_1[n];
             val2 = r4_2[n];
             if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr) {
-                printf("-%s (%" PRIi64 "): %27.18e\n", b1->id, n, val1);
-                printf("+%s (%" PRIi64 "): %27.18e\n", b1->id, n, val2);
+                get_index_str(b, n, idx, fac, fmt, idxstr);
+                printf("-%s%s): %27.18e\n", prestr, idxstr, val1);
+                printf("+%s%s): %27.18e\n", prestr, idxstr, val2);
             }
         }
         break;
     case(SDF_DATATYPE_REAL8):
         r8_1 = b1->data;
         r8_2 = b2->data;
-        for (n = 0; n < b1->nelements_local; n++) {
+        for (n = 0; n < b->nelements_local; n++) {
             val1 = r8_1[n];
             val2 = r8_2[n];
             if (ABS(val1 - val2) / MIN(ABS(val1), ABS(val2)) > relerr) {
-                printf("-%s (%" PRIi64 "): %27.18e\n", b1->id, n, val1);
-                printf("+%s (%" PRIi64 "): %27.18e\n", b1->id, n, val2);
+                get_index_str(b, n, idx, fac, fmt, idxstr);
+                printf("-%s%s): %27.18e\n", prestr, idxstr, val1);
+                printf("+%s%s): %27.18e\n", prestr, idxstr, val2);
             }
         }
         break;
     case(SDF_DATATYPE_LOGICAL):
         l_1 = b1->data;
         l_2 = b2->data;
-        for (n = 0; n < b1->nelements_local; n++) {
+        for (n = 0; n < b->nelements_local; n++) {
             i1 = l_1[n];
             i2 = l_2[n];
             if (i1 != i2) {
-                printf("-%s (%" PRIi64 "): %c\n", b1->id, n, clogical[i1]);
-                printf("+%s (%" PRIi64 "): %c\n", b1->id, n, clogical[i2]);
+                get_index_str(b, n, idx, fac, fmt, idxstr);
+                printf("-%s%s): %c\n", prestr, idxstr, clogical[i1]);
+                printf("+%s%s): %c\n", prestr, idxstr, clogical[i2]);
             }
         }
         break;
     }
+
+    for (i = 0; i < b->ndims; i++) free(fmt[i]);
+    free(fmt);
+    free(idx);
+    free(fac);
 
     return 0;
 }
