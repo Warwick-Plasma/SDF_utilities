@@ -1322,6 +1322,9 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
     char idxstr[idxlen];
     char prestr[idxlen];
     sdf_block_t *b = b1;
+    struct stat st;
+    struct tm *tm;
+    char *name;
 
     switch (b->blocktype) {
     case SDF_BLOCKTYPE_PLAIN_DERIVED:
@@ -1344,8 +1347,19 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2)
 
     if (first) {
         first = 0;
-        printf("---%s\n", handles[0]->filename);
-        printf("+++%s\n", handles[1]->filename);
+
+        name = handles[0]->filename;
+        stat(name, &st);
+        tm = localtime(&st.st_mtime);
+        //strftime(prestr, idxlen, "%Y-%m-%d %H:%M:%S.%N %z", tm);
+        strftime(prestr, idxlen, "%Y-%m-%d %H:%M:%S.000000000 %z", tm);
+        printf("--- %s\t%s\n", name, prestr);
+
+        name = handles[1]->filename;
+        stat(name, &st);
+        tm = localtime(&st.st_mtime);
+        strftime(prestr, idxlen, "%Y-%m-%d %H:%M:%S.000000000 %z", tm);
+        printf("+++ %s\t%s\n", name, prestr);
     }
 
     /* Get index format */
