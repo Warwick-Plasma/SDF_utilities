@@ -40,12 +40,11 @@
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 #define ABS(a) (((a) < 0.0) ? -(a) : (a))
 
-int metadata, debug, ignore_summary, ascii_header;
-int exclude_variables, derived, extension_info, index_offset;
+int metadata, debug, ignore_summary;
+int exclude_variables, index_offset;
 int just_id, verbose_metadata, special_format, scale_factor;
-int format_rowindex, format_index, format_number;
 int purge_duplicate, ignore_nblocks, quiet, show_errors;
-int64_t array_ndims, *array_starts, *array_ends, *array_strides;
+int64_t *array_starts, *array_ends;
 char *format_float, *format_int, *format_space;
 double relerr = 1.0e-15;
 //static char *default_float = "%9.6fE%+2.2d1p";
@@ -127,30 +126,17 @@ void usage(int err)
   -x --exclude=id      Exclude the block with id matching 'id'\n\
   -i --no-summary      Ignore the metadata summary\n\
   -b --no-nblocks      Ignore the header value for nblocks\n\
-  -d --derived         Add derived blocks\n\
   -E --show-errors     Print error values\n\
-  -e --extension-info  Print information about any loaded extension module\n\
   -I --c-indexing      Array indexing starts from 1 by default. If this flag\n\
                        is used then the indexing starts from 0.\n\
-  -H --no-ascii-header When writing multi-column ascii data, a header is\n\
-                       included for use by gnuplot or other plotting\n\
-                       utilities. This flag disables the header.\n\
   -F --format-float=f  Use specified format for printing floating-point array\n\
                        contents.\n\
   -N --format-int=f    Use specified format for printing integer array\n\
                        contents.\n\
   -S --format-space=f  Use specified spacing between array elements.\n\
-  -K --format-number   Show block number before each row of array elements.\n\
-  -R --format-rowindex Show array indices before each row of array elements.\n\
-  -J --format-index    Show array indices before each array element.\n\
   -p --purge-duplicate Delete duplicated block IDs\n\
   -V --version         Print version information and exit\n\
 ");
-/*
-  -o --output          Output filename\n\
-  -D --debug           Show the contents of the debug buffer\n\
-*/
-
     exit(err);
 }
 
@@ -195,23 +181,17 @@ char **parse_args(int *argc, char ***argv)
     struct stat statbuf;
     static struct option longopts[] = {
         { "no-nblocks",      no_argument,       NULL, 'b' },
-        { "derived",         no_argument,       NULL, 'd' },
-        { "extension-info",  no_argument,       NULL, 'e' },
         { "show-errors",     no_argument,       NULL, 'E' },
         { "format-float",    required_argument, NULL, 'F' },
         { "help",            no_argument,       NULL, 'h' },
-        { "no-ascii-header", no_argument,       NULL, 'H' },
         { "no-summary",      no_argument,       NULL, 'i' },
         { "c-indexing",      no_argument,       NULL, 'I' },
         { "just-id",         no_argument,       NULL, 'j' },
-        { "format-index",    no_argument,       NULL, 'J' },
-        { "format-number",   no_argument,       NULL, 'K' },
         { "less-verbose",    no_argument,       NULL, 'l' },
         { "metadata",        no_argument,       NULL, 'm' },
         { "format-int",      required_argument, NULL, 'N' },
         { "quiet",           no_argument,       NULL, 'q' },
         { "relerr",          optional_argument, NULL, 'r' },
-        { "format-rowindex", no_argument,       NULL, 'R' },
         { "format-space",    required_argument, NULL, 'S' },
         { "variable",        required_argument, NULL, 'v' },
         { "exclude",         required_argument, NULL, 'x' },
@@ -223,14 +203,13 @@ char **parse_args(int *argc, char ***argv)
     };
 
     debug = index_offset = verbose_metadata = 1;
-    ascii_header = 1;
     metadata = ignore_summary = exclude_variables = 0;
-    derived = format_rowindex = format_index = format_number = just_id = 0;
-    purge_duplicate = ignore_nblocks = extension_info = quiet = show_errors = 0;
+    just_id = 0;
+    purge_duplicate = ignore_nblocks = quiet = show_errors = 0;
     variable_ids = NULL;
     variable_last_id = NULL;
-    array_starts = array_ends = array_strides = NULL;
-    array_ndims = nrange_max = nrange = 0;
+    array_starts = array_ends = NULL;
+    nrange_max = nrange = 0;
     sz = sizeof(struct range_type);
 
     format_int = malloc(strlen(default_int)+1);
@@ -245,16 +224,10 @@ char **parse_args(int *argc, char ***argv)
     got_include = got_exclude = 0;
 
     while ((c = getopt_long(*argc, *argv,
-            "bdeEF:hHiIjJKlmN:qr::RS:v:x:pV", longopts, NULL)) != -1) {
+            "bEF:hiIjJlmN:qr::S:v:x:pV", longopts, NULL)) != -1) {
         switch (c) {
         case 'b':
             ignore_nblocks = 1;
-            break;
-        case 'd':
-            derived = 1;
-            break;
-        case 'e':
-            extension_info = 1;
             break;
         case 'E':
             show_errors = 1;
@@ -267,9 +240,6 @@ char **parse_args(int *argc, char ***argv)
         case 'h':
             usage(0);
             break;
-        case 'H':
-            ascii_header = 0;
-            break;
         case 'i':
             ignore_summary = 1;
             break;
@@ -278,12 +248,6 @@ char **parse_args(int *argc, char ***argv)
             break;
         case 'j':
             just_id = 1;
-            break;
-        case 'J':
-            format_index = 1;
-            break;
-        case 'K':
-            format_number = 1;
             break;
         case 'l':
             verbose_metadata = 0;
@@ -310,9 +274,6 @@ char **parse_args(int *argc, char ***argv)
                 printf("Default value is %g\n", relerr);
                 exit(0);
             }
-            break;
-        case 'R':
-            format_rowindex = 1;
             break;
         case 'p':
             purge_duplicate = 1;
@@ -541,254 +502,6 @@ static void print_value(void *data, int datatype)
             printf("F");
         break;
     }
-}
-
-
-static void print_value_element(char *data, int datatype, int n)
-{
-    switch (datatype) {
-    case SDF_DATATYPE_INTEGER4:
-    case SDF_DATATYPE_REAL4:
-        print_value(data + 4*n, datatype);
-        break;
-    case SDF_DATATYPE_INTEGER8:
-    case SDF_DATATYPE_REAL8:
-        print_value(data + 8*n, datatype);
-        break;
-    case SDF_DATATYPE_CHARACTER:
-    case SDF_DATATYPE_LOGICAL:
-        print_value(data + n, datatype);
-        break;
-    }
-}
-
-
-static void pretty_print_mesh(sdf_file_t *h, sdf_block_t *b, int idnum)
-{
-    int *idx, *fac;
-    int i, n, rem, sz, left, digit, ncount, dim;
-    char *ptr;
-    static const int fmtlen = 32;
-    char **fmt;
-
-    idx = calloc(b->ndims, sizeof(*idx));
-    fac = calloc(b->ndims, sizeof(*fac));
-    fmt = calloc(b->ndims, sizeof(*fmt));
-
-    rem = 1;
-    for (i = 0; i < b->ndims; i++) {
-        if (b->array_starts)
-            left = b->array_ends[i] - b->array_starts[i];
-        else
-            left = b->local_dims[i];
-        fac[i] = rem;
-        rem *= left;
-        digit = 0;
-        if (b->array_ends)
-            left = b->array_ends[i] + index_offset - 1;
-        while (left) {
-            left /= 10;
-            digit++;
-        }
-        if (!digit) digit = 1;
-        if (format_rowindex || format_index) {
-            ptr = fmt[i] = malloc(fmtlen * sizeof(**fmt));
-            if (i != 0) *ptr++ = ',';
-            sz = snprintf(ptr, fmtlen-2, "%%%i.%ii", digit, digit);
-            if (i == b->ndims-1) {
-                ptr += sz;
-                *ptr++ = ')';
-                *ptr++ = '\0';
-            }
-        } else
-            fmt[i] = calloc(1, sizeof(**fmt));
-    }
-
-    sz = SDF_TYPE_SIZES[b->datatype_out];
-
-    ncount = 0;
-    dim = 0;
-    if (b->array_starts) {
-        for (i = 0; i < b->ndims; i++)
-            idx[i] = b->array_starts[i];
-        for (i = 0; i < b->ndims; i++) {
-            if (b->array_ends[i] > b->array_starts[i])
-                break;
-            dim++;
-        }
-    }
-    ptr = b->grids[dim];
-
-    for (n = 0; n < b->nelements_local; n++) {
-        ncount++;
-        if (ncount == 1) {
-            if (format_number) printf("%i ", idnum);
-        } else {
-            if (format_index) printf(" ");
-        }
-
-        if ((ncount ==1 && format_rowindex) || format_index) {
-            for (i = 0; i < b->ndims; i++) {
-                if (i == dim) {
-                    printf(fmt[i], idx[i]+index_offset);
-                } else {
-                    if (i != 0) printf(",");
-                    printf("0");
-                    if (i == b->ndims-1) printf(")");
-                }
-            }
-        }
-
-        if (ncount != 1 && format_index) printf(format_space,1);
-
-        print_value(ptr, b->datatype_out);
-
-        idx[dim]++;
-        ptr += sz;
-        if (b->array_ends && idx[dim] >= b->array_ends[dim]) {
-            idx[dim] = 0;
-            dim++;
-            ptr = b->grids[dim];
-            ncount = 1;
-        } else if (idx[dim] >= b->local_dims[dim]) {
-            idx[dim] = 0;
-            dim++;
-            ptr = b->grids[dim];
-            ncount = 1;
-        }
-        if (ncount == 1) {
-            printf("\n");
-            ncount = 0;
-        }
-    }
-    if (ncount) printf("\n");
-
-    free(idx);
-    free(fac);
-
-    for (i = 0; i < b->ndims; i++) free(fmt[i]);
-    free(fmt);
-}
-
-
-static void pretty_print(sdf_file_t *h, sdf_block_t *b, int idnum)
-{
-    int *idx, *fac;
-    int i, n, rem, sz, left, digit, ncount, idx0;
-    char *ptr;
-    static const int fmtlen = 32;
-    char **fmt;
-
-    if (b->blocktype == SDF_BLOCKTYPE_PLAIN_MESH ||
-            b->blocktype == SDF_BLOCKTYPE_POINT_MESH) {
-        pretty_print_mesh(h, b, idnum);
-        return;
-    }
-
-    idx = malloc(b->ndims * sizeof(*idx));
-    fac = malloc(b->ndims * sizeof(*fac));
-    fmt = malloc(b->ndims * sizeof(*fmt));
-
-    rem = 1;
-    for (i = 0; i < b->ndims; i++) {
-        if (b->array_starts)
-            left = b->array_ends[i] - b->array_starts[i];
-        else
-            left = b->local_dims[i];
-        fac[i] = rem;
-        rem *= left;
-        digit = 0;
-        if (b->array_ends)
-            left = b->array_ends[i] + index_offset - 1;
-        while (left) {
-            left /= 10;
-            digit++;
-        }
-        if (!digit) digit = 1;
-        if (format_rowindex || format_index) {
-            fmt[i] = malloc(fmtlen * sizeof(**fmt));
-            if (i == 0)
-                snprintf(fmt[i], fmtlen, "%%%i.%ii", digit, digit);
-            else if (i == b->ndims-1)
-                snprintf(fmt[i], fmtlen, ",%%%i.%ii)", digit, digit);
-            else
-                snprintf(fmt[i], fmtlen, ",%%%i.%ii", digit, digit);
-        } else
-            fmt[i] = calloc(1, sizeof(**fmt));
-    }
-
-    sz = SDF_TYPE_SIZES[b->datatype_out];
-
-    ptr = b->data;
-    ncount = 0;
-    for (n = 0; n < b->nelements_local; n++) {
-        rem = n;
-        for (i = b->ndims-1; i >= 0; i--) {
-            idx0 = idx[i] = rem / fac[i];
-            if (b->array_starts) idx[i] += b->array_starts[i];
-            rem -= idx0 * fac[i];
-        }
-
-        ncount++;
-        if (ncount == 1) {
-            if (format_number)
-                printf("%i ", idnum);
-            for (i = 0; i < b->ndims; i++)
-                printf(fmt[i], idx[i]+index_offset);
-        } else {
-            if (format_index) {
-                printf(" ");
-                for (i = 0; i < b->ndims; i++)
-                    printf(fmt[i], idx[i]+index_offset);
-            }
-            printf(format_space,1);
-        }
-
-        print_value(ptr, b->datatype_out);
-
-        if (ncount == 1) {
-            printf("\n");
-            ncount = 0;
-        }
-        ptr += sz;
-    }
-    if (ncount) printf("\n");
-
-    free(idx);
-    free(fac);
-
-    for (i = 0; i < b->ndims; i++) free(fmt[i]);
-    free(fmt);
-}
-
-
-static void print_header(sdf_file_t *h)
-{
-    printf("Block 0: File header\n");
-    if (just_id) return;
-
-    sprintf(indent, default_indent, 1);
-
-    SET_WIDTH("first_block_location:");
-    PRINTC("endianness:", h->endianness, "%#8.8x");
-    PRINTC("file_version:", h->file_version, "%i");
-    PRINTC("file_revision:", h->file_revision, "%i");
-    PRINTC("code_name:", h->code_name, "%s");
-    PRINTC("first_block_location:", (long long)h->first_block_location, "%#8.8llx");
-    PRINTC("summary_location:", (long long)h->summary_location, "%#8.8llx");
-    PRINTC("summary_size:", h->summary_size, "%i");
-    PRINTC("nblocks_file:", h->nblocks_file, "%i");
-    PRINTC("block_header_length:", h->block_header_length, "%i");
-    PRINTC("step:", h->step, "%i");
-    PRINTC("time:", h->time, "%g");
-    printf(indent, 1);
-    printf(width_fmt, "jobid:");
-    printf(" %i.%i\n", h->jobid1, h->jobid2);
-    PRINTC("string_length:", h->string_length, "%i");
-    PRINTC("code_io_version:", h->code_io_version, "%i");
-    PRINTC("restart_flag:", h->restart_flag, "%i");
-    PRINTC("other_domains:", h->other_domains, "%i");
-    printf("\n");
 }
 
 
@@ -1222,8 +935,6 @@ static void print_metadata(sdf_block_t *b, int inum, int nblocks)
     snprintf(fmt, fmtlen, "Block %%%ii, ID: %%s not found in second file",
              digit);
     printf(fmt, inum, b->id);
-    if (!b->in_file)
-        printf("  (derived)");
     printf("\n");
     if (just_id) return;
 
@@ -1357,8 +1068,6 @@ static void print_metadata_id(sdf_block_t *b, int inum, int nblocks)
 
     snprintf(fmt, fmtlen, "Block %%%ii, ID: %%s", digit);
     printf(fmt, inum, b->id);
-    if (!b->in_file)
-        printf("  (derived)");
     printf("\n");
 }
 
@@ -1701,14 +1410,13 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
 int main(int argc, char **argv)
 {
     char **files = NULL;
-    int i, n, block, err, found, idx, len, range_start;
-    int nelements_max;
+    int i, n, block, err, found, idx, range_start;
+    //int nelements_max;
     sdf_file_t *h, *h2, **handles;
-    sdf_block_t *b, *b2, *next, *mesh0;
-    //sdf_block_t *mesh;
-    list_t *station_blocks;
+    sdf_block_t *b, *b2, *next;
+    //sdf_block_t *mesh, *mesh0;
+    //list_t *station_blocks;
     comm_t comm;
-    char zero[16] = {0};
     int gotdiff = 0;
 
     files = parse_args(&argc, &argv);
@@ -1744,25 +1452,20 @@ int main(int argc, char **argv)
                     sdf_error_codes_c[err], block);
         }
 
-        if (derived && extension_info) sdf_extension_print_version(h);
-
         h->purge_duplicated_ids = purge_duplicate;
 
-        if (derived)
-            sdf_read_blocklist_all(h);
-        else
-            sdf_read_blocklist(h);
+        sdf_read_blocklist(h);
     }
     free(files);
 
     h  = handles[0];
     h2 = handles[1];
 
-    list_init(&station_blocks);
+    //list_init(&station_blocks);
 
-    nelements_max = 0;
     range_start = 0;
-    mesh0 = NULL;
+    //nelements_max = 0;
+    //mesh0 = NULL;
     found = 1;
     next = h->blocklist;
     for (i = 0, idx = 1; next; i++, idx++) {
@@ -1846,28 +1549,16 @@ int main(int argc, char **argv)
 */
     }
 
+/*
     if (mesh0 && (variable_ids || nrange > 0)) {
-        if (ascii_header) {
-            printf("# Stations Time History File\n#\n");
-            // This gives garbage output
-            //printf("# %s\t%s\t(%s)\n", mesh0->id, mesh0->name, mesh0->units);
-            printf("# time\tTime\t(%s)\n", mesh0->units);
-        }
-
         nelements_max = 0;
         b = list_start(station_blocks);
         for (i = 0; i < station_blocks->count; i++) {
-            len = strlen(b->station_id);
-            if (ascii_header)
-                printf("# %s\t%s\t(%s)\n", &b->id[len+1],
-                       &b->name[len+1], b->units);
             idx = b->offset + b->nelements_local - mesh0->offset;
             if (idx > nelements_max)
                 nelements_max = idx;
             b = list_next(station_blocks);
         }
-
-        if (ascii_header) printf("#\n");
 
         for (n = 0; n < nelements_max; n++) {
             print_value_element(mesh0->data, mesh0->datatype, n);
@@ -1888,6 +1579,7 @@ int main(int argc, char **argv)
     }
 
     list_destroy(&station_blocks);
+*/
     if (range_list) free(range_list);
 
     close_files(handles);
