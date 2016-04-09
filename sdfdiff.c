@@ -1447,6 +1447,9 @@ int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int in
     char *prestr;
     sdf_block_t *b = b1;
     double relerr_max, relerr_val, abserr_max, abserr_val, denom;
+    int64_t n = 0;
+    int *idx = NULL, *fac = NULL;
+    char **fmt = NULL;
 
     switch (b->datatype) {
     case(SDF_DATATYPE_INTEGER4):
@@ -1502,6 +1505,7 @@ int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int in
         }
         if (just_id)
             return gotdiff;
+        get_index_str(b, n, idx, fac, fmt, idxstr);
         printf("-%s%s: ", prestr, idxstr);
         printf(format_int, ival1);
         printf("\n");
@@ -1544,6 +1548,7 @@ int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int in
         }
         if (just_id)
             return gotdiff;
+        get_index_str(b, n, idx, fac, fmt, idxstr);
         printf("-%s%s: ", prestr, idxstr);
         printf(format_int, ival1);
         printf("\n");
@@ -1584,6 +1589,7 @@ int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int in
         }
         if (just_id)
             return gotdiff;
+        get_index_str(b, n, idx, fac, fmt, idxstr);
         printf("-%s%s: ", prestr, idxstr);
         printf(format_float, val1);
         printf("\n");
@@ -1624,6 +1630,7 @@ int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int in
         }
         if (just_id)
             return gotdiff;
+        get_index_str(b, n, idx, fac, fmt, idxstr);
         printf("-%s%s: ", prestr, idxstr);
         printf(format_float, val1);
         printf("\n");
@@ -1652,6 +1659,7 @@ int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int in
         }
         if (just_id)
             return gotdiff;
+        get_index_str(b, n, idx, fac, fmt, idxstr);
         printf("-%s%s: ", prestr, idxstr);
         printf("%c", clogical[i1]);
         printf("\n");
