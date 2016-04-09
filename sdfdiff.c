@@ -1125,6 +1125,20 @@ void get_header_string(sdf_file_t **handles, char *firststr, int firstlen)
 }
 
 
+#define PRINT_DIFF(v1, v2, format) do { \
+    get_index_str(b, n, idx, fac, fmt, idxstr); \
+    printf("-%s%s: ", prestr, idxstr); \
+    printf(format, (v1)); \
+    printf("\n"); \
+    printf("+%s%s: ", prestr, idxstr); \
+    printf(format, (v2)); \
+    printf("\n"); \
+    if (show_errors) \
+        printf(" Error absolute %25.17e, relative %25.17e\n", \
+               abserr_val, relerr_val); \
+} while(0)
+
+
 int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
 {
     int32_t *i4_1, *i4_2;
@@ -1231,16 +1245,7 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
                         print_metadata_id(b, inum, handles[0]->nblocks);
                     }
                     if (!just_id) {
-                        get_index_str(b, n, idx, fac, fmt, idxstr);
-                        printf("-%s%s: ", prestr, idxstr);
-                        printf(format_int, ival1);
-                        printf("\n");
-                        printf("+%s%s: ", prestr, idxstr);
-                        printf(format_int, ival2);
-                        printf("\n");
-                        if (show_errors)
-                            printf(" Error absolute %25.17e, relative %25.17e\n",
-                                   abserr_val, relerr_val);
+                        PRINT_DIFF(ival1, ival2, format_int);
                     }
                 }
             }
@@ -1276,16 +1281,7 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
                         print_metadata_id(b, inum, handles[0]->nblocks);
                     }
                     if (!just_id) {
-                        get_index_str(b, n, idx, fac, fmt, idxstr);
-                        printf("-%s%s: ", prestr, idxstr);
-                        printf(format_int, ival1);
-                        printf("\n");
-                        printf("+%s%s: ", prestr, idxstr);
-                        printf(format_int, ival2);
-                        printf("\n");
-                        if (show_errors)
-                            printf(" Error absolute %25.17e, relative %25.17e\n",
-                                   abserr_val, relerr_val);
+                        PRINT_DIFF(ival1, ival2, format_int);
                     }
                 }
             }
@@ -1319,16 +1315,7 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
                         print_metadata_id(b, inum, handles[0]->nblocks);
                     }
                     if (!just_id) {
-                        get_index_str(b, n, idx, fac, fmt, idxstr);
-                        printf("-%s%s: ", prestr, idxstr);
-                        printf(format_float, val1);
-                        printf("\n");
-                        printf("+%s%s: ", prestr, idxstr);
-                        printf(format_float, val2);
-                        printf("\n");
-                        if (show_errors)
-                            printf(" Error absolute %25.17e, relative %25.17e\n",
-                                   abserr_val, relerr_val);
+                        PRINT_DIFF(val1, val2, format_float);
                     }
                 }
             }
@@ -1362,16 +1349,7 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
                         print_metadata_id(b, inum, handles[0]->nblocks);
                     }
                     if (!just_id) {
-                        get_index_str(b, n, idx, fac, fmt, idxstr);
-                        printf("-%s%s: ", prestr, idxstr);
-                        printf(format_float, val1);
-                        printf("\n");
-                        printf("+%s%s: ", prestr, idxstr);
-                        printf(format_float, val2);
-                        printf("\n");
-                        if (show_errors)
-                            printf(" Error absolute %25.17e, relative %25.17e\n",
-                                   abserr_val, relerr_val);
+                        PRINT_DIFF(val1, val2, format_float);
                     }
                 }
             }
@@ -1395,13 +1373,7 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
                         print_metadata_id(b, inum, handles[0]->nblocks);
                     }
                     if (!just_id) {
-                        get_index_str(b, n, idx, fac, fmt, idxstr);
-                        printf("-%s%s: ", prestr, idxstr);
-                        printf("%c", clogical[i1]);
-                        printf("\n");
-                        printf("+%s%s: ", prestr, idxstr);
-                        printf("%c", clogical[i2]);
-                        printf("\n");
+                        PRINT_DIFF(clogical[i1], clogical[i2], "%c");
                     }
                 }
             }
@@ -1502,16 +1474,7 @@ int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int in
                     print_metadata_id(b, inum, handles[0]->nblocks);
                 }
                 if (!just_id) {
-                    get_index_str(b, n, idx, fac, fmt, idxstr);
-                    printf("-%s%s: ", prestr, idxstr);
-                    printf(format_int, ival1);
-                    printf("\n");
-                    printf("+%s%s: ", prestr, idxstr);
-                    printf(format_int, ival2);
-                    printf("\n");
-                    if (show_errors)
-                        printf(" Error absolute %25.17e, relative %25.17e\n",
-                               abserr_val, relerr_val);
+                    PRINT_DIFF(ival1, ival2, format_int);
                 }
             }
         }
@@ -1545,16 +1508,7 @@ int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int in
                     print_metadata_id(b, inum, handles[0]->nblocks);
                 }
                 if (!just_id) {
-                    get_index_str(b, n, idx, fac, fmt, idxstr);
-                    printf("-%s%s: ", prestr, idxstr);
-                    printf(format_int, ival1);
-                    printf("\n");
-                    printf("+%s%s: ", prestr, idxstr);
-                    printf(format_int, ival2);
-                    printf("\n");
-                    if (show_errors)
-                        printf(" Error absolute %25.17e, relative %25.17e\n",
-                               abserr_val, relerr_val);
+                    PRINT_DIFF(ival1, ival2, format_int);
                 }
             }
         }
@@ -1586,16 +1540,7 @@ int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int in
                     print_metadata_id(b, inum, handles[0]->nblocks);
                 }
                 if (!just_id) {
-                    get_index_str(b, n, idx, fac, fmt, idxstr);
-                    printf("-%s%s: ", prestr, idxstr);
-                    printf(format_float, val1);
-                    printf("\n");
-                    printf("+%s%s: ", prestr, idxstr);
-                    printf(format_float, val2);
-                    printf("\n");
-                    if (show_errors)
-                        printf(" Error absolute %25.17e, relative %25.17e\n",
-                               abserr_val, relerr_val);
+                    PRINT_DIFF(val1, val2, format_float);
                 }
             }
         }
@@ -1627,16 +1572,7 @@ int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int in
                     print_metadata_id(b, inum, handles[0]->nblocks);
                 }
                 if (!just_id) {
-                    get_index_str(b, n, idx, fac, fmt, idxstr);
-                    printf("-%s%s: ", prestr, idxstr);
-                    printf(format_float, val1);
-                    printf("\n");
-                    printf("+%s%s: ", prestr, idxstr);
-                    printf(format_float, val2);
-                    printf("\n");
-                    if (show_errors)
-                        printf(" Error absolute %25.17e, relative %25.17e\n",
-                               abserr_val, relerr_val);
+                    PRINT_DIFF(val1, val2, format_float);
                 }
             }
         }
@@ -1656,13 +1592,7 @@ int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int in
                     print_metadata_id(b, inum, handles[0]->nblocks);
                 }
                 if (!just_id) {
-                    get_index_str(b, n, idx, fac, fmt, idxstr);
-                    printf("-%s%s: ", prestr, idxstr);
-                    printf("%c", clogical[i1]);
-                    printf("\n");
-                    printf("+%s%s: ", prestr, idxstr);
-                    printf("%c", clogical[i2]);
-                    printf("\n");
+                    PRINT_DIFF(clogical[i1], clogical[i2], "%c");
                 }
             }
         }
