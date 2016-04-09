@@ -941,7 +941,7 @@ static void print_metadata_id(sdf_block_t *b, int inum, int nblocks)
         digit++;
     }
 
-    snprintf(fmt, fmtlen, "Block %%%ii", digit);
+    snprintf(fmt, fmtlen, "\nBlock %%%ii", digit);
     printf(fmt, inum);
     printf(", ID: %s", b->id);
 }
