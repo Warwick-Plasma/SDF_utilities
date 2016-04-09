@@ -1402,6 +1402,84 @@ int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int in
 }
 
 
+int diff_namevalue(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
+{
+    int32_t *i4_1, *i4_2;
+    int64_t *i8_1, *i8_2;
+    float *r4_1, *r4_2;
+    double *r8_1, *r8_2;
+    double val1, val2;
+    int64_t ival1, ival2;
+    int i1, i2;
+    char clogical[2] = {'F', 'T'};
+    char *l_1, *l_2;
+    int gotblock;
+    static int gotdiff = 0;
+    static const int firstlen = 512;
+    char firststr[firstlen];
+    char idxstr[1] = {'\0'};
+    char *prestr;
+    sdf_block_t *b = b1;
+    double relerr_max, relerr_val, abserr_max, abserr_val, denom;
+    int64_t n = 0;
+    int *idx = NULL, *fac = NULL;
+    char **fmt = NULL;
+
+    DIFF_PREAMBLE();
+
+    switch (b->datatype) {
+    case(SDF_DATATYPE_INTEGER4):
+        i4_1 = b1->data;
+        i4_2 = b2->data;
+        for (n = 0; n < b->ndims; n++) {
+            prestr = b->material_names[n];
+            ival1 = i4_1[n];
+            ival2 = i4_2[n];
+            DIFF(ival1, ival2, ival1, ival2, format_int);
+        }
+        break;
+    case(SDF_DATATYPE_INTEGER8):
+        i8_1 = b1->data;
+        i8_2 = b2->data;
+        for (n = 0; n < b->ndims; n++) {
+            prestr = b->material_names[n];
+            ival1 = i8_1[n];
+            ival2 = i8_2[n];
+            DIFF(ival1, ival2, ival1, ival2, format_int);
+        }
+        break;
+    case(SDF_DATATYPE_REAL4):
+        r4_1 = b1->data;
+        r4_2 = b2->data;
+        for (n = 0; n < b->ndims; n++) {
+            prestr = b->material_names[n];
+            DIFF(r4_1[n], r4_2[n], val1, val2, format_float);
+        }
+        break;
+    case(SDF_DATATYPE_REAL8):
+        r8_1 = b1->data;
+        r8_2 = b2->data;
+        for (n = 0; n < b->ndims; n++) {
+            prestr = b->material_names[n];
+            DIFF(r8_1[n], r8_2[n], val1, val2, format_float);
+        }
+        break;
+    case(SDF_DATATYPE_LOGICAL):
+        l_1 = b1->data;
+        l_2 = b2->data;
+        for (n = 0; n < b->ndims; n++) {
+            prestr = b->material_names[n];
+            LDIFF(l_1[n], l_2[n], clogical[i1], clogical[i2], "%c");
+        }
+        break;
+    }
+
+    DIFF_PRINT_MAX_ERROR();
+
+    return gotdiff;
+}
+
+
 int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
 {
     switch (b1->blocktype) {
@@ -1415,6 +1493,9 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
         break;
     case SDF_BLOCKTYPE_CONSTANT:
         return diff_constant(handles, b1, b2, inum);
+        break;
+    case SDF_BLOCKTYPE_NAMEVALUE:
+        return diff_namevalue(handles, b1, b2, inum);
         break;
     default:
         return 0;
