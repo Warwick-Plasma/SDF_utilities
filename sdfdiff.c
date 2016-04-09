@@ -1139,6 +1139,38 @@ void get_header_string(sdf_file_t **handles, char *firststr, int firstlen)
 } while(0)
 
 
+#define DIFF(v1, v2, pv1, pv2, format) do { \
+    val1 = (v1); \
+    val2 = (v2); \
+    denom = MIN(ABS(val1), ABS(val2)); \
+    abserr_val = ABS(val1 - val2); \
+    if (denom < DBL_MIN) { \
+        if (abserr_val < DBL_MIN) \
+            relerr_val = 0; \
+        else \
+            relerr_val = 1; \
+    } else \
+        relerr_val = abserr_val / denom; \
+    if (relerr_val > relerr_max) relerr_max = relerr_val; \
+    if (abserr_val > abserr_max) abserr_max = abserr_val; \
+    if (relerr_val >= relerr) { \
+        /* If we got here then the numbers differ */ \
+        if (!done_header) \
+            printf("%s", firststr); \
+        done_header = gotdiff = 1; \
+        if (!quiet) { \
+            if (!gotblock) { \
+                gotblock = 1; \
+                print_metadata_id(b, inum, handles[0]->nblocks); \
+            } \
+            if (!just_id) { \
+                PRINT_DIFF(pv1, pv2, format); \
+            } \
+        } \
+    } \
+} while(0)
+
+
 int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
 {
     int32_t *i4_1, *i4_2;
@@ -1221,34 +1253,7 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
         for (n = 0; n < b->nelements_local; n++) {
             ival1 = i4_1[n];
             ival2 = i4_2[n];
-            val1 = ival1;
-            val2 = ival2;
-            denom = MIN(ABS(val1), ABS(val2));
-            abserr_val = ABS(val1 - val2);
-            if (denom < DBL_MIN) {
-                if (abserr_val < DBL_MIN)
-                    relerr_val = 0;
-                else
-                    relerr_val = 1;
-            } else
-                relerr_val = abserr_val / denom;
-            if (relerr_val > relerr_max) relerr_max = relerr_val;
-            if (abserr_val > abserr_max) abserr_max = abserr_val;
-            if (relerr_val >= relerr) {
-                /* If we got here then the numbers differ */
-                if (!done_header)
-                    printf("%s", firststr);
-                done_header = gotdiff = 1;
-                if (!quiet) {
-                    if (!gotblock) {
-                        gotblock = 1;
-                        print_metadata_id(b, inum, handles[0]->nblocks);
-                    }
-                    if (!just_id) {
-                        PRINT_DIFF(ival1, ival2, format_int);
-                    }
-                }
-            }
+            DIFF(ival1, ival2, ival1, ival2, format_int);
         }
         break;
     case(SDF_DATATYPE_INTEGER8):
@@ -1257,102 +1262,21 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
         for (n = 0; n < b->nelements_local; n++) {
             ival1 = i8_1[n];
             ival2 = i8_2[n];
-            val1 = ival1;
-            val2 = ival2;
-            denom = MIN(ABS(val1), ABS(val2));
-            abserr_val = ABS(val1 - val2);
-            if (denom < DBL_MIN) {
-                if (abserr_val < DBL_MIN)
-                    relerr_val = 0;
-                else
-                    relerr_val = 1;
-            } else
-                relerr_val = abserr_val / denom;
-            if (relerr_val > relerr_max) relerr_max = relerr_val;
-            if (abserr_val > abserr_max) abserr_max = abserr_val;
-            if (relerr_val >= relerr) {
-                /* If we got here then the numbers differ */
-                if (!done_header)
-                    printf("%s", firststr);
-                done_header = gotdiff = 1;
-                if (!quiet) {
-                    if (!gotblock) {
-                        gotblock = 1;
-                        print_metadata_id(b, inum, handles[0]->nblocks);
-                    }
-                    if (!just_id) {
-                        PRINT_DIFF(ival1, ival2, format_int);
-                    }
-                }
-            }
+            DIFF(ival1, ival2, ival1, ival2, format_int);
         }
         break;
     case(SDF_DATATYPE_REAL4):
         r4_1 = b1->data;
         r4_2 = b2->data;
         for (n = 0; n < b->nelements_local; n++) {
-            val1 = r4_1[n];
-            val2 = r4_2[n];
-            denom = MIN(ABS(val1), ABS(val2));
-            abserr_val = ABS(val1 - val2);
-            if (denom < DBL_MIN) {
-                if (abserr_val < DBL_MIN)
-                    relerr_val = 0;
-                else
-                    relerr_val = 1;
-            } else
-                relerr_val = abserr_val / denom;
-            if (relerr_val > relerr_max) relerr_max = relerr_val;
-            if (abserr_val > abserr_max) abserr_max = abserr_val;
-            if (relerr_val >= relerr) {
-                /* If we got here then the numbers differ */
-                if (!done_header)
-                    printf("%s", firststr);
-                done_header = gotdiff = 1;
-                if (!quiet) {
-                    if (!gotblock) {
-                        gotblock = 1;
-                        print_metadata_id(b, inum, handles[0]->nblocks);
-                    }
-                    if (!just_id) {
-                        PRINT_DIFF(val1, val2, format_float);
-                    }
-                }
-            }
+            DIFF(r4_1[n], r4_2[n], val1, val2, format_float);
         }
         break;
     case(SDF_DATATYPE_REAL8):
         r8_1 = b1->data;
         r8_2 = b2->data;
         for (n = 0; n < b->nelements_local; n++) {
-            val1 = r8_1[n];
-            val2 = r8_2[n];
-            denom = MIN(ABS(val1), ABS(val2));
-            abserr_val = ABS(val1 - val2);
-            if (denom < DBL_MIN) {
-                if (abserr_val < DBL_MIN)
-                    relerr_val = 0;
-                else
-                    relerr_val = 1;
-            } else
-                relerr_val = abserr_val / denom;
-            if (relerr_val > relerr_max) relerr_max = relerr_val;
-            if (abserr_val > abserr_max) abserr_max = abserr_val;
-            if (relerr_val >= relerr) {
-                /* If we got here then the numbers differ */
-                if (!done_header)
-                    printf("%s", firststr);
-                done_header = gotdiff = 1;
-                if (!quiet) {
-                    if (!gotblock) {
-                        gotblock = 1;
-                        print_metadata_id(b, inum, handles[0]->nblocks);
-                    }
-                    if (!just_id) {
-                        PRINT_DIFF(val1, val2, format_float);
-                    }
-                }
-            }
+            DIFF(r8_1[n], r8_2[n], val1, val2, format_float);
         }
         break;
     case(SDF_DATATYPE_LOGICAL):
@@ -1450,132 +1374,24 @@ int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int in
         memcpy(&i4_2, b2->const_value, sizeof(i4_2));
         ival1 = i4_1;
         ival2 = i4_2;
-        val1 = ival1;
-        val2 = ival2;
-        denom = MIN(ABS(val1), ABS(val2));
-        abserr_val = ABS(val1 - val2);
-        if (denom < DBL_MIN) {
-            if (abserr_val < DBL_MIN)
-                relerr_val = 0;
-            else
-                relerr_val = 1;
-        } else
-            relerr_val = abserr_val / denom;
-        if (relerr_val > relerr_max) relerr_max = relerr_val;
-        if (abserr_val > abserr_max) abserr_max = abserr_val;
-        if (relerr_val >= relerr) {
-            /* If we got here then the numbers differ */
-            if (!done_header)
-                printf("%s", firststr);
-            done_header = gotdiff = 1;
-            if (!quiet) {
-                if (!gotblock) {
-                    gotblock = 1;
-                    print_metadata_id(b, inum, handles[0]->nblocks);
-                }
-                if (!just_id) {
-                    PRINT_DIFF(ival1, ival2, format_int);
-                }
-            }
-        }
+        DIFF(ival1, ival2, ival1, ival2, format_int);
         break;
     case SDF_DATATYPE_INTEGER8:
         memcpy(&i8_1, b1->const_value, sizeof(i8_1));
         memcpy(&i8_2, b2->const_value, sizeof(i8_2));
         ival1 = i8_1;
         ival2 = i8_2;
-        val1 = ival1;
-        val2 = ival2;
-        denom = MIN(ABS(val1), ABS(val2));
-        abserr_val = ABS(val1 - val2);
-        if (denom < DBL_MIN) {
-            if (abserr_val < DBL_MIN)
-                relerr_val = 0;
-            else
-                relerr_val = 1;
-        } else
-            relerr_val = abserr_val / denom;
-        if (relerr_val > relerr_max) relerr_max = relerr_val;
-        if (abserr_val > abserr_max) abserr_max = abserr_val;
-        if (relerr_val >= relerr) {
-            /* If we got here then the numbers differ */
-            if (!done_header)
-                printf("%s", firststr);
-            done_header = gotdiff = 1;
-            if (!quiet) {
-                if (!gotblock) {
-                    gotblock = 1;
-                    print_metadata_id(b, inum, handles[0]->nblocks);
-                }
-                if (!just_id) {
-                    PRINT_DIFF(ival1, ival2, format_int);
-                }
-            }
-        }
+        DIFF(ival1, ival2, ival1, ival2, format_int);
         break;
     case SDF_DATATYPE_REAL4:
         memcpy(&r4_1, b1->const_value, sizeof(r4_1));
         memcpy(&r4_2, b2->const_value, sizeof(r4_2));
-        val1 = r4_1;
-        val2 = r4_2;
-        denom = MIN(ABS(val1), ABS(val2));
-        abserr_val = ABS(val1 - val2);
-        if (denom < DBL_MIN) {
-            if (abserr_val < DBL_MIN)
-                relerr_val = 0;
-            else
-                relerr_val = 1;
-        } else
-            relerr_val = abserr_val / denom;
-        if (relerr_val > relerr_max) relerr_max = relerr_val;
-        if (abserr_val > abserr_max) abserr_max = abserr_val;
-        if (relerr_val >= relerr) {
-            /* If we got here then the numbers differ */
-            if (!done_header)
-                printf("%s", firststr);
-            done_header = gotdiff = 1;
-            if (!quiet) {
-                if (!gotblock) {
-                    gotblock = 1;
-                    print_metadata_id(b, inum, handles[0]->nblocks);
-                }
-                if (!just_id) {
-                    PRINT_DIFF(val1, val2, format_float);
-                }
-            }
-        }
+        DIFF(r4_1, r4_2, val1, val2, format_float);
         break;
     case SDF_DATATYPE_REAL8:
         memcpy(&r8_1, b1->const_value, sizeof(r8_1));
         memcpy(&r8_2, b2->const_value, sizeof(r8_2));
-        val1 = r8_1;
-        val2 = r8_2;
-        denom = MIN(ABS(val1), ABS(val2));
-        abserr_val = ABS(val1 - val2);
-        if (denom < DBL_MIN) {
-            if (abserr_val < DBL_MIN)
-                relerr_val = 0;
-            else
-                relerr_val = 1;
-        } else
-            relerr_val = abserr_val / denom;
-        if (relerr_val > relerr_max) relerr_max = relerr_val;
-        if (abserr_val > abserr_max) abserr_max = abserr_val;
-        if (relerr_val >= relerr) {
-            /* If we got here then the numbers differ */
-            if (!done_header)
-                printf("%s", firststr);
-            done_header = gotdiff = 1;
-            if (!quiet) {
-                if (!gotblock) {
-                    gotblock = 1;
-                    print_metadata_id(b, inum, handles[0]->nblocks);
-                }
-                if (!just_id) {
-                    PRINT_DIFF(val1, val2, format_float);
-                }
-            }
-        }
+        DIFF(r8_1, r8_2, val1, val2, format_float);
         break;
     case SDF_DATATYPE_LOGICAL:
         i1 = *b1->const_value;
