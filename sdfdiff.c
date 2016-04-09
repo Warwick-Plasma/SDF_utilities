@@ -53,6 +53,8 @@ static char *default_int   = "%" PRIi64;
 static char *default_space = "    ";
 static char *default_indent = "  ";
 static char indent[64];
+#define HEADER_LEN 512
+static char header_string[HEADER_LEN];
 
 struct id_list {
     char *id;
@@ -109,6 +111,7 @@ static char width_fmt[16];
 
 
 int close_files(sdf_file_t **handles);
+static inline void print_header(void);
 
 
 void usage(int err)
@@ -938,6 +941,7 @@ static void print_metadata(sdf_block_t *b, int inum, int nblocks)
         digit++;
     }
 
+    print_header();
     snprintf(fmt, fmtlen, "Block %%%ii, ID: %%s not found in second file",
              digit);
     printf(fmt, inum, b->id);
@@ -1097,7 +1101,7 @@ static void print_metadata_id(sdf_block_t *b, int inum, int nblocks)
 }
 
 
-void get_header_string(sdf_file_t **handles, char *firststr, int firstlen)
+void set_header_string(sdf_file_t **handles)
 {
     int len;
     char *name;
@@ -1114,14 +1118,24 @@ void get_header_string(sdf_file_t **handles, char *firststr, int firstlen)
     tm = localtime(&st.st_mtime);
     //strftime(prestr, idxlen, "%Y-%m-%d %H:%M:%S.%N %z", tm);
     strftime(prestr, idxlen, "%Y-%m-%d %H:%M:%S.000000000 %z", tm);
-    snprintf(firststr, firstlen, "--- %s\t%s\n", name, prestr);
+    snprintf(header_string, HEADER_LEN, "--- %s\t%s\n", name, prestr);
 
     name = handles[1]->filename;
     stat(name, &st);
     tm = localtime(&st.st_mtime);
     strftime(prestr, idxlen, "%Y-%m-%d %H:%M:%S.000000000 %z", tm);
-    len = strlen(firststr);
-    snprintf(firststr+len, firstlen-len, "+++ %s\t%s\n", name, prestr);
+    len = strlen(header_string);
+    snprintf(header_string+len, HEADER_LEN-len, "+++ %s\t%s\n", name, prestr);
+}
+
+
+static inline void print_header(void)
+{
+    if (done_header)
+        return;
+
+    printf("%s", header_string);
+    done_header = 1;
 }
 
 
@@ -1155,9 +1169,8 @@ void get_header_string(sdf_file_t **handles, char *firststr, int firstlen)
     if (abserr_val > abserr_max) abserr_max = abserr_val; \
     if (relerr_val >= relerr) { \
         /* If we got here then the numbers differ */ \
-        if (!done_header) \
-            printf("%s", firststr); \
-        done_header = gotdiff = 1; \
+        print_header(); \
+        gotdiff = 1; \
         if (!quiet) { \
             if (!gotblock) { \
                 gotblock = 1; \
@@ -1177,9 +1190,8 @@ void get_header_string(sdf_file_t **handles, char *firststr, int firstlen)
     if (i1 != i2) { \
         /* If we got here then the numbers differ */ \
         abserr_val = abserr_max = relerr_val = relerr_max = 1.0; \
-        if (!done_header) \
-            printf("%s", firststr); \
-        done_header = gotdiff = 1; \
+        print_header(); \
+        gotdiff = 1; \
         if (!quiet) { \
             if (!gotblock) { \
                 gotblock = 1; \
@@ -1205,8 +1217,6 @@ void get_header_string(sdf_file_t **handles, char *firststr, int firstlen)
         return gotdiff; \
     } \
 \
-    get_header_string(handles, firststr, firstlen); \
-\
     sdf_helper_read_data(handles[0], b1); \
     sdf_helper_read_data(handles[1], b2); \
 \
@@ -1217,9 +1227,7 @@ void get_header_string(sdf_file_t **handles, char *firststr, int firstlen)
 
 #define DIFF_PRINT_MAX_ERROR() do { \
     if (!quiet && relerr_max > DBL_MIN) { \
-        if (!done_header) \
-            printf("%s", firststr); \
-        done_header = 1; \
+        print_header(); \
         if (!gotblock) \
             print_metadata_id(b, inum, handles[0]->nblocks); \
         printf("Max error absolute %25.17e, relative %25.17e\n", \
@@ -1241,10 +1249,8 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
     char *l_1, *l_2;
     int gotblock;
     static int gotdiff = 0;
-    static const int firstlen = 512;
     static const int fmtlen = 32;
     static const int idxlen = 64;
-    char firststr[firstlen];
     char idxstr[idxlen];
     char prestr[idxlen];
     sdf_block_t *b = b1;
@@ -1351,8 +1357,6 @@ int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int in
     char clogical[2] = {'F', 'T'};
     int gotblock;
     static int gotdiff = 0;
-    static const int firstlen = 512;
-    char firststr[firstlen];
     char idxstr[1] = {'\0'};
     char *prestr;
     sdf_block_t *b = b1;
@@ -1415,8 +1419,6 @@ int diff_namevalue(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int i
     char *l_1, *l_2;
     int gotblock;
     static int gotdiff = 0;
-    static const int firstlen = 512;
-    char firststr[firstlen];
     char idxstr[1] = {'\0'};
     char *prestr;
     sdf_block_t *b = b1;
@@ -1559,6 +1561,8 @@ int main(int argc, char **argv)
 
     //list_init(&station_blocks);
 
+    set_header_string(handles);
+
     range_start = 0;
     //nelements_max = 0;
     //mesh0 = NULL;
@@ -1602,8 +1606,10 @@ int main(int argc, char **argv)
         if (!b2) {
             if (metadata)
                 print_metadata(b, idx, h->nblocks);
-            else
+            else {
+                print_header();
                 printf("%s not found in second file\n", b->id);
+            }
             continue;
         }
 
