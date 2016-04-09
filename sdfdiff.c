@@ -1114,22 +1114,25 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
     int64_t *i8_1, *i8_2;
     float *r4_1, *r4_2;
     double *r8_1, *r8_2;
-    char *l_1, *l_2, clogical[2] = {'F', 'T'};
-    double val1, val2, denom;
+    double val1, val2;
+    int64_t ival1, ival2;
     int i1, i2;
-    int64_t n, ival;
+    char clogical[2] = {'F', 'T'};
+    char *l_1, *l_2;
+    int gotblock;
     static int gotdiff = 0;
-    int *idx, *fac;
-    int i, rem, left, digit, len, gotblock;
+    static const int firstlen = 512;
     static const int fmtlen = 32;
-    char **fmt;
     static const int idxlen = 64;
+    char firststr[firstlen];
     char idxstr[idxlen];
     char prestr[idxlen];
-    static const int firstlen = 512;
-    char firststr[firstlen];
     sdf_block_t *b = b1;
-    double relerr_max, relerr_val, abserr_max, abserr_val;
+    double relerr_max, relerr_val, abserr_max, abserr_val, denom;
+    int64_t n = 0;
+    int *idx = NULL, *fac = NULL;
+    char **fmt = NULL;
+    int i, rem, left, digit, len;
 
     switch (b->datatype) {
     case(SDF_DATATYPE_INTEGER4):
@@ -1190,10 +1193,10 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
         i4_1 = b1->data;
         i4_2 = b2->data;
         for (n = 0; n < b->nelements_local; n++) {
-            if (i4_1[n] == i4_2[n])
-                continue;
-            val1 = i4_1[n];
-            val2 = i4_2[n];
+            ival1 = i4_1[n];
+            ival2 = i4_2[n];
+            val1 = ival1;
+            val2 = ival2;
             denom = MIN(ABS(val1), ABS(val2));
             abserr_val = ABS(val1 - val2);
             if (denom < DBL_MIN) {
@@ -1220,13 +1223,11 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             if (just_id)
                 continue;
             get_index_str(b, n, idx, fac, fmt, idxstr);
-            ival = i4_1[n];
             printf("-%s%s): ", prestr, idxstr);
-            printf(format_int, ival);
+            printf(format_int, ival1);
             printf("\n");
-            ival = i4_2[n];
             printf("+%s%s): ", prestr, idxstr);
-            printf(format_int, ival);
+            printf(format_int, ival2);
             printf("\n");
             if (show_errors)
                 printf(" Error absolute %25.17e, relative %25.17e\n",
@@ -1237,10 +1238,10 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
         i8_1 = b1->data;
         i8_2 = b2->data;
         for (n = 0; n < b->nelements_local; n++) {
-            if (i8_1[n] == i8_2[n])
-                continue;
-            val1 = i8_1[n];
-            val2 = i8_2[n];
+            ival1 = i8_1[n];
+            ival2 = i8_2[n];
+            val1 = ival1;
+            val2 = ival2;
             denom = MIN(ABS(val1), ABS(val2));
             abserr_val = ABS(val1 - val2);
             if (denom < DBL_MIN) {
@@ -1267,13 +1268,11 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             if (just_id)
                 continue;
             get_index_str(b, n, idx, fac, fmt, idxstr);
-            ival = i8_1[n];
             printf("-%s%s): ", prestr, idxstr);
-            printf(format_int, ival);
+            printf(format_int, ival1);
             printf("\n");
-            ival = i8_2[n];
             printf("+%s%s): ", prestr, idxstr);
-            printf(format_int, ival);
+            printf(format_int, ival2);
             printf("\n");
             if (show_errors)
                 printf(" Error absolute %25.17e, relative %25.17e\n",
@@ -1388,8 +1387,12 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             if (just_id)
                 continue;
             get_index_str(b, n, idx, fac, fmt, idxstr);
-            printf("-%s%s): %c\n", prestr, idxstr, clogical[i1]);
-            printf("+%s%s): %c\n", prestr, idxstr, clogical[i2]);
+            printf("-%s%s): ", prestr, idxstr);
+            printf("%c", clogical[i1]);
+            printf("\n");
+            printf("+%s%s): ", prestr, idxstr);
+            printf("%c", clogical[i2]);
+            printf("\n");
         }
         break;
     }
