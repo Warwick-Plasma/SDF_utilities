@@ -1062,6 +1062,15 @@ void get_index_str(sdf_block_t *b, int64_t n, int *idx, int *fac, char **fmt,
     case SDF_BLOCKTYPE_ARRAY:
     case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
         break;
+    case SDF_BLOCKTYPE_PLAIN_MESH:
+    case SDF_BLOCKTYPE_POINT_MESH:
+        i = idx[0];
+        str[0] = '(';
+        sprintf(str+1, fmt[i], n + index_offset);
+        len = strlen(str);
+        str[len] = ')';
+        str[len+1] = '\0';
+        return;
     default:
         return;
     }
@@ -1345,6 +1354,121 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
 }
 
 
+int diff_mesh(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
+{
+    int32_t *i4_1, *i4_2;
+    int64_t *i8_1, *i8_2;
+    float *r4_1, *r4_2;
+    double *r8_1, *r8_2;
+    double val1, val2;
+    int64_t ival1, ival2;
+    int gotblock;
+    static int gotdiff = 0;
+    static const int fmtlen = 32;
+    static const int idxlen = 64;
+    char idxstr[idxlen];
+    char *prestr;
+    char **prestr_dim;
+    sdf_block_t *b = b1;
+    double relerr_max, relerr_val, abserr_max, abserr_val, denom;
+    int64_t n = 0;
+    int *idx = NULL, *fac = NULL;
+    char **fmt = NULL;
+    int i, rem, left, digit, len;
+
+    DIFF_PREAMBLE();
+
+    /* Get index format */
+
+    idx = malloc(b->ndims * sizeof(*idx));
+    fac = malloc(b->ndims * sizeof(*fac));
+    fmt = malloc(b->ndims * sizeof(*fmt));
+    prestr_dim = malloc(b->ndims * sizeof(*prestr_dim));
+
+    for (i = 0; i < b->ndims; i++) {
+        left = b->local_dims[i] + index_offset - 1;
+        digit = 0;
+        while (left) {
+            left /= 10;
+            digit++;
+        }
+        if (!digit) digit = 1;
+        fmt[i] = malloc(fmtlen * sizeof(**fmt));
+        snprintf(fmt[i], fmtlen, "%%%ii", digit);
+
+        rem = strlen(b->dim_labels[i]) + strlen(fmt[i]) + 4;
+        prestr_dim[i] = malloc(rem * sizeof(**prestr_dim));
+        snprintf(prestr_dim[i], rem, "%s[", b->dim_labels[i]);
+        len = strlen(prestr_dim[i]);
+        left = rem - len;
+        snprintf(prestr_dim[i]+len, rem-len, fmt[i], b->dims[i]);
+        len = strlen(prestr_dim[i]);
+        snprintf(prestr_dim[i]+len, rem-len, "] ");
+    }
+    idxstr[0] = '\0';
+
+    switch (b->datatype) {
+    case(SDF_DATATYPE_INTEGER4):
+        for (i = 0; i < b->ndims; i++) {
+            prestr = prestr_dim[i];
+            idx[0] = i;
+            i4_1 = ((int32_t**)b1->grids)[i];
+            i4_2 = ((int32_t**)b2->grids)[i];
+            for (n = 0; n < b->dims[i]; n++) {
+                ival1 = i4_1[n];
+                ival2 = i4_2[n];
+                DIFF(ival1, ival2, ival1, ival2, format_int);
+            }
+        }
+        break;
+    case(SDF_DATATYPE_INTEGER8):
+        for (i = 0; i < b->ndims; i++) {
+            prestr = prestr_dim[i];
+            idx[0] = i;
+            i8_1 = ((int64_t**)b1->grids)[i];
+            i8_2 = ((int64_t**)b2->grids)[i];
+            for (n = 0; n < b->dims[i]; n++) {
+                ival1 = i8_1[n];
+                ival2 = i8_2[n];
+                DIFF(ival1, ival2, ival1, ival2, format_int);
+            }
+        }
+        break;
+    case(SDF_DATATYPE_REAL4):
+        for (i = 0; i < b->ndims; i++) {
+            prestr = prestr_dim[i];
+            idx[0] = i;
+            r4_1 = ((float**)b1->grids)[i];
+            r4_2 = ((float**)b2->grids)[i];
+            for (n = 0; n < b->dims[i]; n++) {
+                DIFF(r4_1[n], r4_2[n], val1, val2, format_float);
+            }
+        }
+        break;
+    case(SDF_DATATYPE_REAL8):
+        for (i = 0; i < b->ndims; i++) {
+            prestr = prestr_dim[i];
+            idx[0] = i;
+            r8_1 = ((double**)b1->grids)[i];
+            r8_2 = ((double**)b2->grids)[i];
+            for (n = 0; n < b->dims[i]; n++) {
+                DIFF(r8_1[n], r8_2[n], val1, val2, format_float);
+            }
+        }
+        break;
+    }
+
+    DIFF_PRINT_MAX_ERROR();
+
+    for (i = 0; i < b->ndims; i++) free(fmt[i]);
+    free(fmt);
+    free(idx);
+    free(fac);
+
+    return gotdiff;
+}
+
+
 int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
 {
     int32_t i4_1, i4_2;
@@ -1498,6 +1622,10 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
         break;
     case SDF_BLOCKTYPE_NAMEVALUE:
         return diff_namevalue(handles, b1, b2, inum);
+        break;
+    case SDF_BLOCKTYPE_PLAIN_MESH:
+    case SDF_BLOCKTYPE_POINT_MESH:
+        return diff_mesh(handles, b1, b2, inum);
         break;
     default:
         return 0;
