@@ -1413,12 +1413,262 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
 }
 
 
+int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
+{
+    int32_t i4_1, i4_2;
+    int64_t i8_1, i8_2;
+    float r4_1, r4_2;
+    double r8_1, r8_2;
+    double val1, val2;
+    int64_t ival1, ival2;
+    int i1, i2;
+    char clogical[2] = {'F', 'T'};
+    int gotblock;
+    static int gotdiff = 0;
+    static const int firstlen = 512;
+    char firststr[firstlen];
+    char idxstr[1] = {'\0'};
+    char *prestr;
+    sdf_block_t *b = b1;
+    double relerr_max, relerr_val, abserr_max, abserr_val, denom;
+
+    switch (b->datatype) {
+    case(SDF_DATATYPE_INTEGER4):
+    case(SDF_DATATYPE_INTEGER8):
+    case(SDF_DATATYPE_REAL4):
+    case(SDF_DATATYPE_REAL8):
+    case(SDF_DATATYPE_LOGICAL):
+        break;
+    default:
+        return gotdiff;
+    }
+
+    get_header_string(handles, firststr, firstlen);
+
+    prestr = b->id;
+
+    sdf_helper_read_data(handles[0], b1);
+    sdf_helper_read_data(handles[1], b2);
+
+    gotblock = 0;
+    abserr_max = relerr_max = 0.0;
+
+    switch (b->datatype) {
+    case SDF_DATATYPE_INTEGER4:
+        memcpy(&i4_1, b1->const_value, sizeof(i4_1));
+        memcpy(&i4_2, b2->const_value, sizeof(i4_2));
+        ival1 = i4_1;
+        ival2 = i4_2;
+        val1 = ival1;
+        val2 = ival2;
+        denom = MIN(ABS(val1), ABS(val2));
+        abserr_val = ABS(val1 - val2);
+        if (denom < DBL_MIN) {
+            if (abserr_val < DBL_MIN)
+                relerr_val = 0;
+            else
+                relerr_val = 1;
+        } else
+            relerr_val = abserr_val / denom;
+        if (relerr_val > relerr_max) relerr_max = relerr_val;
+        if (abserr_val > abserr_max) abserr_max = abserr_val;
+        if (relerr_val < relerr)
+            return gotdiff;
+        /* If we got here then the numbers differ */
+        if (!done_header)
+            printf("%s", firststr);
+        done_header = gotdiff = 1;
+        if (quiet)
+            return gotdiff;
+        if (!gotblock) {
+            gotblock = 1;
+            print_metadata_id(b, inum, handles[0]->nblocks);
+        }
+        if (just_id)
+            return gotdiff;
+        printf("-%s%s: ", prestr, idxstr);
+        printf(format_int, ival1);
+        printf("\n");
+        printf("+%s%s: ", prestr, idxstr);
+        printf(format_int, ival2);
+        printf("\n");
+        if (show_errors)
+            printf(" Error absolute %25.17e, relative %25.17e\n",
+                   abserr_val, relerr_val);
+        break;
+    case SDF_DATATYPE_INTEGER8:
+        memcpy(&i8_1, b1->const_value, sizeof(i8_1));
+        memcpy(&i8_2, b2->const_value, sizeof(i8_2));
+        ival1 = i8_1;
+        ival2 = i8_2;
+        val1 = ival1;
+        val2 = ival2;
+        denom = MIN(ABS(val1), ABS(val2));
+        abserr_val = ABS(val1 - val2);
+        if (denom < DBL_MIN) {
+            if (abserr_val < DBL_MIN)
+                relerr_val = 0;
+            else
+                relerr_val = 1;
+        } else
+            relerr_val = abserr_val / denom;
+        if (relerr_val > relerr_max) relerr_max = relerr_val;
+        if (abserr_val > abserr_max) abserr_max = abserr_val;
+        if (relerr_val < relerr)
+            return gotdiff;
+        /* If we got here then the numbers differ */
+        if (!done_header)
+            printf("%s", firststr);
+        done_header = gotdiff = 1;
+        if (quiet)
+            return gotdiff;
+        if (!gotblock) {
+            gotblock = 1;
+            print_metadata_id(b, inum, handles[0]->nblocks);
+        }
+        if (just_id)
+            return gotdiff;
+        printf("-%s%s: ", prestr, idxstr);
+        printf(format_int, ival1);
+        printf("\n");
+        printf("+%s%s: ", prestr, idxstr);
+        printf(format_int, ival2);
+        printf("\n");
+        if (show_errors)
+            printf(" Error absolute %25.17e, relative %25.17e\n",
+                   abserr_val, relerr_val);
+        break;
+    case SDF_DATATYPE_REAL4:
+        memcpy(&r4_1, b1->const_value, sizeof(r4_1));
+        memcpy(&r4_2, b2->const_value, sizeof(r4_2));
+        val1 = r4_1;
+        val2 = r4_2;
+        denom = MIN(ABS(val1), ABS(val2));
+        abserr_val = ABS(val1 - val2);
+        if (denom < DBL_MIN) {
+            if (abserr_val < DBL_MIN)
+                relerr_val = 0;
+            else
+                relerr_val = 1;
+        } else
+            relerr_val = abserr_val / denom;
+        if (relerr_val > relerr_max) relerr_max = relerr_val;
+        if (abserr_val > abserr_max) abserr_max = abserr_val;
+        if (relerr_val < relerr)
+            return gotdiff;
+        /* If we got here then the numbers differ */
+        if (!done_header)
+            printf("%s", firststr);
+        done_header = gotdiff = 1;
+        if (quiet)
+            return gotdiff;
+        if (!gotblock) {
+            gotblock = 1;
+            print_metadata_id(b, inum, handles[0]->nblocks);
+        }
+        if (just_id)
+            return gotdiff;
+        printf("-%s%s: ", prestr, idxstr);
+        printf(format_float, val1);
+        printf("\n");
+        printf("+%s%s: ", prestr, idxstr);
+        printf(format_float, val2);
+        printf("\n");
+        if (show_errors)
+            printf(" Error absolute %25.17e, relative %25.17e\n",
+                   abserr_val, relerr_val);
+        break;
+    case SDF_DATATYPE_REAL8:
+        memcpy(&r8_1, b1->const_value, sizeof(r8_1));
+        memcpy(&r8_2, b2->const_value, sizeof(r8_2));
+        val1 = r8_1;
+        val2 = r8_2;
+        denom = MIN(ABS(val1), ABS(val2));
+        abserr_val = ABS(val1 - val2);
+        if (denom < DBL_MIN) {
+            if (abserr_val < DBL_MIN)
+                relerr_val = 0;
+            else
+                relerr_val = 1;
+        } else
+            relerr_val = abserr_val / denom;
+        if (relerr_val > relerr_max) relerr_max = relerr_val;
+        if (abserr_val > abserr_max) abserr_max = abserr_val;
+        if (relerr_val < relerr)
+            return gotdiff;
+        /* If we got here then the numbers differ */
+        if (!done_header)
+            printf("%s", firststr);
+        done_header = gotdiff = 1;
+        if (quiet)
+            return gotdiff;
+        if (!gotblock) {
+            gotblock = 1;
+            print_metadata_id(b, inum, handles[0]->nblocks);
+        }
+        if (just_id)
+            return gotdiff;
+        printf("-%s%s: ", prestr, idxstr);
+        printf(format_float, val1);
+        printf("\n");
+        printf("+%s%s: ", prestr, idxstr);
+        printf(format_float, val2);
+        printf("\n");
+        if (show_errors)
+            printf(" Error absolute %25.17e, relative %25.17e\n",
+                   abserr_val, relerr_val);
+        break;
+    case SDF_DATATYPE_LOGICAL:
+        i1 = *b1->const_value;
+        i2 = *b2->const_value;
+        if (i1 == i2)
+            return gotdiff;
+        /* If we got here then the numbers differ */
+        abserr_val = abserr_max = relerr_val = relerr_max = 1.0;
+        if (!done_header)
+            printf("%s", firststr);
+        done_header = gotdiff = 1;
+        if (quiet)
+            return gotdiff;
+        if (!gotblock) {
+            gotblock = 1;
+            print_metadata_id(b, inum, handles[0]->nblocks);
+        }
+        if (just_id)
+            return gotdiff;
+        printf("-%s%s: ", prestr, idxstr);
+        printf("%c", clogical[i1]);
+        printf("\n");
+        printf("+%s%s: ", prestr, idxstr);
+        printf("%c", clogical[i2]);
+        printf("\n");
+        break;
+    }
+
+    //if (gotdiff && !quiet && !just_id)
+    if (!quiet && relerr_max > DBL_MIN) {
+        if (!done_header)
+            printf("%s", firststr);
+        done_header = 1;
+        if (!gotblock)
+            print_metadata_id(b, inum, handles[0]->nblocks);
+        printf("Max error absolute %25.17e, relative %25.17e\n",
+               abserr_max, relerr_max);
+    }
+
+    return gotdiff;
+}
+
+
 int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
 {
     switch (b1->blocktype) {
     case SDF_BLOCKTYPE_PLAIN_DERIVED:
     case SDF_BLOCKTYPE_PLAIN_VARIABLE:
         return diff_plain(handles, b1, b2, inum);
+        break;
+    case SDF_BLOCKTYPE_CONSTANT:
+        return diff_constant(handles, b1, b2, inum);
         break;
     default:
         return 0;
