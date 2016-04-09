@@ -1052,11 +1052,15 @@ void get_index_str(sdf_block_t *b, int64_t n, int *idx, int *fac, char **fmt,
         rem -= idx0 * fac[i];
     }
 
-    *str = '\0';
+    str[0] = '(';
+    str[1] = '\0';
     for (i = 0; i < b->ndims; i++) {
         len = strlen(str);
         sprintf(str+len, fmt[i], idx[i] + index_offset);
     }
+    len = strlen(str);
+    str[len] = ')';
+    str[len+1] = '\0';
 }
 
 
@@ -1172,7 +1176,7 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
         snprintf(prestr+len, idxlen-len, fmt[i], b->dims[i]);
     }
     len = strlen(prestr);
-    snprintf(prestr+len, idxlen-len, "] (");
+    snprintf(prestr+len, idxlen-len, "] ");
 
     sdf_helper_read_data(handles[0], b1);
     sdf_helper_read_data(handles[1], b2);
@@ -1215,10 +1219,10 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             if (just_id)
                 continue;
             get_index_str(b, n, idx, fac, fmt, idxstr);
-            printf("-%s%s): ", prestr, idxstr);
+            printf("-%s%s: ", prestr, idxstr);
             printf(format_int, ival1);
             printf("\n");
-            printf("+%s%s): ", prestr, idxstr);
+            printf("+%s%s: ", prestr, idxstr);
             printf(format_int, ival2);
             printf("\n");
             if (show_errors)
@@ -1260,10 +1264,10 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             if (just_id)
                 continue;
             get_index_str(b, n, idx, fac, fmt, idxstr);
-            printf("-%s%s): ", prestr, idxstr);
+            printf("-%s%s: ", prestr, idxstr);
             printf(format_int, ival1);
             printf("\n");
-            printf("+%s%s): ", prestr, idxstr);
+            printf("+%s%s: ", prestr, idxstr);
             printf(format_int, ival2);
             printf("\n");
             if (show_errors)
@@ -1303,10 +1307,10 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             if (just_id)
                 continue;
             get_index_str(b, n, idx, fac, fmt, idxstr);
-            printf("-%s%s): ", prestr, idxstr);
+            printf("-%s%s: ", prestr, idxstr);
             printf(format_float, val1);
             printf("\n");
-            printf("+%s%s): ", prestr, idxstr);
+            printf("+%s%s: ", prestr, idxstr);
             printf(format_float, val2);
             printf("\n");
             if (show_errors)
@@ -1346,10 +1350,10 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             if (just_id)
                 continue;
             get_index_str(b, n, idx, fac, fmt, idxstr);
-            printf("-%s%s): ", prestr, idxstr);
+            printf("-%s%s: ", prestr, idxstr);
             printf(format_float, val1);
             printf("\n");
-            printf("+%s%s): ", prestr, idxstr);
+            printf("+%s%s: ", prestr, idxstr);
             printf(format_float, val2);
             printf("\n");
             if (show_errors)
@@ -1379,10 +1383,10 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             if (just_id)
                 continue;
             get_index_str(b, n, idx, fac, fmt, idxstr);
-            printf("-%s%s): ", prestr, idxstr);
+            printf("-%s%s: ", prestr, idxstr);
             printf("%c", clogical[i1]);
             printf("\n");
-            printf("+%s%s): ", prestr, idxstr);
+            printf("+%s%s: ", prestr, idxstr);
             printf("%c", clogical[i2]);
             printf("\n");
         }
