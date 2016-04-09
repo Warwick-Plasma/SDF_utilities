@@ -373,7 +373,7 @@ char **parse_args(int *argc, char ***argv)
         files = calloc(2, sizeof(*files));
         for (i=0; i<2; i++) {
             files[i] = (*argv)[optind+i];
-            err = lstat(files[i], &statbuf);
+            err = stat(files[i], &statbuf);
             if (err) {
                 fprintf(stderr, "Error opening file %s\n", files[i]);
                 exit(1);
@@ -382,7 +382,7 @@ char **parse_args(int *argc, char ***argv)
         if (S_ISDIR(statbuf.st_mode)) {
             len = strlen(files[0]);
             ptr = files[0] + len;
-            for (i = 0;  i < len; ++i, --ptr) {
+            for (i = 0; i < len; ++i, --ptr) {
                 if (*ptr == '/') {
                     ptr++;
                     break;
