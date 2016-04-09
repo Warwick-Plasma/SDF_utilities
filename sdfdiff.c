@@ -1473,8 +1473,15 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
                 continue;
             val1 = i4_1[n];
             val2 = i4_2[n];
+            denom = MIN(ABS(val1), ABS(val2));
             abserr_val = ABS(val1 - val2);
-            relerr_val = abserr_val / MIN(ABS(val1), ABS(val2));
+            if (denom < DBL_MIN) {
+                if (abserr_val < DBL_MIN)
+                    relerr_val = 0;
+                else
+                    relerr_val = 1;
+            } else
+                relerr_val = abserr_val / denom;
             if (relerr_val > relerr_max) relerr_max = relerr_val;
             if (abserr_val > abserr_max) abserr_max = abserr_val;
             if (relerr_val < relerr)
@@ -1510,8 +1517,15 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
                 continue;
             val1 = i8_1[n];
             val2 = i8_2[n];
+            denom = MIN(ABS(val1), ABS(val2));
             abserr_val = ABS(val1 - val2);
-            relerr_val = abserr_val / MIN(ABS(val1), ABS(val2));
+            if (denom < DBL_MIN) {
+                if (abserr_val < DBL_MIN)
+                    relerr_val = 0;
+                else
+                    relerr_val = 1;
+            } else
+                relerr_val = abserr_val / denom;
             if (relerr_val > relerr_max) relerr_max = relerr_val;
             if (abserr_val > abserr_max) abserr_max = abserr_val;
             if (relerr_val < relerr)
@@ -1546,10 +1560,14 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             val1 = r4_1[n];
             val2 = r4_2[n];
             denom = MIN(ABS(val1), ABS(val2));
-            if (denom < FLT_MIN)
-                continue;
             abserr_val = ABS(val1 - val2);
-            relerr_val = abserr_val / denom;
+            if (denom < DBL_MIN) {
+                if (abserr_val < DBL_MIN)
+                    relerr_val = 0;
+                else
+                    relerr_val = 1;
+            } else
+                relerr_val = abserr_val / denom;
             if (relerr_val > relerr_max) relerr_max = relerr_val;
             if (abserr_val > abserr_max) abserr_max = abserr_val;
             if (relerr_val < relerr)
@@ -1582,10 +1600,14 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             val1 = r8_1[n];
             val2 = r8_2[n];
             denom = MIN(ABS(val1), ABS(val2));
-            if (denom < DBL_MIN)
-                continue;
             abserr_val = ABS(val1 - val2);
-            relerr_val = abserr_val / denom;
+            if (denom < DBL_MIN) {
+                if (abserr_val < DBL_MIN)
+                    relerr_val = 0;
+                else
+                    relerr_val = 1;
+            } else
+                relerr_val = abserr_val / denom;
             if (relerr_val > relerr_max) relerr_max = relerr_val;
             if (abserr_val > abserr_max) abserr_max = abserr_val;
             if (relerr_val < relerr)
