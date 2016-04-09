@@ -394,8 +394,12 @@ char **parse_args(int *argc, char ***argv)
                     break;
             }
 
-            files[1] = malloc(len + strlen(ptr) + 1);
+            files[1] = malloc(len + strlen(ptr) + 2);
             memcpy(files[1], (*argv)[optind+1], len);
+            if (*(files[1]+len-1) != '/') {
+                *(files[1]+len) = '/';
+                len++;
+            }
             memcpy(files[1]+len, ptr, strlen(ptr));
             files[1][len + strlen(ptr)] = '\0';
         }
