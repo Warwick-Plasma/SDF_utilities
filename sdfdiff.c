@@ -44,6 +44,7 @@ int metadata, debug, ignore_summary;
 int exclude_variables, index_offset;
 int just_id, verbose_metadata, special_format, scale_factor;
 int purge_duplicate, ignore_nblocks, quiet, show_errors;
+int done_header = 0;
 int64_t *array_starts, *array_ends;
 char *format_float, *format_int, *format_space;
 double relerr = 1.0e-15;
@@ -429,6 +430,9 @@ char **parse_args(int *argc, char ***argv)
     }
 
     parse_format();
+
+    if (quiet)
+        done_header = 1;
 
     return files;
 }
@@ -1076,6 +1080,34 @@ static void print_metadata_id(sdf_block_t *b, int inum, int nblocks)
 }
 
 
+void get_header_string(sdf_file_t **handles, char *firststr, int firstlen)
+{
+    int len;
+    char *name;
+    struct stat st;
+    struct tm *tm;
+    static const int idxlen = 64;
+    char prestr[idxlen];
+
+    if (done_header)
+        return;
+
+    name = handles[0]->filename;
+    stat(name, &st);
+    tm = localtime(&st.st_mtime);
+    //strftime(prestr, idxlen, "%Y-%m-%d %H:%M:%S.%N %z", tm);
+    strftime(prestr, idxlen, "%Y-%m-%d %H:%M:%S.000000000 %z", tm);
+    snprintf(firststr, firstlen, "--- %s\t%s\n", name, prestr);
+
+    name = handles[1]->filename;
+    stat(name, &st);
+    tm = localtime(&st.st_mtime);
+    strftime(prestr, idxlen, "%Y-%m-%d %H:%M:%S.000000000 %z", tm);
+    len = strlen(firststr);
+    snprintf(firststr+len, firstlen-len, "+++ %s\t%s\n", name, prestr);
+}
+
+
 int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
 {
     int32_t *i4_1, *i4_2;
@@ -1087,7 +1119,6 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
     int i1, i2;
     int64_t n, ival;
     static int gotdiff = 0;
-    static int header = 0;
     int *idx, *fac;
     int i, rem, left, digit, len, gotblock;
     static const int fmtlen = 32;
@@ -1098,9 +1129,6 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
     static const int firstlen = 512;
     char firststr[firstlen];
     sdf_block_t *b = b1;
-    struct stat st;
-    struct tm *tm;
-    char *name;
     double relerr_max, relerr_val, abserr_max, abserr_val;
 
     switch (b->blocktype) {
@@ -1122,24 +1150,7 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
         return gotdiff;
     }
 
-    if (quiet)
-        header = 1;
-
-    if (!header) {
-        name = handles[0]->filename;
-        stat(name, &st);
-        tm = localtime(&st.st_mtime);
-        //strftime(prestr, idxlen, "%Y-%m-%d %H:%M:%S.%N %z", tm);
-        strftime(prestr, idxlen, "%Y-%m-%d %H:%M:%S.000000000 %z", tm);
-        snprintf(firststr, firstlen, "--- %s\t%s\n", name, prestr);
-
-        name = handles[1]->filename;
-        stat(name, &st);
-        tm = localtime(&st.st_mtime);
-        strftime(prestr, idxlen, "%Y-%m-%d %H:%M:%S.000000000 %z", tm);
-        len = strlen(firststr);
-        snprintf(firststr+len, firstlen-len, "+++ %s\t%s\n", name, prestr);
-    }
+    get_header_string(handles, firststr, firstlen);
 
     /* Get index format */
 
@@ -1205,9 +1216,9 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             if (relerr_val < relerr)
                 continue;
             /* If we got here then the numbers differ */
-            if (!header)
+            if (!done_header)
                 printf("%s", firststr);
-            header = gotdiff = 1;
+            done_header = gotdiff = 1;
             if (quiet)
                 continue;
             if (!gotblock) {
@@ -1252,9 +1263,9 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             if (relerr_val < relerr)
                 continue;
             /* If we got here then the numbers differ */
-            if (!header)
+            if (!done_header)
                 printf("%s", firststr);
-            header = gotdiff = 1;
+            done_header = gotdiff = 1;
             if (quiet)
                 continue;
             if (!gotblock) {
@@ -1297,9 +1308,9 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             if (relerr_val < relerr)
                 continue;
             /* If we got here then the numbers differ */
-            if (!header)
+            if (!done_header)
                 printf("%s", firststr);
-            header = gotdiff = 1;
+            done_header = gotdiff = 1;
             if (quiet)
                 continue;
             if (!gotblock) {
@@ -1340,9 +1351,9 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
             if (relerr_val < relerr)
                 continue;
             /* If we got here then the numbers differ */
-            if (!header)
+            if (!done_header)
                 printf("%s", firststr);
-            header = gotdiff = 1;
+            done_header = gotdiff = 1;
             if (quiet)
                 continue;
             if (!gotblock) {
@@ -1373,9 +1384,9 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
                 continue;
             /* If we got here then the numbers differ */
             abserr_val = abserr_max = relerr_val = relerr_max = 1.0;
-            if (!header)
+            if (!done_header)
                 printf("%s", firststr);
-            header = gotdiff = 1;
+            done_header = gotdiff = 1;
             if (quiet)
                 continue;
             if (!gotblock) {
@@ -1393,9 +1404,9 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
 
     //if (gotdiff && !quiet && !just_id)
     if (!quiet && relerr_max > DBL_MIN) {
-        if (!header)
+        if (!done_header)
             printf("%s", firststr);
-        header = 1;
+        done_header = 1;
         if (!gotblock)
             print_metadata_id(b, inum, handles[0]->nblocks);
         printf("Max error absolute %25.17e, relative %25.17e\n",
