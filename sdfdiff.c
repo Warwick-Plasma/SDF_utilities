@@ -1193,6 +1193,41 @@ void get_header_string(sdf_file_t **handles, char *firststr, int firstlen)
 } while(0)
 
 
+#define DIFF_PREAMBLE() do { \
+    switch (b->datatype) { \
+    case(SDF_DATATYPE_INTEGER4): \
+    case(SDF_DATATYPE_INTEGER8): \
+    case(SDF_DATATYPE_REAL4): \
+    case(SDF_DATATYPE_REAL8): \
+    case(SDF_DATATYPE_LOGICAL): \
+        break; \
+    default: \
+        return gotdiff; \
+    } \
+\
+    get_header_string(handles, firststr, firstlen); \
+\
+    sdf_helper_read_data(handles[0], b1); \
+    sdf_helper_read_data(handles[1], b2); \
+\
+    gotblock = 0; \
+    abserr_max = relerr_max = 0.0; \
+} while(0)
+
+
+#define DIFF_PRINT_MAX_ERROR() do { \
+    if (!quiet && relerr_max > DBL_MIN) { \
+        if (!done_header) \
+            printf("%s", firststr); \
+        done_header = 1; \
+        if (!gotblock) \
+            print_metadata_id(b, inum, handles[0]->nblocks); \
+        printf("Max error absolute %25.17e, relative %25.17e\n", \
+               abserr_max, relerr_max); \
+    } \
+} while(0)
+
+
 int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
 {
     int32_t *i4_1, *i4_2;
@@ -1219,18 +1254,7 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
     char **fmt = NULL;
     int i, rem, left, digit, len;
 
-    switch (b->datatype) {
-    case(SDF_DATATYPE_INTEGER4):
-    case(SDF_DATATYPE_INTEGER8):
-    case(SDF_DATATYPE_REAL4):
-    case(SDF_DATATYPE_REAL8):
-    case(SDF_DATATYPE_LOGICAL):
-        break;
-    default:
-        return gotdiff;
-    }
-
-    get_header_string(handles, firststr, firstlen);
+    DIFF_PREAMBLE();
 
     /* Get index format */
 
@@ -1261,12 +1285,6 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
     }
     len = strlen(prestr);
     snprintf(prestr+len, idxlen-len, "] ");
-
-    sdf_helper_read_data(handles[0], b1);
-    sdf_helper_read_data(handles[1], b2);
-
-    gotblock = 0;
-    abserr_max = relerr_max = 0.0;
 
     switch (b->datatype) {
     case(SDF_DATATYPE_INTEGER4):
@@ -1310,16 +1328,7 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
         break;
     }
 
-    //if (gotdiff && !quiet && !just_id)
-    if (!quiet && relerr_max > DBL_MIN) {
-        if (!done_header)
-            printf("%s", firststr);
-        done_header = 1;
-        if (!gotblock)
-            print_metadata_id(b, inum, handles[0]->nblocks);
-        printf("Max error absolute %25.17e, relative %25.17e\n",
-               abserr_max, relerr_max);
-    }
+    DIFF_PRINT_MAX_ERROR();
 
     for (i = 0; i < b->ndims; i++) free(fmt[i]);
     free(fmt);
@@ -1352,26 +1361,9 @@ int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int in
     int *idx = NULL, *fac = NULL;
     char **fmt = NULL;
 
-    switch (b->datatype) {
-    case(SDF_DATATYPE_INTEGER4):
-    case(SDF_DATATYPE_INTEGER8):
-    case(SDF_DATATYPE_REAL4):
-    case(SDF_DATATYPE_REAL8):
-    case(SDF_DATATYPE_LOGICAL):
-        break;
-    default:
-        return gotdiff;
-    }
-
-    get_header_string(handles, firststr, firstlen);
+    DIFF_PREAMBLE();
 
     prestr = b->id;
-
-    sdf_helper_read_data(handles[0], b1);
-    sdf_helper_read_data(handles[1], b2);
-
-    gotblock = 0;
-    abserr_max = relerr_max = 0.0;
 
     switch (b->datatype) {
     case SDF_DATATYPE_INTEGER4:
@@ -1404,16 +1396,7 @@ int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int in
         break;
     }
 
-    //if (gotdiff && !quiet && !just_id)
-    if (!quiet && relerr_max > DBL_MIN) {
-        if (!done_header)
-            printf("%s", firststr);
-        done_header = 1;
-        if (!gotblock)
-            print_metadata_id(b, inum, handles[0]->nblocks);
-        printf("Max error absolute %25.17e, relative %25.17e\n",
-               abserr_max, relerr_max);
-    }
+    DIFF_PRINT_MAX_ERROR();
 
     return gotdiff;
 }
