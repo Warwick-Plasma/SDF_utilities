@@ -1108,7 +1108,7 @@ void get_header_string(sdf_file_t **handles, char *firststr, int firstlen)
 }
 
 
-int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
+int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
 {
     int32_t *i4_1, *i4_2;
     int64_t *i8_1, *i8_2;
@@ -1130,14 +1130,6 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
     char firststr[firstlen];
     sdf_block_t *b = b1;
     double relerr_max, relerr_val, abserr_max, abserr_val;
-
-    switch (b->blocktype) {
-    case SDF_BLOCKTYPE_PLAIN_DERIVED:
-    case SDF_BLOCKTYPE_PLAIN_VARIABLE:
-        break;
-    default:
-        return gotdiff;
-    }
 
     switch (b->datatype) {
     case(SDF_DATATYPE_INTEGER4):
@@ -1419,6 +1411,19 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
     free(fac);
 
     return gotdiff;
+}
+
+
+int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
+{
+    switch (b1->blocktype) {
+    case SDF_BLOCKTYPE_PLAIN_DERIVED:
+    case SDF_BLOCKTYPE_PLAIN_VARIABLE:
+        return diff_plain(handles, b1, b2, inum);
+        break;
+    default:
+        return 0;
+    }
 }
 
 
