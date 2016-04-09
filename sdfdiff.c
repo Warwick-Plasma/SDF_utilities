@@ -1220,30 +1220,30 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
                 relerr_val = abserr_val / denom;
             if (relerr_val > relerr_max) relerr_max = relerr_val;
             if (abserr_val > abserr_max) abserr_max = abserr_val;
-            if (relerr_val < relerr)
-                continue;
-            /* If we got here then the numbers differ */
-            if (!done_header)
-                printf("%s", firststr);
-            done_header = gotdiff = 1;
-            if (quiet)
-                continue;
-            if (!gotblock) {
-                gotblock = 1;
-                print_metadata_id(b, inum, handles[0]->nblocks);
+            if (relerr_val >= relerr) {
+                /* If we got here then the numbers differ */
+                if (!done_header)
+                    printf("%s", firststr);
+                done_header = gotdiff = 1;
+                if (!quiet) {
+                    if (!gotblock) {
+                        gotblock = 1;
+                        print_metadata_id(b, inum, handles[0]->nblocks);
+                    }
+                    if (!just_id) {
+                        get_index_str(b, n, idx, fac, fmt, idxstr);
+                        printf("-%s%s: ", prestr, idxstr);
+                        printf(format_int, ival1);
+                        printf("\n");
+                        printf("+%s%s: ", prestr, idxstr);
+                        printf(format_int, ival2);
+                        printf("\n");
+                        if (show_errors)
+                            printf(" Error absolute %25.17e, relative %25.17e\n",
+                                   abserr_val, relerr_val);
+                    }
+                }
             }
-            if (just_id)
-                continue;
-            get_index_str(b, n, idx, fac, fmt, idxstr);
-            printf("-%s%s: ", prestr, idxstr);
-            printf(format_int, ival1);
-            printf("\n");
-            printf("+%s%s: ", prestr, idxstr);
-            printf(format_int, ival2);
-            printf("\n");
-            if (show_errors)
-                printf(" Error absolute %25.17e, relative %25.17e\n",
-                       abserr_val, relerr_val);
         }
         break;
     case(SDF_DATATYPE_INTEGER8):
@@ -1265,30 +1265,30 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
                 relerr_val = abserr_val / denom;
             if (relerr_val > relerr_max) relerr_max = relerr_val;
             if (abserr_val > abserr_max) abserr_max = abserr_val;
-            if (relerr_val < relerr)
-                continue;
-            /* If we got here then the numbers differ */
-            if (!done_header)
-                printf("%s", firststr);
-            done_header = gotdiff = 1;
-            if (quiet)
-                continue;
-            if (!gotblock) {
-                gotblock = 1;
-                print_metadata_id(b, inum, handles[0]->nblocks);
+            if (relerr_val >= relerr) {
+                /* If we got here then the numbers differ */
+                if (!done_header)
+                    printf("%s", firststr);
+                done_header = gotdiff = 1;
+                if (!quiet) {
+                    if (!gotblock) {
+                        gotblock = 1;
+                        print_metadata_id(b, inum, handles[0]->nblocks);
+                    }
+                    if (!just_id) {
+                        get_index_str(b, n, idx, fac, fmt, idxstr);
+                        printf("-%s%s: ", prestr, idxstr);
+                        printf(format_int, ival1);
+                        printf("\n");
+                        printf("+%s%s: ", prestr, idxstr);
+                        printf(format_int, ival2);
+                        printf("\n");
+                        if (show_errors)
+                            printf(" Error absolute %25.17e, relative %25.17e\n",
+                                   abserr_val, relerr_val);
+                    }
+                }
             }
-            if (just_id)
-                continue;
-            get_index_str(b, n, idx, fac, fmt, idxstr);
-            printf("-%s%s: ", prestr, idxstr);
-            printf(format_int, ival1);
-            printf("\n");
-            printf("+%s%s: ", prestr, idxstr);
-            printf(format_int, ival2);
-            printf("\n");
-            if (show_errors)
-                printf(" Error absolute %25.17e, relative %25.17e\n",
-                       abserr_val, relerr_val);
         }
         break;
     case(SDF_DATATYPE_REAL4):
@@ -1308,30 +1308,30 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
                 relerr_val = abserr_val / denom;
             if (relerr_val > relerr_max) relerr_max = relerr_val;
             if (abserr_val > abserr_max) abserr_max = abserr_val;
-            if (relerr_val < relerr)
-                continue;
-            /* If we got here then the numbers differ */
-            if (!done_header)
-                printf("%s", firststr);
-            done_header = gotdiff = 1;
-            if (quiet)
-                continue;
-            if (!gotblock) {
-                gotblock = 1;
-                print_metadata_id(b, inum, handles[0]->nblocks);
+            if (relerr_val >= relerr) {
+                /* If we got here then the numbers differ */
+                if (!done_header)
+                    printf("%s", firststr);
+                done_header = gotdiff = 1;
+                if (!quiet) {
+                    if (!gotblock) {
+                        gotblock = 1;
+                        print_metadata_id(b, inum, handles[0]->nblocks);
+                    }
+                    if (!just_id) {
+                        get_index_str(b, n, idx, fac, fmt, idxstr);
+                        printf("-%s%s: ", prestr, idxstr);
+                        printf(format_float, val1);
+                        printf("\n");
+                        printf("+%s%s: ", prestr, idxstr);
+                        printf(format_float, val2);
+                        printf("\n");
+                        if (show_errors)
+                            printf(" Error absolute %25.17e, relative %25.17e\n",
+                                   abserr_val, relerr_val);
+                    }
+                }
             }
-            if (just_id)
-                continue;
-            get_index_str(b, n, idx, fac, fmt, idxstr);
-            printf("-%s%s: ", prestr, idxstr);
-            printf(format_float, val1);
-            printf("\n");
-            printf("+%s%s: ", prestr, idxstr);
-            printf(format_float, val2);
-            printf("\n");
-            if (show_errors)
-                printf(" Error absolute %25.17e, relative %25.17e\n",
-                       abserr_val, relerr_val);
         }
         break;
     case(SDF_DATATYPE_REAL8):
@@ -1351,30 +1351,30 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
                 relerr_val = abserr_val / denom;
             if (relerr_val > relerr_max) relerr_max = relerr_val;
             if (abserr_val > abserr_max) abserr_max = abserr_val;
-            if (relerr_val < relerr)
-                continue;
-            /* If we got here then the numbers differ */
-            if (!done_header)
-                printf("%s", firststr);
-            done_header = gotdiff = 1;
-            if (quiet)
-                continue;
-            if (!gotblock) {
-                gotblock = 1;
-                print_metadata_id(b, inum, handles[0]->nblocks);
+            if (relerr_val >= relerr) {
+                /* If we got here then the numbers differ */
+                if (!done_header)
+                    printf("%s", firststr);
+                done_header = gotdiff = 1;
+                if (!quiet) {
+                    if (!gotblock) {
+                        gotblock = 1;
+                        print_metadata_id(b, inum, handles[0]->nblocks);
+                    }
+                    if (!just_id) {
+                        get_index_str(b, n, idx, fac, fmt, idxstr);
+                        printf("-%s%s: ", prestr, idxstr);
+                        printf(format_float, val1);
+                        printf("\n");
+                        printf("+%s%s: ", prestr, idxstr);
+                        printf(format_float, val2);
+                        printf("\n");
+                        if (show_errors)
+                            printf(" Error absolute %25.17e, relative %25.17e\n",
+                                   abserr_val, relerr_val);
+                    }
+                }
             }
-            if (just_id)
-                continue;
-            get_index_str(b, n, idx, fac, fmt, idxstr);
-            printf("-%s%s: ", prestr, idxstr);
-            printf(format_float, val1);
-            printf("\n");
-            printf("+%s%s: ", prestr, idxstr);
-            printf(format_float, val2);
-            printf("\n");
-            if (show_errors)
-                printf(" Error absolute %25.17e, relative %25.17e\n",
-                       abserr_val, relerr_val);
         }
         break;
     case(SDF_DATATYPE_LOGICAL):
@@ -1383,28 +1383,28 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
         for (n = 0; n < b->nelements_local; n++) {
             i1 = l_1[n];
             i2 = l_2[n];
-            if (i1 == i2)
-                continue;
-            /* If we got here then the numbers differ */
-            abserr_val = abserr_max = relerr_val = relerr_max = 1.0;
-            if (!done_header)
-                printf("%s", firststr);
-            done_header = gotdiff = 1;
-            if (quiet)
-                continue;
-            if (!gotblock) {
-                gotblock = 1;
-                print_metadata_id(b, inum, handles[0]->nblocks);
+            if (i1 != i2) {
+                /* If we got here then the numbers differ */
+                abserr_val = abserr_max = relerr_val = relerr_max = 1.0;
+                if (!done_header)
+                    printf("%s", firststr);
+                done_header = gotdiff = 1;
+                if (!quiet) {
+                    if (!gotblock) {
+                        gotblock = 1;
+                        print_metadata_id(b, inum, handles[0]->nblocks);
+                    }
+                    if (!just_id) {
+                        get_index_str(b, n, idx, fac, fmt, idxstr);
+                        printf("-%s%s: ", prestr, idxstr);
+                        printf("%c", clogical[i1]);
+                        printf("\n");
+                        printf("+%s%s: ", prestr, idxstr);
+                        printf("%c", clogical[i2]);
+                        printf("\n");
+                    }
+                }
             }
-            if (just_id)
-                continue;
-            get_index_str(b, n, idx, fac, fmt, idxstr);
-            printf("-%s%s: ", prestr, idxstr);
-            printf("%c", clogical[i1]);
-            printf("\n");
-            printf("+%s%s: ", prestr, idxstr);
-            printf("%c", clogical[i2]);
-            printf("\n");
         }
         break;
     }
@@ -1491,30 +1491,30 @@ int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int in
             relerr_val = abserr_val / denom;
         if (relerr_val > relerr_max) relerr_max = relerr_val;
         if (abserr_val > abserr_max) abserr_max = abserr_val;
-        if (relerr_val < relerr)
-            return gotdiff;
-        /* If we got here then the numbers differ */
-        if (!done_header)
-            printf("%s", firststr);
-        done_header = gotdiff = 1;
-        if (quiet)
-            return gotdiff;
-        if (!gotblock) {
-            gotblock = 1;
-            print_metadata_id(b, inum, handles[0]->nblocks);
+        if (relerr_val >= relerr) {
+            /* If we got here then the numbers differ */
+            if (!done_header)
+                printf("%s", firststr);
+            done_header = gotdiff = 1;
+            if (!quiet) {
+                if (!gotblock) {
+                    gotblock = 1;
+                    print_metadata_id(b, inum, handles[0]->nblocks);
+                }
+                if (!just_id) {
+                    get_index_str(b, n, idx, fac, fmt, idxstr);
+                    printf("-%s%s: ", prestr, idxstr);
+                    printf(format_int, ival1);
+                    printf("\n");
+                    printf("+%s%s: ", prestr, idxstr);
+                    printf(format_int, ival2);
+                    printf("\n");
+                    if (show_errors)
+                        printf(" Error absolute %25.17e, relative %25.17e\n",
+                               abserr_val, relerr_val);
+                }
+            }
         }
-        if (just_id)
-            return gotdiff;
-        get_index_str(b, n, idx, fac, fmt, idxstr);
-        printf("-%s%s: ", prestr, idxstr);
-        printf(format_int, ival1);
-        printf("\n");
-        printf("+%s%s: ", prestr, idxstr);
-        printf(format_int, ival2);
-        printf("\n");
-        if (show_errors)
-            printf(" Error absolute %25.17e, relative %25.17e\n",
-                   abserr_val, relerr_val);
         break;
     case SDF_DATATYPE_INTEGER8:
         memcpy(&i8_1, b1->const_value, sizeof(i8_1));
@@ -1534,30 +1534,30 @@ int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int in
             relerr_val = abserr_val / denom;
         if (relerr_val > relerr_max) relerr_max = relerr_val;
         if (abserr_val > abserr_max) abserr_max = abserr_val;
-        if (relerr_val < relerr)
-            return gotdiff;
-        /* If we got here then the numbers differ */
-        if (!done_header)
-            printf("%s", firststr);
-        done_header = gotdiff = 1;
-        if (quiet)
-            return gotdiff;
-        if (!gotblock) {
-            gotblock = 1;
-            print_metadata_id(b, inum, handles[0]->nblocks);
+        if (relerr_val >= relerr) {
+            /* If we got here then the numbers differ */
+            if (!done_header)
+                printf("%s", firststr);
+            done_header = gotdiff = 1;
+            if (!quiet) {
+                if (!gotblock) {
+                    gotblock = 1;
+                    print_metadata_id(b, inum, handles[0]->nblocks);
+                }
+                if (!just_id) {
+                    get_index_str(b, n, idx, fac, fmt, idxstr);
+                    printf("-%s%s: ", prestr, idxstr);
+                    printf(format_int, ival1);
+                    printf("\n");
+                    printf("+%s%s: ", prestr, idxstr);
+                    printf(format_int, ival2);
+                    printf("\n");
+                    if (show_errors)
+                        printf(" Error absolute %25.17e, relative %25.17e\n",
+                               abserr_val, relerr_val);
+                }
+            }
         }
-        if (just_id)
-            return gotdiff;
-        get_index_str(b, n, idx, fac, fmt, idxstr);
-        printf("-%s%s: ", prestr, idxstr);
-        printf(format_int, ival1);
-        printf("\n");
-        printf("+%s%s: ", prestr, idxstr);
-        printf(format_int, ival2);
-        printf("\n");
-        if (show_errors)
-            printf(" Error absolute %25.17e, relative %25.17e\n",
-                   abserr_val, relerr_val);
         break;
     case SDF_DATATYPE_REAL4:
         memcpy(&r4_1, b1->const_value, sizeof(r4_1));
@@ -1575,30 +1575,30 @@ int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int in
             relerr_val = abserr_val / denom;
         if (relerr_val > relerr_max) relerr_max = relerr_val;
         if (abserr_val > abserr_max) abserr_max = abserr_val;
-        if (relerr_val < relerr)
-            return gotdiff;
-        /* If we got here then the numbers differ */
-        if (!done_header)
-            printf("%s", firststr);
-        done_header = gotdiff = 1;
-        if (quiet)
-            return gotdiff;
-        if (!gotblock) {
-            gotblock = 1;
-            print_metadata_id(b, inum, handles[0]->nblocks);
+        if (relerr_val >= relerr) {
+            /* If we got here then the numbers differ */
+            if (!done_header)
+                printf("%s", firststr);
+            done_header = gotdiff = 1;
+            if (!quiet) {
+                if (!gotblock) {
+                    gotblock = 1;
+                    print_metadata_id(b, inum, handles[0]->nblocks);
+                }
+                if (!just_id) {
+                    get_index_str(b, n, idx, fac, fmt, idxstr);
+                    printf("-%s%s: ", prestr, idxstr);
+                    printf(format_float, val1);
+                    printf("\n");
+                    printf("+%s%s: ", prestr, idxstr);
+                    printf(format_float, val2);
+                    printf("\n");
+                    if (show_errors)
+                        printf(" Error absolute %25.17e, relative %25.17e\n",
+                               abserr_val, relerr_val);
+                }
+            }
         }
-        if (just_id)
-            return gotdiff;
-        get_index_str(b, n, idx, fac, fmt, idxstr);
-        printf("-%s%s: ", prestr, idxstr);
-        printf(format_float, val1);
-        printf("\n");
-        printf("+%s%s: ", prestr, idxstr);
-        printf(format_float, val2);
-        printf("\n");
-        if (show_errors)
-            printf(" Error absolute %25.17e, relative %25.17e\n",
-                   abserr_val, relerr_val);
         break;
     case SDF_DATATYPE_REAL8:
         memcpy(&r8_1, b1->const_value, sizeof(r8_1));
@@ -1616,56 +1616,56 @@ int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int in
             relerr_val = abserr_val / denom;
         if (relerr_val > relerr_max) relerr_max = relerr_val;
         if (abserr_val > abserr_max) abserr_max = abserr_val;
-        if (relerr_val < relerr)
-            return gotdiff;
-        /* If we got here then the numbers differ */
-        if (!done_header)
-            printf("%s", firststr);
-        done_header = gotdiff = 1;
-        if (quiet)
-            return gotdiff;
-        if (!gotblock) {
-            gotblock = 1;
-            print_metadata_id(b, inum, handles[0]->nblocks);
+        if (relerr_val >= relerr) {
+            /* If we got here then the numbers differ */
+            if (!done_header)
+                printf("%s", firststr);
+            done_header = gotdiff = 1;
+            if (!quiet) {
+                if (!gotblock) {
+                    gotblock = 1;
+                    print_metadata_id(b, inum, handles[0]->nblocks);
+                }
+                if (!just_id) {
+                    get_index_str(b, n, idx, fac, fmt, idxstr);
+                    printf("-%s%s: ", prestr, idxstr);
+                    printf(format_float, val1);
+                    printf("\n");
+                    printf("+%s%s: ", prestr, idxstr);
+                    printf(format_float, val2);
+                    printf("\n");
+                    if (show_errors)
+                        printf(" Error absolute %25.17e, relative %25.17e\n",
+                               abserr_val, relerr_val);
+                }
+            }
         }
-        if (just_id)
-            return gotdiff;
-        get_index_str(b, n, idx, fac, fmt, idxstr);
-        printf("-%s%s: ", prestr, idxstr);
-        printf(format_float, val1);
-        printf("\n");
-        printf("+%s%s: ", prestr, idxstr);
-        printf(format_float, val2);
-        printf("\n");
-        if (show_errors)
-            printf(" Error absolute %25.17e, relative %25.17e\n",
-                   abserr_val, relerr_val);
         break;
     case SDF_DATATYPE_LOGICAL:
         i1 = *b1->const_value;
         i2 = *b2->const_value;
-        if (i1 == i2)
-            return gotdiff;
-        /* If we got here then the numbers differ */
-        abserr_val = abserr_max = relerr_val = relerr_max = 1.0;
-        if (!done_header)
-            printf("%s", firststr);
-        done_header = gotdiff = 1;
-        if (quiet)
-            return gotdiff;
-        if (!gotblock) {
-            gotblock = 1;
-            print_metadata_id(b, inum, handles[0]->nblocks);
+        if (i1 != i2) {
+            /* If we got here then the numbers differ */
+            abserr_val = abserr_max = relerr_val = relerr_max = 1.0;
+            if (!done_header)
+                printf("%s", firststr);
+            done_header = gotdiff = 1;
+            if (!quiet) {
+                if (!gotblock) {
+                    gotblock = 1;
+                    print_metadata_id(b, inum, handles[0]->nblocks);
+                }
+                if (!just_id) {
+                    get_index_str(b, n, idx, fac, fmt, idxstr);
+                    printf("-%s%s: ", prestr, idxstr);
+                    printf("%c", clogical[i1]);
+                    printf("\n");
+                    printf("+%s%s: ", prestr, idxstr);
+                    printf("%c", clogical[i2]);
+                    printf("\n");
+                }
+            }
         }
-        if (just_id)
-            return gotdiff;
-        get_index_str(b, n, idx, fac, fmt, idxstr);
-        printf("-%s%s: ", prestr, idxstr);
-        printf("%c", clogical[i1]);
-        printf("\n");
-        printf("+%s%s: ", prestr, idxstr);
-        printf("%c", clogical[i2]);
-        printf("\n");
         break;
     }
 
