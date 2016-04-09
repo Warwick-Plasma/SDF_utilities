@@ -45,7 +45,6 @@ int exclude_variables, index_offset;
 int just_id, verbose_metadata, special_format, scale_factor;
 int purge_duplicate, ignore_nblocks, quiet, show_errors;
 int done_header = 0;
-int64_t *array_starts, *array_ends;
 char *format_float, *format_int, *format_space;
 double relerr = 1.0e-15;
 //static char *default_float = "%9.6fE%+2.2d1p";
@@ -209,7 +208,6 @@ char **parse_args(int *argc, char ***argv)
     purge_duplicate = ignore_nblocks = quiet = show_errors = 0;
     variable_ids = NULL;
     variable_last_id = NULL;
-    array_starts = array_ends = NULL;
     nrange_max = nrange = 0;
     sz = sizeof(struct range_type);
 
@@ -1051,7 +1049,6 @@ void get_index_str(sdf_block_t *b, int64_t n, int *idx, int *fac, char **fmt,
     rem = n;
     for (i = b->ndims-1; i >= 0; i--) {
         idx0 = idx[i] = rem / fac[i];
-        if (b->array_starts) idx[i] += b->array_starts[i];
         rem -= idx0 * fac[i];
     }
 
@@ -1157,15 +1154,10 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
 
     rem = 1;
     for (i = 0; i < b->ndims; i++) {
-        if (b->array_starts)
-            left = b->array_ends[i] - b->array_starts[i];
-        else
-            left = b->local_dims[i];
+        left = b->local_dims[i];
         fac[i] = rem;
         rem *= left;
         digit = 0;
-        if (b->array_ends)
-            left = b->array_ends[i] + index_offset - 1;
         while (left) {
             left /= 10;
             digit++;
