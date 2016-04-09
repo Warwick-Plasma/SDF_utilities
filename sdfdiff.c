@@ -1055,7 +1055,7 @@ void get_index_str(sdf_block_t *b, int64_t n, int *idx, int *fac, char **fmt,
     *str = '\0';
     for (i = 0; i < b->ndims; i++) {
         len = strlen(str);
-        sprintf(str+len, fmt[i], idx[i]);
+        sprintf(str+len, fmt[i], idx[i] + index_offset);
     }
 }
 
