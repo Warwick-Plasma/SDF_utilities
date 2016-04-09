@@ -1046,6 +1046,22 @@ void get_index_str(sdf_block_t *b, int64_t n, int *idx, int *fac, char **fmt,
     int64_t rem, idx0;
     int i, len;
 
+    *str = '\0';
+    if (b->ndims < 1)
+        return;
+
+    switch (b->blocktype) {
+    case SDF_BLOCKTYPE_PLAIN_DERIVED:
+    case SDF_BLOCKTYPE_PLAIN_VARIABLE:
+    case SDF_BLOCKTYPE_POINT_DERIVED:
+    case SDF_BLOCKTYPE_POINT_VARIABLE:
+    case SDF_BLOCKTYPE_ARRAY:
+    case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
+        break;
+    default:
+        return;
+    }
+
     rem = n;
     for (i = b->ndims-1; i >= 0; i--) {
         idx0 = idx[i] = rem / fac[i];
@@ -1665,6 +1681,10 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
     switch (b1->blocktype) {
     case SDF_BLOCKTYPE_PLAIN_DERIVED:
     case SDF_BLOCKTYPE_PLAIN_VARIABLE:
+    case SDF_BLOCKTYPE_POINT_DERIVED:
+    case SDF_BLOCKTYPE_POINT_VARIABLE:
+    case SDF_BLOCKTYPE_ARRAY:
+    case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
         return diff_plain(handles, b1, b2, inum);
         break;
     case SDF_BLOCKTYPE_CONSTANT:
