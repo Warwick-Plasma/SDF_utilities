@@ -1171,6 +1171,28 @@ void get_header_string(sdf_file_t **handles, char *firststr, int firstlen)
 } while(0)
 
 
+#define LDIFF(v1, v2, pv1, pv2, format) do { \
+    i1 = (v1); \
+    i2 = (v2); \
+    if (i1 != i2) { \
+        /* If we got here then the numbers differ */ \
+        abserr_val = abserr_max = relerr_val = relerr_max = 1.0; \
+        if (!done_header) \
+            printf("%s", firststr); \
+        done_header = gotdiff = 1; \
+        if (!quiet) { \
+            if (!gotblock) { \
+                gotblock = 1; \
+                print_metadata_id(b, inum, handles[0]->nblocks); \
+            } \
+            if (!just_id) { \
+                PRINT_DIFF(pv1, pv2, format); \
+            } \
+        } \
+    } \
+} while(0)
+
+
 int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
 {
     int32_t *i4_1, *i4_2;
@@ -1283,24 +1305,7 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
         l_1 = b1->data;
         l_2 = b2->data;
         for (n = 0; n < b->nelements_local; n++) {
-            i1 = l_1[n];
-            i2 = l_2[n];
-            if (i1 != i2) {
-                /* If we got here then the numbers differ */
-                abserr_val = abserr_max = relerr_val = relerr_max = 1.0;
-                if (!done_header)
-                    printf("%s", firststr);
-                done_header = gotdiff = 1;
-                if (!quiet) {
-                    if (!gotblock) {
-                        gotblock = 1;
-                        print_metadata_id(b, inum, handles[0]->nblocks);
-                    }
-                    if (!just_id) {
-                        PRINT_DIFF(clogical[i1], clogical[i2], "%c");
-                    }
-                }
-            }
+            LDIFF(l_1[n], l_2[n], clogical[i1], clogical[i2], "%c");
         }
         break;
     }
@@ -1394,24 +1399,8 @@ int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int in
         DIFF(r8_1, r8_2, val1, val2, format_float);
         break;
     case SDF_DATATYPE_LOGICAL:
-        i1 = *b1->const_value;
-        i2 = *b2->const_value;
-        if (i1 != i2) {
-            /* If we got here then the numbers differ */
-            abserr_val = abserr_max = relerr_val = relerr_max = 1.0;
-            if (!done_header)
-                printf("%s", firststr);
-            done_header = gotdiff = 1;
-            if (!quiet) {
-                if (!gotblock) {
-                    gotblock = 1;
-                    print_metadata_id(b, inum, handles[0]->nblocks);
-                }
-                if (!just_id) {
-                    PRINT_DIFF(clogical[i1], clogical[i2], "%c");
-                }
-            }
-        }
+        LDIFF(*b1->const_value, *b2->const_value,
+              clogical[i1], clogical[i2], "%c");
         break;
     }
 
