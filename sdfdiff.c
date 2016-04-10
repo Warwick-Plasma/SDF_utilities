@@ -116,11 +116,12 @@ static inline void print_header(void);
 
 void usage(int err)
 {
-    fprintf(stderr, "usage: sdfdiff [options] <sdf_filename1> <sdf_filename2>\n");
+    fprintf(stderr, "usage: sdfdiff [options] <sdf_filename1> "
+                    "<sdf_filename2>\n");
     fprintf(stderr, "\noptions:\n\
   -h --help            Show this usage message\n\
-  -q --quiet           Do not print output. Exit with zero status if files are\n\
-                       the same and non-zero if they differ.\n\
+  -q --quiet           Do not print output. Exit with zero status if files\n\
+                       are the same and non-zero if they differ.\n\
   -m --metadata        Show metadata blocks (not shown by default)\n\
   -j --just-id         Only show ID and number of differing blocks\n\
   -l --less-verbose    Print metadata less verbosely\n\
@@ -1462,7 +1463,8 @@ int diff_mesh(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
 }
 
 
-int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
+int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2,
+                  int inum)
 {
     int32_t i4_1, i4_2;
     int64_t i8_1, i8_2;
@@ -1523,7 +1525,8 @@ int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int in
 }
 
 
-int diff_namevalue(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
+int diff_namevalue(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2,
+                   int inum)
 {
     int32_t *i4_1, *i4_2;
     int64_t *i8_1, *i8_2;
