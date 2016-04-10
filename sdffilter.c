@@ -46,6 +46,7 @@ int format_rowindex, format_index, format_number;
 int purge_duplicate, ignore_nblocks;
 int64_t array_ndims, *array_starts, *array_ends, *array_strides;
 int slice_direction, slice_dim[3];
+int *blocktype_mask;
 char *output_file;
 char *format_float, *format_int, *format_space;
 //static char *default_float = "%9.6fE%+2.2d1p";
@@ -63,9 +64,10 @@ struct id_list {
 
 struct range_type {
     int start, end;
-} *range_list;
+} *range_list, *blocktype_list;
 
 int nrange, nrange_max;
+int nblist, nblist_max;
 
 struct slice_block {
     char *data;
@@ -133,6 +135,7 @@ void usage(int err)
   -m --mmap            Use mmap'ed file I/O\n\
   -i --no-summary      Ignore the metadata summary\n\
   -b --no-nblocks      Ignore the header value for nblocks\n\
+  -B --block-types     List of SDF block types to consider\n\
   -a --array-section=s Read in the specified array section. The array section\n\
                        's' mimics Python's slicing notation.\n\
   -d --derived         Add derived blocks\n\
@@ -420,6 +423,33 @@ void sort_range(struct range_type **range_list_p, int *nrange)
 }
 
 
+void setup_blocklist_mask(void)
+{
+    int i, n, blist_start = 0;
+
+    blocktype_mask = NULL;
+
+    if (nblist == 0)
+        return;
+
+    blocktype_mask = calloc(sdf_blocktype_len, sizeof(*blocktype_mask));
+
+    for (i=0; i < sdf_blocktype_len; i++) {
+        for (n = blist_start; n < nblist; n++) {
+            if (i < blocktype_list[n].start)
+                break;
+            if (i <= blocktype_list[n].end) {
+                blocktype_mask[i] = 1;
+                break;
+            }
+            blist_start++;
+        }
+    }
+
+    free(blocktype_list);
+}
+
+
 char *parse_args(int *argc, char ***argv)
 {
     char *file = NULL;
@@ -429,6 +459,7 @@ char *parse_args(int *argc, char ***argv)
         { "1dslice",         required_argument, NULL, '1' },
         { "array-section",   required_argument, NULL, 'a' },
         { "no-nblocks",      no_argument,       NULL, 'b' },
+        { "block-types",     required_argument, NULL, 'B' },
         { "contents",        no_argument,       NULL, 'c' },
         { "count",           required_argument, NULL, 'C' },
         { "derived",         no_argument,       NULL, 'd' },
@@ -469,6 +500,7 @@ char *parse_args(int *argc, char ***argv)
     output_file = NULL;
     array_starts = array_ends = array_strides = NULL;
     array_ndims = nrange_max = nrange = 0;
+    nblist_max = nblist = 0;
 
     format_int = malloc(strlen(default_int)+1);
     memcpy(format_int, default_int, strlen(default_int)+1);
@@ -482,7 +514,7 @@ char *parse_args(int *argc, char ***argv)
     got_include = got_exclude = 0;
 
     while ((c = getopt_long(*argc, *argv,
-            "1:a:bcC:deF:hHiIjJKlmnN:RsS:v:x:pPV", longopts, NULL)) != -1) {
+            "1:a:bB:cC:deF:hHiIjJKlmnN:RsS:v:x:pPV", longopts, NULL)) != -1) {
         switch (c) {
         case '1':
             contents = 1;
@@ -494,6 +526,9 @@ char *parse_args(int *argc, char ***argv)
             break;
         case 'b':
             ignore_nblocks = 1;
+            break;
+        case 'B':
+            parse_range(optarg, &blocktype_list, &nblist, &nblist_max);
             break;
         case 'c':
             contents = 1;
@@ -625,6 +660,8 @@ char *parse_args(int *argc, char ***argv)
     }
 
     sort_range(&range_list, &nrange);
+    sort_range(&blocktype_list, &nblist);
+    setup_blocklist_mask();
 
     parse_format();
 
@@ -1667,8 +1704,10 @@ int main(int argc, char **argv)
     if (!metadata && !contents) return close_files(h);
 
     if ((nrange == 0 && !variable_ids)
-            || (nrange > 0 && range_list[0].start == 0))
-        print_header(h);
+            || (nrange > 0 && range_list[0].start == 0)) {
+        if (!blocktype_mask || blocktype_mask[0] != 0)
+            print_header(h);
+    }
 
     h->purge_duplicated_ids = purge_duplicate;
 
@@ -1717,6 +1756,10 @@ int main(int argc, char **argv)
         } else {
             if (!found) continue;
         }
+
+        /* Only consider blocks in the blocktype mask */
+        if (blocktype_mask && blocktype_mask[b->blocktype] == 0)
+            continue;
 
         if (metadata && slice_direction == -1)
             print_metadata(b, idx, h->nblocks);
@@ -1805,6 +1848,7 @@ int main(int argc, char **argv)
 
     list_destroy(&station_blocks);
     if (range_list) free(range_list);
+    if (blocktype_mask) free(blocktype_mask);
 
     return close_files(h);
 }
