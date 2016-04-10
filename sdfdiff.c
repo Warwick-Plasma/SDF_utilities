@@ -930,7 +930,7 @@ static void print_metadata_namevalue(sdf_block_t *b)
 }
 
 
-static void print_metadata(sdf_block_t *b, int inum, int nblocks)
+static void print_metadata_id(sdf_block_t *b, int inum, int nblocks)
 {
     int digit = 0;
     static const int fmtlen = 64;
@@ -941,11 +941,17 @@ static void print_metadata(sdf_block_t *b, int inum, int nblocks)
         digit++;
     }
 
+    snprintf(fmt, fmtlen, "Block %%%ii", digit);
+    printf(fmt, inum);
+    printf(", ID: %s", b->id);
+}
+
+
+static void print_metadata(sdf_block_t *b, int inum, int nblocks)
+{
     print_header();
-    snprintf(fmt, fmtlen, "Block %%%ii, ID: %%s not found in second file",
-             digit);
-    printf(fmt, inum, b->id);
-    printf("\n");
+    print_metadata_id(b, inum, nblocks);
+    printf(" - not in second file\n");
     if (just_id) return;
 
     sprintf(indent, default_indent, 1);
@@ -1093,23 +1099,6 @@ void get_index_str(sdf_block_t *b, int64_t n, int *idx, int *fac, char **fmt,
 }
 
 
-static void print_metadata_id(sdf_block_t *b, int inum, int nblocks)
-{
-    int digit = 0;
-    static const int fmtlen = 32;
-    char fmt[fmtlen];
-
-    while (nblocks) {
-        nblocks /= 10;
-        digit++;
-    }
-
-    snprintf(fmt, fmtlen, "Block %%%ii, ID: %%s", digit);
-    printf(fmt, inum, b->id);
-    printf("\n");
-}
-
-
 void set_header_string(sdf_file_t **handles)
 {
     int len;
@@ -1184,6 +1173,7 @@ static inline void print_header(void)
             if (!gotblock) { \
                 gotblock = 1; \
                 print_metadata_id(b, inum, handles[0]->nblocks); \
+                printf("\n"); \
             } \
             if (!just_id) { \
                 PRINT_DIFF(pv1, pv2, format); \
@@ -1205,6 +1195,7 @@ static inline void print_header(void)
             if (!gotblock) { \
                 gotblock = 1; \
                 print_metadata_id(b, inum, handles[0]->nblocks); \
+                printf("\n"); \
             } \
             if (!just_id) { \
                 PRINT_DIFF(pv1, pv2, format); \
@@ -1237,8 +1228,10 @@ static inline void print_header(void)
 #define DIFF_PRINT_MAX_ERROR() do { \
     if (!quiet && relerr_max > DBL_MIN) { \
         print_header(); \
-        if (!gotblock) \
+        if (!gotblock) { \
             print_metadata_id(b, inum, handles[0]->nblocks); \
+            printf("\n"); \
+        } \
         printf("Max error absolute %25.17e, relative %25.17e\n", \
                abserr_max, relerr_max); \
     } \
@@ -1736,7 +1729,8 @@ int main(int argc, char **argv)
                 print_metadata(b, idx, h->nblocks);
             else {
                 print_header();
-                printf("%s not found in second file\n", b->id);
+                print_metadata_id(b, idx, handles[0]->nblocks);
+                printf(" - not in second file\n");
             }
             continue;
         }
