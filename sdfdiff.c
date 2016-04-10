@@ -1268,7 +1268,7 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
     char clogical[2] = {'F', 'T'};
     char *l_1, *l_2;
     int gotblock;
-    static int gotdiff = 0;
+    int gotdiff = 0;
     static const int fmtlen = 32;
     static const int idxlen = 64;
     char idxstr[idxlen];
@@ -1775,7 +1775,7 @@ int main(int argc, char **argv)
             continue;
         }
 
-        gotdiff = diff_block(handles, b, b2, idx);
+        gotdiff += diff_block(handles, b, b2, idx);
 /*
         switch (b->blocktype) {
         case SDF_BLOCKTYPE_PLAIN_DERIVED:
