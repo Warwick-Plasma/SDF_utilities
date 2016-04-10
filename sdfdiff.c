@@ -45,6 +45,7 @@ int exclude_variables, index_offset;
 int just_id, verbose_metadata, special_format, scale_factor;
 int purge_duplicate, ignore_nblocks, quiet, show_errors;
 int done_header = 0;
+int *blocktype_mask;
 char *format_float, *format_int, *format_space;
 double relerr = 1.0e-15;
 double abserr = DBL_MAX;
@@ -64,9 +65,10 @@ struct id_list {
 
 struct range_type {
     int start, end;
-} *range_list;
+} *range_list, *blocktype_list;
 
 int nrange, nrange_max;
+int nblist, nblist_max;
 
 static char width_fmt[16];
 #define SET_WIDTH_LEN(len) do { \
@@ -132,6 +134,7 @@ void usage(int err)
   -x --exclude=id      Exclude the block with id matching 'id'\n\
   -i --no-summary      Ignore the metadata summary\n\
   -b --no-nblocks      Ignore the header value for nblocks\n\
+  -B --block-types     List of SDF block types to consider\n\
   -E --show-errors     Print error values\n\
   -I --c-indexing      Array indexing starts from 1 by default. If this flag\n\
                        is used then the indexing starts from 0.\n\
@@ -286,6 +289,33 @@ void sort_range(struct range_type **range_list_p, int *nrange)
 }
 
 
+void setup_blocklist_mask(void)
+{
+    int i, n, blist_start = 0;
+
+    blocktype_mask = NULL;
+
+    if (nblist == 0)
+        return;
+
+    blocktype_mask = calloc(sdf_blocktype_len, sizeof(*blocktype_mask));
+
+    for (i=0; i < sdf_blocktype_len; i++) {
+        for (n = blist_start; n < nblist; n++) {
+            if (i < blocktype_list[n].start)
+                break;
+            if (i <= blocktype_list[n].end) {
+                blocktype_mask[i] = 1;
+                break;
+            }
+            blist_start++;
+        }
+    }
+
+    free(blocktype_list);
+}
+
+
 char **parse_args(int *argc, char ***argv)
 {
     char *ptr, *tmp_optarg, **files = NULL;
@@ -295,6 +325,7 @@ char **parse_args(int *argc, char ***argv)
     static struct option longopts[] = {
         { "abserr",          optional_argument, NULL, 'a' },
         { "no-nblocks",      no_argument,       NULL, 'b' },
+        { "block-types",     required_argument, NULL, 'B' },
         { "show-errors",     no_argument,       NULL, 'E' },
         { "format-float",    required_argument, NULL, 'F' },
         { "help",            no_argument,       NULL, 'h' },
@@ -324,6 +355,7 @@ char **parse_args(int *argc, char ***argv)
     variable_ids = NULL;
     variable_last_id = NULL;
     nrange_max = nrange = 0;
+    nblist_max = nblist = 0;
 
     format_int = malloc(strlen(default_int)+1);
     memcpy(format_int, default_int, strlen(default_int)+1);
@@ -337,7 +369,7 @@ char **parse_args(int *argc, char ***argv)
     got_include = got_exclude = 0;
 
     while ((c = getopt_long(*argc, *argv,
-            "a::bEF:hiIjJlmN:qr::S:v:x:pPV", longopts, NULL)) != -1) {
+            "a::bB:EF:hiIjJlmN:qr::S:v:x:pPV", longopts, NULL)) != -1) {
         switch (c) {
         case 'a':
             tmp_optarg = optarg;
@@ -354,6 +386,9 @@ char **parse_args(int *argc, char ***argv)
             break;
         case 'b':
             ignore_nblocks = 1;
+            break;
+        case 'B':
+            parse_range(optarg, &blocktype_list, &nblist, &nblist_max);
             break;
         case 'E':
             show_errors = 1;
@@ -496,6 +531,8 @@ char **parse_args(int *argc, char ***argv)
     }
 
     sort_range(&range_list, &nrange);
+    sort_range(&blocktype_list, &nblist);
+    setup_blocklist_mask();
 
     parse_format();
 
@@ -1812,6 +1849,10 @@ int main(int argc, char **argv)
             if (!found) continue;
         }
 
+        /* Only consider blocks in the blocktype mask */
+        if (blocktype_mask && blocktype_mask[b->blocktype] == 0)
+            continue;
+
         b2 = sdf_find_block_by_id(h2, b->id);
         if (!b2) {
             if (metadata)
@@ -1894,6 +1935,7 @@ int main(int argc, char **argv)
     list_destroy(&station_blocks);
 */
     if (range_list) free(range_list);
+    if (blocktype_mask) free(blocktype_mask);
 
     close_files(handles);
 
