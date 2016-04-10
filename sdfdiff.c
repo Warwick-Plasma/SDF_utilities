@@ -47,6 +47,7 @@ int purge_duplicate, ignore_nblocks, quiet, show_errors;
 int done_header = 0;
 char *format_float, *format_int, *format_space;
 double relerr = 1.0e-15;
+double abserr = DBL_MAX;
 //static char *default_float = "%9.6fE%+2.2d1p";
 static char *default_float = "%27.18e";
 static char *default_int   = "%" PRIi64;
@@ -126,6 +127,7 @@ void usage(int err)
   -j --just-id         Only show ID and number of differing blocks\n\
   -l --less-verbose    Print metadata less verbosely\n\
   -r --relerr          Relative error for numerical difference\n\
+  -a --abserr          Absolue error for numerical difference\n\
   -v --variable=id     Find the block with id matching 'id'\n\
   -x --exclude=id      Exclude the block with id matching 'id'\n\
   -i --no-summary      Ignore the metadata summary\n\
@@ -184,6 +186,7 @@ char **parse_args(int *argc, char ***argv)
     struct range_type *range_tmp;
     struct stat statbuf;
     static struct option longopts[] = {
+        { "abserr",          optional_argument, NULL, 'a' },
         { "no-nblocks",      no_argument,       NULL, 'b' },
         { "show-errors",     no_argument,       NULL, 'E' },
         { "format-float",    required_argument, NULL, 'F' },
@@ -227,8 +230,21 @@ char **parse_args(int *argc, char ***argv)
     got_include = got_exclude = 0;
 
     while ((c = getopt_long(*argc, *argv,
-            "bEF:hiIjJlmN:qr::S:v:x:pV", longopts, NULL)) != -1) {
+            "a::bEF:hiIjJlmN:qr::S:v:x:pV", longopts, NULL)) != -1) {
         switch (c) {
+        case 'a':
+            tmp_optarg = optarg;
+            if (!optarg && NULL != pargv[optind] && '-' != pargv[optind][0])
+                tmp_optarg = pargv[optind++];
+            if (tmp_optarg) {
+                abserr = atof(tmp_optarg);
+                relerr = DBL_MAX;
+            } else {
+                printf("Absolute error flag requires an argument.\n");
+                printf("Default value is %g\n", abserr);
+                exit(0);
+            }
+            break;
         case 'b':
             ignore_nblocks = 1;
             break;
@@ -270,9 +286,10 @@ char **parse_args(int *argc, char ***argv)
             tmp_optarg = optarg;
             if (!optarg && NULL != pargv[optind] && '-' != pargv[optind][0])
                 tmp_optarg = pargv[optind++];
-            if (tmp_optarg)
+            if (tmp_optarg) {
                 relerr = atof(tmp_optarg);
-            else {
+                abserr = DBL_MAX;
+            } else {
                 printf("Relative error flag requires an argument.\n");
                 printf("Default value is %g\n", relerr);
                 exit(0);
@@ -1166,7 +1183,7 @@ static inline void print_header(void)
         relerr_val = abserr_val / denom; \
     if (relerr_val > relerr_max) relerr_max = relerr_val; \
     if (abserr_val > abserr_max) abserr_max = abserr_val; \
-    if (relerr_val >= relerr) { \
+    if (relerr_val >= relerr || abserr_val >= abserr) { \
         /* If we got here then the numbers differ */ \
         print_header(); \
         gotdiff = 1; \
