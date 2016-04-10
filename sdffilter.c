@@ -44,6 +44,7 @@ int exclude_variables, derived, extension_info, index_offset, element_count;
 int just_id, verbose_metadata, special_format, scale_factor;
 int format_rowindex, format_index, format_number;
 int purge_duplicate, ignore_nblocks;
+int array_blocktypes, mesh_blocktypes;
 int64_t array_ndims, *array_starts, *array_ends, *array_strides;
 int slice_direction, slice_dim[3];
 int *blocktype_mask;
@@ -135,7 +136,6 @@ void usage(int err)
   -m --mmap            Use mmap'ed file I/O\n\
   -i --no-summary      Ignore the metadata summary\n\
   -b --no-nblocks      Ignore the header value for nblocks\n\
-  -B --block-types     List of SDF block types to consider\n\
   -a --array-section=s Read in the specified array section. The array section\n\
                        's' mimics Python's slicing notation.\n\
   -d --derived         Add derived blocks\n\
@@ -158,9 +158,16 @@ void usage(int err)
   -R --format-rowindex Show array indices before each row of array elements.\n\
   -J --format-index    Show array indices before each array element.\n\
   -p --purge-duplicate Delete duplicated block IDs\n\
+  -B --block-types     List of SDF block types to consider\n\
+  -A --array-blocks    Only consider array block types (%i,%i,%i,%i,%i)\n\
+  -M --mesh-blocks     Only consider mesh block types (%i,%i,%i,%i)\n\
   -P --print-types     Print the list of SDF blocktypes\n\
   -V --version         Print version information and exit\n\
-");
+", SDF_BLOCKTYPE_PLAIN_VARIABLE, SDF_BLOCKTYPE_POINT_VARIABLE,
+   SDF_BLOCKTYPE_ARRAY,
+   SDF_BLOCKTYPE_PLAIN_DERIVED, SDF_BLOCKTYPE_POINT_DERIVED,
+   SDF_BLOCKTYPE_PLAIN_MESH, SDF_BLOCKTYPE_POINT_MESH,
+   SDF_BLOCKTYPE_UNSTRUCTURED_MESH, SDF_BLOCKTYPE_LAGRANGIAN_MESH);
 /*
   -o --output          Output filename\n\
   -D --debug           Show the contents of the debug buffer\n\
@@ -429,10 +436,28 @@ void setup_blocklist_mask(void)
 
     blocktype_mask = NULL;
 
-    if (nblist == 0)
+    if (mesh_blocktypes + array_blocktypes + nblist == 0)
         return;
 
     blocktype_mask = calloc(sdf_blocktype_len, sizeof(*blocktype_mask));
+
+    if (mesh_blocktypes) {
+        blocktype_mask[SDF_BLOCKTYPE_PLAIN_MESH]        = 1;
+        blocktype_mask[SDF_BLOCKTYPE_POINT_MESH]        = 1;
+        blocktype_mask[SDF_BLOCKTYPE_UNSTRUCTURED_MESH] = 1;
+        blocktype_mask[SDF_BLOCKTYPE_LAGRANGIAN_MESH]   = 1;
+    }
+
+    if (array_blocktypes) {
+        blocktype_mask[SDF_BLOCKTYPE_PLAIN_VARIABLE] = 1;
+        blocktype_mask[SDF_BLOCKTYPE_POINT_VARIABLE] = 1;
+        blocktype_mask[SDF_BLOCKTYPE_PLAIN_DERIVED]  = 1;
+        blocktype_mask[SDF_BLOCKTYPE_POINT_DERIVED]  = 1;
+        blocktype_mask[SDF_BLOCKTYPE_ARRAY]          = 1;
+    }
+
+    if (nblist == 0)
+        return;
 
     for (i=0; i < sdf_blocktype_len; i++) {
         for (n = blist_start; n < nblist; n++) {
@@ -458,6 +483,7 @@ char *parse_args(int *argc, char ***argv)
     static struct option longopts[] = {
         { "1dslice",         required_argument, NULL, '1' },
         { "array-section",   required_argument, NULL, 'a' },
+        { "array-blocks",    no_argument,       NULL, 'A' },
         { "no-nblocks",      no_argument,       NULL, 'b' },
         { "block-types",     required_argument, NULL, 'B' },
         { "contents",        no_argument,       NULL, 'c' },
@@ -474,6 +500,7 @@ char *parse_args(int *argc, char ***argv)
         { "format-number",   no_argument,       NULL, 'K' },
         { "less-verbose",    no_argument,       NULL, 'l' },
         { "mmap",            no_argument,       NULL, 'm' },
+        { "mesh-blocks",     no_argument,       NULL, 'M' },
         { "no-metadata",     no_argument,       NULL, 'n' },
         { "format-int",      required_argument, NULL, 'N' },
         { "format-rowindex", no_argument,       NULL, 'R' },
@@ -494,6 +521,7 @@ char *parse_args(int *argc, char ***argv)
     contents = single = use_mmap = ignore_summary = exclude_variables = 0;
     derived = format_rowindex = format_index = format_number = just_id = 0;
     purge_duplicate = ignore_nblocks = extension_info = 0;
+    array_blocktypes = mesh_blocktypes = 0;
     slice_direction = -1;
     variable_ids = NULL;
     variable_last_id = NULL;
@@ -514,7 +542,7 @@ char *parse_args(int *argc, char ***argv)
     got_include = got_exclude = 0;
 
     while ((c = getopt_long(*argc, *argv,
-            "1:a:bB:cC:deF:hHiIjJKlmnN:RsS:v:x:pPV", longopts, NULL)) != -1) {
+            "1:a:AbB:cC:deF:hHiIjJKlmMnN:RsS:v:x:pPV", longopts, NULL)) != -1) {
         switch (c) {
         case '1':
             contents = 1;
@@ -523,6 +551,9 @@ char *parse_args(int *argc, char ***argv)
         case 'a':
             contents = 1;
             parse_array_section(optarg);
+            break;
+        case 'A':
+            array_blocktypes = 1;
             break;
         case 'b':
             ignore_nblocks = 1;
@@ -574,6 +605,9 @@ char *parse_args(int *argc, char ***argv)
             break;
         case 'm':
             use_mmap = 1;
+            break;
+        case 'M':
+            mesh_blocktypes = 1;
             break;
         case 'n':
             metadata = 0;
