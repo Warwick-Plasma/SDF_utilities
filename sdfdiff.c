@@ -44,6 +44,7 @@ int metadata, debug, ignore_summary;
 int exclude_variables, index_offset;
 int just_id, verbose_metadata, special_format, scale_factor;
 int purge_duplicate, ignore_nblocks, quiet, show_errors;
+int array_blocktypes, mesh_blocktypes;
 int done_header = 0;
 int *blocktype_mask;
 char *format_float, *format_int, *format_space;
@@ -134,7 +135,6 @@ void usage(int err)
   -x --exclude=id      Exclude the block with id matching 'id'\n\
   -i --no-summary      Ignore the metadata summary\n\
   -b --no-nblocks      Ignore the header value for nblocks\n\
-  -B --block-types     List of SDF block types to consider\n\
   -E --show-errors     Print error values\n\
   -I --c-indexing      Array indexing starts from 1 by default. If this flag\n\
                        is used then the indexing starts from 0.\n\
@@ -144,9 +144,17 @@ void usage(int err)
                        contents.\n\
   -S --format-space=f  Use specified spacing between array elements.\n\
   -p --purge-duplicate Delete duplicated block IDs\n\
+  -B --block-types     List of SDF block types to consider\n\
+  -A --array-blocks    Only consider array block types (%i,%i,%i,%i,%i)\n\
+  -M --mesh-blocks     Only consider mesh block types (%i,%i,%i,%i)\n\
   -P --print-types     Print the list of SDF blocktypes\n\
   -V --version         Print version information and exit\n\
-");
+", SDF_BLOCKTYPE_PLAIN_VARIABLE, SDF_BLOCKTYPE_POINT_VARIABLE,
+   SDF_BLOCKTYPE_ARRAY,
+   SDF_BLOCKTYPE_PLAIN_DERIVED, SDF_BLOCKTYPE_POINT_DERIVED,
+   SDF_BLOCKTYPE_PLAIN_MESH, SDF_BLOCKTYPE_POINT_MESH,
+   SDF_BLOCKTYPE_UNSTRUCTURED_MESH, SDF_BLOCKTYPE_LAGRANGIAN_MESH);
+
     exit(err);
 }
 
@@ -295,10 +303,28 @@ void setup_blocklist_mask(void)
 
     blocktype_mask = NULL;
 
-    if (nblist == 0)
+    if (mesh_blocktypes + array_blocktypes + nblist == 0)
         return;
 
     blocktype_mask = calloc(sdf_blocktype_len, sizeof(*blocktype_mask));
+
+    if (mesh_blocktypes) {
+        blocktype_mask[SDF_BLOCKTYPE_PLAIN_MESH]        = 1;
+        blocktype_mask[SDF_BLOCKTYPE_POINT_MESH]        = 1;
+        blocktype_mask[SDF_BLOCKTYPE_UNSTRUCTURED_MESH] = 1;
+        blocktype_mask[SDF_BLOCKTYPE_LAGRANGIAN_MESH]   = 1;
+    }
+
+    if (array_blocktypes) {
+        blocktype_mask[SDF_BLOCKTYPE_PLAIN_VARIABLE] = 1;
+        blocktype_mask[SDF_BLOCKTYPE_POINT_VARIABLE] = 1;
+        blocktype_mask[SDF_BLOCKTYPE_PLAIN_DERIVED]  = 1;
+        blocktype_mask[SDF_BLOCKTYPE_POINT_DERIVED]  = 1;
+        blocktype_mask[SDF_BLOCKTYPE_ARRAY]          = 1;
+    }
+
+    if (nblist == 0)
+        return;
 
     for (i=0; i < sdf_blocktype_len; i++) {
         for (n = blist_start; n < nblist; n++) {
@@ -324,6 +350,7 @@ char **parse_args(int *argc, char ***argv)
     struct stat statbuf;
     static struct option longopts[] = {
         { "abserr",          optional_argument, NULL, 'a' },
+        { "array-blocks",    no_argument,       NULL, 'A' },
         { "no-nblocks",      no_argument,       NULL, 'b' },
         { "block-types",     required_argument, NULL, 'B' },
         { "show-errors",     no_argument,       NULL, 'E' },
@@ -334,6 +361,7 @@ char **parse_args(int *argc, char ***argv)
         { "just-id",         no_argument,       NULL, 'j' },
         { "less-verbose",    no_argument,       NULL, 'l' },
         { "metadata",        no_argument,       NULL, 'm' },
+        { "mesh-blocks",     no_argument,       NULL, 'M' },
         { "format-int",      required_argument, NULL, 'N' },
         { "quiet",           no_argument,       NULL, 'q' },
         { "relerr",          optional_argument, NULL, 'r' },
@@ -352,6 +380,7 @@ char **parse_args(int *argc, char ***argv)
     metadata = ignore_summary = exclude_variables = 0;
     just_id = 0;
     purge_duplicate = ignore_nblocks = quiet = show_errors = 0;
+    array_blocktypes = mesh_blocktypes = 0;
     variable_ids = NULL;
     variable_last_id = NULL;
     nrange_max = nrange = 0;
@@ -369,7 +398,7 @@ char **parse_args(int *argc, char ***argv)
     got_include = got_exclude = 0;
 
     while ((c = getopt_long(*argc, *argv,
-            "a::bB:EF:hiIjJlmN:qr::S:v:x:pPV", longopts, NULL)) != -1) {
+            "a::AbB:EF:hiIjJlmMN:qr::S:v:x:pPV", longopts, NULL)) != -1) {
         switch (c) {
         case 'a':
             tmp_optarg = optarg;
@@ -383,6 +412,9 @@ char **parse_args(int *argc, char ***argv)
                 printf("Default value is %g\n", abserr);
                 exit(0);
             }
+            break;
+        case 'A':
+            array_blocktypes = 1;
             break;
         case 'b':
             ignore_nblocks = 1;
@@ -415,6 +447,9 @@ char **parse_args(int *argc, char ***argv)
             break;
         case 'm':
             metadata = 1;
+            break;
+        case 'M':
+            mesh_blocktypes = 1;
             break;
         case 'N':
             free(format_int);
