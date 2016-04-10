@@ -62,11 +62,11 @@ struct id_list {
     struct id_list *next;
 } *variable_ids, *variable_last_id;
 
-int nrange;
-
 struct range_type {
     int start, end;
 } *range_list;
+
+int nrange, nrange_max;
 
 static char width_fmt[16];
 #define SET_WIDTH_LEN(len) do { \
@@ -191,12 +191,106 @@ void parse_format(void)
 }
 
 
+int parse_range(char *optarg, struct range_type **range_list_p, int *nrange,
+                int *nrange_max)
+{
+    int i, range;
+    size_t sz;
+    char *ptr;
+    struct range_type *range_list = *range_list_p;
+    struct range_type *range_tmp;
+
+    if (!((*optarg >= '0' && *optarg <= '9') || *optarg == '-'))
+        return 1;
+
+    sz = sizeof(struct range_type);
+    ptr = optarg;
+    range = 0;
+    while (ptr < optarg + strlen(optarg) + 1) {
+        if (range) {
+            i = (int)strtol(ptr, &ptr, 10);
+            if (i == 0)
+                range_list[*nrange-1].end = INT_MAX;
+            else if (i < range_list[*nrange-1].start)
+                (*nrange)--;
+            else
+                range_list[*nrange-1].end = i;
+            range = 0;
+        } else {
+            (*nrange)++;
+            // Grow array if necessary
+            if (*nrange > *nrange_max) {
+                if (*nrange_max == 0) {
+                    *nrange_max = 128;
+                    range_list = calloc(*nrange_max, sz);
+                } else {
+                    i = 2 * *nrange_max;
+
+                    range_tmp = calloc(i, sz);
+                    memcpy(range_tmp, range_list, *nrange_max * sz);
+                    free(range_list);
+                    range_list = range_tmp;
+
+                    *nrange_max = i;
+                }
+            }
+
+            if (*ptr == '-') {
+                range = 1;
+                range_list[*nrange-1].end = INT_MAX;
+            } else {
+                i = (int)strtol(ptr, &ptr, 10);
+                range_list[*nrange-1].start = i;
+                range_list[*nrange-1].end = i;
+                if (*ptr == '-') range = 1;
+            }
+        }
+
+        ptr++;
+    }
+
+    *range_list_p = range_list;
+
+    return 0;
+}
+
+
+void sort_range(struct range_type **range_list_p, int *nrange)
+{
+    struct range_type *range_list = *range_list_p;
+    struct range_type *range_tmp;
+    size_t sz;
+    int i;
+
+    if (*nrange <= 0)
+        return;
+
+    sz = sizeof(struct range_type);
+    // Sanitize range list
+    qsort(range_list, *nrange, sz, &range_sort);
+    for (i=1; i < *nrange; ) {
+        if (range_list[i].start <= range_list[i-1].end+1) {
+            if (range_list[i].end > range_list[i-1].end)
+                range_list[i-1].end = range_list[i].end;
+            memcpy(range_list+i, range_list+i+1, (*nrange-i) * sz);
+            (*nrange)--;
+        } else
+            i++;
+    }
+
+    // Shrink array
+    range_tmp = malloc(*nrange * sz);
+    memcpy(range_tmp, range_list, *nrange * sz);
+    free(range_list);
+    *range_list_p = range_list = range_tmp;
+}
+
+
 char **parse_args(int *argc, char ***argv)
 {
     char *ptr, *tmp_optarg, **files = NULL;
     char **pargv = *argv;
-    int c, i, err, range, sz, nrange_max, got_include, got_exclude, len;
-    struct range_type *range_tmp;
+    int c, i, err, got_include, got_exclude, len;
     struct stat statbuf;
     static struct option longopts[] = {
         { "abserr",          optional_argument, NULL, 'a' },
@@ -230,7 +324,6 @@ char **parse_args(int *argc, char ***argv)
     variable_ids = NULL;
     variable_last_id = NULL;
     nrange_max = nrange = 0;
-    sz = sizeof(struct range_type);
 
     format_int = malloc(strlen(default_int)+1);
     memcpy(format_int, default_int, strlen(default_int)+1);
@@ -343,52 +436,8 @@ char **parse_args(int *argc, char ***argv)
                         "exclude variables.\n");
                 exit(1);
             }
-            if ((*optarg >= '0' && *optarg <= '9') || *optarg == '-') {
-                ptr = optarg;
-                range = 0;
-                while (ptr < optarg + strlen(optarg) + 1) {
-                    if (range) {
-                        i = (int)strtol(ptr, &ptr, 10);
-                        if (i == 0)
-                            range_list[nrange-1].end = INT_MAX;
-                        else if (i < range_list[nrange-1].start)
-                            nrange--;
-                        else
-                            range_list[nrange-1].end = i;
-                        range = 0;
-                    } else {
-                        nrange++;
-                        // Grow array if necessary
-                        if (nrange > nrange_max) {
-                            if (nrange_max == 0) {
-                                nrange_max = 128;
-                                range_list = calloc(nrange_max, sz);
-                            } else {
-                                i = 2 * nrange_max;
-
-                                range_tmp = calloc(i, sz);
-                                memcpy(range_tmp, range_list, nrange_max * sz);
-                                free(range_list);
-                                range_list = range_tmp;
-
-                                nrange_max = i;
-                            }
-                        }
-
-                        if (*ptr == '-') {
-                            range = 1;
-                            range_list[nrange-1].end = INT_MAX;
-                        } else {
-                            i = (int)strtol(ptr, &ptr, 10);
-                            range_list[nrange-1].start = i;
-                            range_list[nrange-1].end = i;
-                            if (*ptr == '-') range = 1;
-                        }
-                    }
-
-                    ptr++;
-                }
-            } else {
+            err = parse_range(optarg, &range_list, &nrange, &nrange_max);
+            if (!err) {
                 if (!variable_ids) {
                     variable_last_id =
                             variable_ids = malloc(sizeof(*variable_ids));
@@ -446,25 +495,7 @@ char **parse_args(int *argc, char ***argv)
         usage(1);
     }
 
-    if (nrange > 0) {
-        // Sanitize range list
-        qsort(range_list, nrange, sz, &range_sort);
-        for (i=1; i < nrange; ) {
-            if (range_list[i].start <= range_list[i-1].end+1) {
-                if (range_list[i].end > range_list[i-1].end)
-                    range_list[i-1].end = range_list[i].end;
-                memcpy(range_list+i, range_list+i+1, (nrange-i) * sz);
-                nrange--;
-            } else
-                i++;
-        }
-
-        // Shrink array
-        range_tmp = malloc(nrange * sz);
-        memcpy(range_tmp, range_list, nrange * sz);
-        free(range_list);
-        range_list = range_tmp;
-    }
+    sort_range(&range_list, &nrange);
 
     parse_format();
 
