@@ -141,9 +141,22 @@ void usage(int err)
                        contents.\n\
   -S --format-space=f  Use specified spacing between array elements.\n\
   -p --purge-duplicate Delete duplicated block IDs\n\
+  -P --print-types     Print the list of SDF blocktypes\n\
   -V --version         Print version information and exit\n\
 ");
     exit(err);
+}
+
+
+void print_blocktypes(void)
+{
+    int i;
+
+    printf("%2i Header block\n", 0);
+    for (i=1; i < sdf_blocktype_len; i++) {
+        printf("%2i %s\n", i, sdf_blocktype_c[i]);
+    }
+    exit(0);
 }
 
 
@@ -203,6 +216,7 @@ char **parse_args(int *argc, char ***argv)
         { "variable",        required_argument, NULL, 'v' },
         { "exclude",         required_argument, NULL, 'x' },
         { "purge-duplicate", no_argument,       NULL, 'p' },
+        { "print-types",     no_argument,       NULL, 'P' },
         { "version",         no_argument,       NULL, 'V' },
         { NULL,              0,                 NULL,  0  }
         //{ "debug",           no_argument,       NULL, 'D' },
@@ -230,7 +244,7 @@ char **parse_args(int *argc, char ***argv)
     got_include = got_exclude = 0;
 
     while ((c = getopt_long(*argc, *argv,
-            "a::bEF:hiIjJlmN:qr::S:v:x:pV", longopts, NULL)) != -1) {
+            "a::bEF:hiIjJlmN:qr::S:v:x:pPV", longopts, NULL)) != -1) {
         switch (c) {
         case 'a':
             tmp_optarg = optarg;
@@ -279,6 +293,12 @@ char **parse_args(int *argc, char ***argv)
             format_int = malloc(strlen(optarg)+1);
             memcpy(format_int, optarg, strlen(optarg)+1);
             break;
+        case 'p':
+            purge_duplicate = 1;
+            break;
+        case 'P':
+            print_blocktypes();
+            break;
         case 'q':
             quiet = 1;
             break;
@@ -294,9 +314,6 @@ char **parse_args(int *argc, char ***argv)
                 printf("Default value is %g\n", relerr);
                 exit(0);
             }
-            break;
-        case 'p':
-            purge_duplicate = 1;
             break;
         case 'S':
             free(format_space);
