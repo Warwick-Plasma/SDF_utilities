@@ -1244,7 +1244,7 @@ static inline void print_header(void)
 
 
 #define DIFF_PRINT_MAX_ERROR() do { \
-    if (!quiet && relerr_max > DBL_MIN) { \
+    if (!quiet && gotblock) { \
         print_header(); \
         if (!gotblock) { \
             print_metadata_id(b, inum, handles[0]->nblocks); \
