@@ -193,7 +193,7 @@ void parse_format(void)
 
 char **parse_args(int *argc, char ***argv)
 {
-    char *ptr, **files, *tmp_optarg;
+    char *ptr, *tmp_optarg, **files = NULL;
     char **pargv = *argv;
     int c, i, err, range, sz, nrange_max, got_include, got_exclude, len;
     struct range_type *range_tmp;
@@ -441,6 +441,7 @@ char **parse_args(int *argc, char ***argv)
             files[1][len + strlen(ptr)] = '\0';
         }
     } else {
+        files = NULL;
         fprintf(stderr, "Must specify two files\n");
         usage(1);
     }
