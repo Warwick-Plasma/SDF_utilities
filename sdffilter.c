@@ -155,6 +155,7 @@ void usage(int err)
   -R --format-rowindex Show array indices before each row of array elements.\n\
   -J --format-index    Show array indices before each array element.\n\
   -p --purge-duplicate Delete duplicated block IDs\n\
+  -P --print-types     Print the list of SDF blocktypes\n\
   -V --version         Print version information and exit\n\
 ");
 /*
@@ -163,6 +164,18 @@ void usage(int err)
 */
 
     exit(err);
+}
+
+
+void print_blocktypes(void)
+{
+    int i;
+
+    printf("%2i Header block\n", 0);
+    for (i=1; i < sdf_blocktype_len; i++) {
+        printf("%2i %s\n", i, sdf_blocktype_c[i]);
+    }
+    exit(0);
 }
 
 
@@ -344,6 +357,7 @@ char *parse_args(int *argc, char ***argv)
         { "variable",        required_argument, NULL, 'v' },
         { "exclude",         required_argument, NULL, 'x' },
         { "purge-duplicate", no_argument,       NULL, 'p' },
+        { "print-types",     no_argument,       NULL, 'P' },
         { "version",         no_argument,       NULL, 'V' },
         { NULL,              0,                 NULL,  0  }
         //{ "debug",           no_argument,       NULL, 'D' },
@@ -375,7 +389,7 @@ char *parse_args(int *argc, char ***argv)
     got_include = got_exclude = 0;
 
     while ((c = getopt_long(*argc, *argv,
-            "1:a:bcC:deF:hHiIjJKlmnN:RsS:v:x:pV", longopts, NULL)) != -1) {
+            "1:a:bcC:deF:hHiIjJKlmnN:RsS:v:x:pPV", longopts, NULL)) != -1) {
         switch (c) {
         case '1':
             contents = 1;
@@ -446,14 +460,17 @@ char *parse_args(int *argc, char ***argv)
             output_file = malloc(strlen(optarg)+1);
             memcpy(output_file, optarg, strlen(optarg)+1);
             break;
+        case 'p':
+            purge_duplicate = 1;
+            break;
+        case 'P':
+            print_blocktypes();
+            break;
         case 'R':
             format_rowindex = 1;
             break;
         case 's':
             single = 1;
-            break;
-        case 'p':
-            purge_duplicate = 1;
             break;
         case 'S':
             free(format_space);
