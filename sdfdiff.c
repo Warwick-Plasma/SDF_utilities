@@ -1601,6 +1601,26 @@ int diff_namevalue(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int i
 
 int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
 {
+    int i, gotdiff = 0;
+
+    /* Sanity check */
+    if (b1->blocktype != b2->blocktype) gotdiff = 1;
+    if (b1->datatype != b2->datatype) gotdiff = 1;
+    if (b1->ndims != b2->ndims) gotdiff = 1;
+
+    for (i = 0; i < b1->ndims; i++) {
+        if (b1->dims[i] == b2->dims[i])
+            continue;
+        gotdiff = 1;
+    }
+
+    if (gotdiff) {
+        print_header();
+        print_metadata_id(b1, inum, handles[0]->nblocks);
+        printf(" - mismatched\n");
+        return gotdiff;
+    }
+
     switch (b1->blocktype) {
     case SDF_BLOCKTYPE_PLAIN_DERIVED:
     case SDF_BLOCKTYPE_PLAIN_VARIABLE:
