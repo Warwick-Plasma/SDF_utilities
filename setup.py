@@ -41,4 +41,4 @@ libdirs = [os.path.join(sdfdir, 'lib')]
 setup(name="sdf", version="1.0",
       ext_modules=[Extension("sdf", srcfiles, include_dirs=incdirs,
                    library_dirs=libdirs, libraries=['sdfc'])],
-      py_modules=["sdf_legacy"])
+      py_modules=["sdf_legacy","sdf_helper"])

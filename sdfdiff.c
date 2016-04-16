@@ -1,6 +1,6 @@
 /*
- * sdffilter - filter the contents of an SDF file
- * Copyright (C) 2013-2016 SDF Development Team
+ * sdfdiff - compare numerical differences between two SDF files
+ * Copyright (C) 2016 SDF Development Team
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,25 +38,26 @@
 #define VERSION "2.4.13"
 
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
+#define ABS(a) (((a) < 0.0) ? -(a) : (a))
 
-int metadata, contents, debug, single, use_mmap, ignore_summary, ascii_header;
-int exclude_variables, derived, extension_info, index_offset, element_count;
+int metadata, debug, ignore_summary;
+int exclude_variables, index_offset;
 int just_id, verbose_metadata, special_format, scale_factor;
-int format_rowindex, format_index, format_number;
-int purge_duplicate, ignore_nblocks;
+int purge_duplicate, ignore_nblocks, quiet, show_errors;
 int array_blocktypes, mesh_blocktypes;
-int64_t array_ndims, *array_starts, *array_ends, *array_strides;
-int slice_direction, slice_dim[3];
+int done_header = 0;
 int *blocktype_mask;
-char *output_file;
 char *format_float, *format_int, *format_space;
+double relerr = 1.0e-15;
+double abserr = DBL_MAX;
 //static char *default_float = "%9.6fE%+2.2d1p";
-static char *default_float = "%13.6E";
+static char *default_float = "%27.18e";
 static char *default_int   = "%" PRIi64;
 static char *default_space = "    ";
 static char *default_indent = "  ";
 static char indent[64];
-static list_t *slice_list;
+#define HEADER_LEN 512
+static char header_string[HEADER_LEN];
 
 struct id_list {
     char *id;
@@ -69,11 +70,6 @@ struct range_type {
 
 int nrange, nrange_max;
 int nblist, nblist_max;
-
-struct slice_block {
-    char *data;
-    int datatype, nelements, free_data;
-};
 
 static char width_fmt[16];
 #define SET_WIDTH_LEN(len) do { \
@@ -118,45 +114,35 @@ static char width_fmt[16];
     } while(0)
 
 
-int close_files(sdf_file_t *h);
+int close_files(sdf_file_t **handles);
+static inline void print_header(void);
 
 
 void usage(int err)
 {
-    fprintf(stderr, "usage: sdffilter [options] <sdf_filename>\n");
+    fprintf(stderr, "usage: sdfdiff [options] <sdf_filename1> "
+                    "<sdf_filename2>\n");
     fprintf(stderr, "\noptions:\n\
   -h --help            Show this usage message\n\
-  -n --no-metadata     Don't show metadata blocks (shown by default)\n\
-  -j --just-id         Only show ID and number for metadata blocks\n\
+  -q --quiet           Do not print output. Exit with zero status if files\n\
+                       are the same and non-zero if they differ.\n\
+  -m --metadata        Show metadata blocks (not shown by default)\n\
+  -j --just-id         Only show ID and number of differing blocks\n\
   -l --less-verbose    Print metadata less verbosely\n\
-  -c --contents        Show block's data content\n\
-  -s --single          Convert block data to single precision\n\
+  -r --relerr          Relative error for numerical difference\n\
+  -a --abserr          Absolue error for numerical difference\n\
   -v --variable=id     Find the block with id matching 'id'\n\
   -x --exclude=id      Exclude the block with id matching 'id'\n\
-  -m --mmap            Use mmap'ed file I/O\n\
   -i --no-summary      Ignore the metadata summary\n\
   -b --no-nblocks      Ignore the header value for nblocks\n\
-  -a --array-section=s Read in the specified array section. The array section\n\
-                       's' mimics Python's slicing notation.\n\
-  -d --derived         Add derived blocks\n\
-  -e --extension-info  Print information about any loaded extension module\n\
+  -E --show-errors     Print error values\n\
   -I --c-indexing      Array indexing starts from 1 by default. If this flag\n\
                        is used then the indexing starts from 0.\n\
-  -1 --1dslice=arg     Output 1D slice as a multi-column gnuplot file.\n\
-                       The argument is 1,2 or 3 integers separated by commas.\n\
-  -H --no-ascii-header When writing multi-column ascii data, a header is\n\
-                       included for use by gnuplot or other plotting\n\
-                       utilities. This flag disables the header.\n\
-  -C --count=n         When pretty-printing array contents, write 'n'\n\
-                       elements per line.\n\
   -F --format-float=f  Use specified format for printing floating-point array\n\
                        contents.\n\
   -N --format-int=f    Use specified format for printing integer array\n\
                        contents.\n\
   -S --format-space=f  Use specified spacing between array elements.\n\
-  -K --format-number   Show block number before each row of array elements.\n\
-  -R --format-rowindex Show array indices before each row of array elements.\n\
-  -J --format-index    Show array indices before each array element.\n\
   -p --purge-duplicate Delete duplicated block IDs\n\
   -B --block-types     List of SDF block types to consider\n\
   -A --array-blocks    Only consider array block types (%i,%i,%i,%i,%i)\n\
@@ -168,10 +154,6 @@ void usage(int err)
    SDF_BLOCKTYPE_PLAIN_DERIVED, SDF_BLOCKTYPE_POINT_DERIVED,
    SDF_BLOCKTYPE_PLAIN_MESH, SDF_BLOCKTYPE_POINT_MESH,
    SDF_BLOCKTYPE_UNSTRUCTURED_MESH, SDF_BLOCKTYPE_LAGRANGIAN_MESH);
-/*
-  -o --output          Output filename\n\
-  -D --debug           Show the contents of the debug buffer\n\
-*/
 
     exit(err);
 }
@@ -195,121 +177,6 @@ int range_sort(const void *v1, const void *v2)
     struct range_type *b = (struct range_type *)v2;
 
     return (a->start - b->start);
-}
-
-
-void parse_1d_slice(char *slice)
-{
-    int i, len = strlen(slice);
-    int done_direction, done_dim1, dim;
-    char *old, *ptr;
-
-    done_direction = done_dim1 = 0;
-    slice_direction = 0;
-
-    for (i = 0, old = ptr = slice; i < len+1; i++, ptr++) {
-        if (*ptr == ',' || *ptr == '\0') {
-            if (done_dim1) {
-                dim = strtol(old, NULL, 10);
-                if (dim > 0) dim -= index_offset;
-                if (slice_direction == 2)
-                    slice_dim[1] = dim;
-                else
-                    slice_dim[2] = dim;
-            } else if (done_direction) {
-                dim = strtol(old, NULL, 10);
-                if (dim > 0) dim -= index_offset;
-                if (slice_direction == 0)
-                    slice_dim[1] = dim;
-                else
-                    slice_dim[0] = dim;
-                done_dim1 = 1;
-            } else {
-                slice_direction = strtol(old, NULL, 10) - index_offset;
-                if (slice_direction < 0 || slice_direction > 2) {
-                    fprintf(stderr, "ERROR: invalid slice direction.\n");
-                    exit(1);
-                }
-                done_direction = 1;
-            }
-            old = ptr + 1;
-        }
-    }
-
-    if (array_starts) free(array_starts);
-    if (array_ends) free(array_ends);
-    if (array_strides) free(array_strides);
-
-    array_ndims = 3;
-
-    array_starts  = calloc(array_ndims, sizeof(*array_starts));
-    array_ends    = malloc(array_ndims * sizeof(*array_ends));
-    array_strides = malloc(array_ndims * sizeof(*array_strides));
-
-    for (i = 0; i < array_ndims; i++) {
-        array_strides[i] = 1;
-        if (i == slice_direction) {
-            array_starts[i] = 0;
-            array_ends[i] = INT64_MAX;
-        } else {
-            array_starts[i] = slice_dim[i];
-            array_ends[i] = array_starts[i] + 1;
-        }
-    }
-}
-
-
-void parse_array_section(char *array_section)
-{
-    int ndim, i, len = strlen(array_section), done_start, done_end;
-    char *ptr, *old;
-
-    if (array_starts) free(array_starts);
-    if (array_ends) free(array_ends);
-    if (array_strides) free(array_strides);
-
-    array_ndims = 1;
-    for (i = 0, ptr = array_section; i < len; i++, ptr++)
-        if (*ptr == ',') array_ndims++;
-
-    array_starts  = calloc(array_ndims, sizeof(*array_starts));
-    array_ends    = malloc(array_ndims * sizeof(*array_ends));
-    array_strides = malloc(array_ndims * sizeof(*array_strides));
-
-    for (i = 0; i < array_ndims; i++)
-        array_strides[i] = 1;
-
-    done_start = done_end = ndim = 0;
-    for (i = 0, old = ptr = array_section; i < len+1; i++, ptr++) {
-        if (*ptr == ':' || *ptr == ',' || *ptr == '\0') {
-            if (done_end) {
-                array_strides[ndim] = strtol(old, NULL, 10);
-                if (array_strides[ndim] == 0) array_strides[ndim] = 1;
-                if (array_strides[ndim] < 0) {
-                    fprintf(stderr, "ERROR: negative stride values not"
-                                    " supported.\n");
-                    exit(1);
-                }
-            } else if (done_start) {
-                if (ptr - old > 0) {
-                    array_ends[ndim] = strtol(old, NULL, 10);
-                    if (array_ends[ndim] > 0) array_ends[ndim] -= index_offset;
-                } else
-                    array_ends[ndim] = INT64_MAX;
-                done_end = 1;
-            } else {
-                array_starts[ndim] = strtol(old, NULL, 10);
-                if (array_starts[ndim] > 0) array_starts[ndim] -= index_offset;
-                array_ends[ndim] = array_starts[ndim] + 1;
-                done_start = 1;
-            }
-            old = ptr + 1;
-            if (*ptr == ',') {
-                done_start = done_end = 0;
-                ndim++;
-            }
-        }
-    }
 }
 
 
@@ -475,36 +342,29 @@ void setup_blocklist_mask(void)
 }
 
 
-char *parse_args(int *argc, char ***argv)
+char **parse_args(int *argc, char ***argv)
 {
-    char *file = NULL;
-    int c, err, got_include, got_exclude;
+    char *ptr, *tmp_optarg, **files = NULL;
+    char **pargv = *argv;
+    int c, i, err, got_include, got_exclude, len;
     struct stat statbuf;
     static struct option longopts[] = {
-        { "1dslice",         required_argument, NULL, '1' },
-        { "array-section",   required_argument, NULL, 'a' },
+        { "abserr",          optional_argument, NULL, 'a' },
         { "array-blocks",    no_argument,       NULL, 'A' },
         { "no-nblocks",      no_argument,       NULL, 'b' },
         { "block-types",     required_argument, NULL, 'B' },
-        { "contents",        no_argument,       NULL, 'c' },
-        { "count",           required_argument, NULL, 'C' },
-        { "derived",         no_argument,       NULL, 'd' },
-        { "extension-info",  no_argument,       NULL, 'e' },
-        { "help",            no_argument,       NULL, 'h' },
-        { "no-ascii-header", no_argument,       NULL, 'H' },
+        { "show-errors",     no_argument,       NULL, 'E' },
         { "format-float",    required_argument, NULL, 'F' },
+        { "help",            no_argument,       NULL, 'h' },
         { "no-summary",      no_argument,       NULL, 'i' },
         { "c-indexing",      no_argument,       NULL, 'I' },
         { "just-id",         no_argument,       NULL, 'j' },
-        { "format-index",    no_argument,       NULL, 'J' },
-        { "format-number",   no_argument,       NULL, 'K' },
         { "less-verbose",    no_argument,       NULL, 'l' },
-        { "mmap",            no_argument,       NULL, 'm' },
+        { "metadata",        no_argument,       NULL, 'm' },
         { "mesh-blocks",     no_argument,       NULL, 'M' },
-        { "no-metadata",     no_argument,       NULL, 'n' },
         { "format-int",      required_argument, NULL, 'N' },
-        { "format-rowindex", no_argument,       NULL, 'R' },
-        { "single",          no_argument,       NULL, 's' },
+        { "quiet",           no_argument,       NULL, 'q' },
+        { "relerr",          optional_argument, NULL, 'r' },
         { "format-space",    required_argument, NULL, 'S' },
         { "variable",        required_argument, NULL, 'v' },
         { "exclude",         required_argument, NULL, 'x' },
@@ -516,18 +376,14 @@ char *parse_args(int *argc, char ***argv)
         //{ "output",          required_argument, NULL, 'o' },
     };
 
-    metadata = debug = index_offset = element_count = verbose_metadata = 1;
-    ascii_header = 1;
-    contents = single = use_mmap = ignore_summary = exclude_variables = 0;
-    derived = format_rowindex = format_index = format_number = just_id = 0;
-    purge_duplicate = ignore_nblocks = extension_info = 0;
+    debug = index_offset = verbose_metadata = 1;
+    metadata = ignore_summary = exclude_variables = 0;
+    just_id = 0;
+    purge_duplicate = ignore_nblocks = quiet = show_errors = 0;
     array_blocktypes = mesh_blocktypes = 0;
-    slice_direction = -1;
     variable_ids = NULL;
     variable_last_id = NULL;
-    output_file = NULL;
-    array_starts = array_ends = array_strides = NULL;
-    array_ndims = nrange_max = nrange = 0;
+    nrange_max = nrange = 0;
     nblist_max = nblist = 0;
 
     format_int = malloc(strlen(default_int)+1);
@@ -542,15 +398,20 @@ char *parse_args(int *argc, char ***argv)
     got_include = got_exclude = 0;
 
     while ((c = getopt_long(*argc, *argv,
-            "1:a:AbB:cC:deF:hHiIjJKlmMnN:RsS:v:x:pPV", longopts, NULL)) != -1) {
+            "a::AbB:EF:hiIjJlmMN:qr::S:v:x:pPV", longopts, NULL)) != -1) {
         switch (c) {
-        case '1':
-            contents = 1;
-            parse_1d_slice(optarg);
-            break;
         case 'a':
-            contents = 1;
-            parse_array_section(optarg);
+            tmp_optarg = optarg;
+            if (!optarg && NULL != pargv[optind] && '-' != pargv[optind][0])
+                tmp_optarg = pargv[optind++];
+            if (tmp_optarg) {
+                abserr = atof(tmp_optarg);
+                relerr = DBL_MAX;
+            } else {
+                printf("Absolute error flag requires an argument.\n");
+                printf("Default value is %g\n", abserr);
+                exit(0);
+            }
             break;
         case 'A':
             array_blocktypes = 1;
@@ -561,18 +422,8 @@ char *parse_args(int *argc, char ***argv)
         case 'B':
             parse_range(optarg, &blocktype_list, &nblist, &nblist_max);
             break;
-        case 'c':
-            contents = 1;
-            break;
-        case 'C':
-            element_count = strtol(optarg, NULL, 10);
-            if (element_count < 1) element_count = 1;
-            break;
-        case 'd':
-            derived = 1;
-            break;
-        case 'e':
-            extension_info = 1;
+        case 'E':
+            show_errors = 1;
             break;
         case 'F':
             free(format_float);
@@ -581,9 +432,6 @@ char *parse_args(int *argc, char ***argv)
             break;
         case 'h':
             usage(0);
-            break;
-        case 'H':
-            ascii_header = 0;
             break;
         case 'i':
             ignore_summary = 1;
@@ -594,33 +442,19 @@ char *parse_args(int *argc, char ***argv)
         case 'j':
             just_id = 1;
             break;
-        case 'J':
-            format_index = 1;
-            break;
-        case 'K':
-            format_number = 1;
-            break;
         case 'l':
             verbose_metadata = 0;
             break;
         case 'm':
-            use_mmap = 1;
+            metadata = 1;
             break;
         case 'M':
             mesh_blocktypes = 1;
-            break;
-        case 'n':
-            metadata = 0;
             break;
         case 'N':
             free(format_int);
             format_int = malloc(strlen(optarg)+1);
             memcpy(format_int, optarg, strlen(optarg)+1);
-            break;
-        case 'o':
-            if (output_file) free(output_file);
-            output_file = malloc(strlen(optarg)+1);
-            memcpy(output_file, optarg, strlen(optarg)+1);
             break;
         case 'p':
             purge_duplicate = 1;
@@ -628,11 +462,21 @@ char *parse_args(int *argc, char ***argv)
         case 'P':
             print_blocktypes();
             break;
-        case 'R':
-            format_rowindex = 1;
+        case 'q':
+            quiet = 1;
             break;
-        case 's':
-            single = 1;
+        case 'r':
+            tmp_optarg = optarg;
+            if (!optarg && NULL != pargv[optind] && '-' != pargv[optind][0])
+                tmp_optarg = pargv[optind++];
+            if (tmp_optarg) {
+                relerr = atof(tmp_optarg);
+                abserr = DBL_MAX;
+            } else {
+                printf("Relative error flag requires an argument.\n");
+                printf("Default value is %g\n", relerr);
+                exit(0);
+            }
             break;
         case 'S':
             free(format_space);
@@ -640,7 +484,7 @@ char *parse_args(int *argc, char ***argv)
             memcpy(format_space, optarg, strlen(optarg)+1);
             break;
         case 'V':
-            printf("sdffilter version %s\n", VERSION);
+            printf("sdfdiff version %s\n", VERSION);
             printf("commit info: %s, %s\n", SDF_COMMIT_ID, SDF_COMMIT_DATE);
             printf("library commit info: %s, %s\n",
                    sdf_get_library_commit_id(), sdf_get_library_commit_date());
@@ -681,15 +525,43 @@ char *parse_args(int *argc, char ***argv)
         }
     }
 
-    if ((optind+1) == *argc) {
-        file = (*argv)[optind];
-        err = lstat(file, &statbuf);
-        if (err) {
-            fprintf(stderr, "Error opening file %s\n", file);
-            exit(1);
+    if ((optind+2) == *argc) {
+        files = calloc(2, sizeof(*files));
+        for (i=0; i<2; i++) {
+            files[i] = (*argv)[optind+i];
+            err = stat(files[i], &statbuf);
+            if (err) {
+                fprintf(stderr, "Error opening file %s\n", files[i]);
+                exit(1);
+            }
+        }
+        if (S_ISDIR(statbuf.st_mode)) {
+            len = strlen(files[0]);
+            ptr = files[0] + len;
+            for (i = 0; i < len; ++i, --ptr) {
+                if (*ptr == '/') {
+                    ptr++;
+                    break;
+                }
+            }
+            len = strlen(files[1]);
+            for (; len > 0; --len) {
+                if (files[1][len] != '/')
+                    break;
+            }
+
+            files[1] = malloc(len + strlen(ptr) + 2);
+            memcpy(files[1], (*argv)[optind+1], len);
+            if (*(files[1]+len-1) != '/') {
+                *(files[1]+len) = '/';
+                len++;
+            }
+            memcpy(files[1]+len, ptr, strlen(ptr));
+            files[1][len + strlen(ptr)] = '\0';
         }
     } else {
-        fprintf(stderr, "No file specified\n");
+        files = NULL;
+        fprintf(stderr, "Must specify two files\n");
         usage(1);
     }
 
@@ -699,24 +571,21 @@ char *parse_args(int *argc, char ***argv)
 
     parse_format();
 
-    return file;
+    if (quiet)
+        done_header = 1;
+
+    return files;
 }
 
 
-void free_memory(sdf_file_t *h)
+void free_memory(sdf_file_t **handles)
 {
 
     if (format_int) free(format_int);
     if (format_float) free(format_float);
     if (format_space) free(format_space);
-    sdf_stack_destroy(h);
-}
-
-
-static int set_array_section(sdf_block_t *b)
-{
-    return sdf_block_set_array_section(b, array_ndims, array_starts,
-                                       array_ends, array_strides);
+    sdf_stack_destroy(handles[0]);
+    sdf_stack_destroy(handles[1]);
 }
 
 
@@ -784,385 +653,6 @@ static void print_value(void *data, int datatype)
 }
 
 
-static void print_value_element(char *data, int datatype, int n)
-{
-    switch (datatype) {
-    case SDF_DATATYPE_INTEGER4:
-    case SDF_DATATYPE_REAL4:
-        print_value(data + 4*n, datatype);
-        break;
-    case SDF_DATATYPE_INTEGER8:
-    case SDF_DATATYPE_REAL8:
-        print_value(data + 8*n, datatype);
-        break;
-    case SDF_DATATYPE_CHARACTER:
-    case SDF_DATATYPE_LOGICAL:
-        print_value(data + n, datatype);
-        break;
-    }
-}
-
-
-static int pretty_print_slice(sdf_file_t *h, sdf_block_t *b)
-{
-    static sdf_block_t *mesh = NULL;
-    int n, sz;
-    char *ptr, *dptr;
-    float r4;
-    double r8;
-    struct slice_block *sb;
-
-    if (b->blocktype != SDF_BLOCKTYPE_PLAIN_VARIABLE &&
-            b->blocktype != SDF_BLOCKTYPE_PLAIN_DERIVED) return 0;
-
-    if (slice_direction >= b->ndims) return 0;
-
-    if (!mesh) {
-        mesh = sdf_find_block_by_id(h, b->mesh_id);
-        if (!mesh) {
-            fprintf(stderr, "ERROR: unable to find mesh.\n");
-            exit(1);
-        }
-
-        set_array_section(mesh);
-        sdf_helper_read_data(h, mesh);
-
-        if (!mesh->grids) {
-            fprintf(stderr, "ERROR: unable to read mesh.\n");
-            exit(1);
-        }
-
-
-        sb = calloc(1, sizeof(*sb));
-        sb->datatype = mesh->datatype_out;
-        sb->nelements = mesh->array_ends[slice_direction] -
-                mesh->array_starts[slice_direction] - 1;
-        sz = SDF_TYPE_SIZES[sb->datatype];
-
-        list_init(&slice_list);
-        list_append(slice_list, sb);
-
-        // Create a new cell-centered grid array
-        ptr = mesh->grids[slice_direction];
-        dptr = sb->data = calloc(sb->nelements, sz);
-        sb->free_data = 1;
-
-        if (sb->datatype == SDF_DATATYPE_REAL4) {
-            for (n = 0; n < sb->nelements; n++) {
-                r4 = 0.5 * (*((float*)ptr) + *((float*)ptr+1));
-                memcpy(dptr, &r4, sz);
-                dptr += sz;
-                ptr += sz;
-            }
-        } else if (sb->datatype == SDF_DATATYPE_REAL8) {
-            for (n = 0; n < sb->nelements; n++) {
-                r8 = 0.5 * (*((double*)ptr) + *((double*)ptr+1));
-                memcpy(dptr, &r8, sz);
-                dptr += sz;
-                ptr += sz;
-            }
-        }
-
-        if (ascii_header) {
-            printf("# 1D array slice through (");
-            for (n = 0; n < mesh->ndims; n++) {
-                if (n != 0) printf(",");
-                if (n == slice_direction)
-                    printf(":");
-                else
-                    printf("%i", slice_dim[n]+index_offset);
-            }
-            printf(")\n#\n# %s\t%s\t(%s)\n", mesh->id,
-                   mesh->dim_labels[slice_direction],
-                   mesh->dim_units[slice_direction]);
-        }
-    }
-
-    sb = calloc(1, sizeof(*sb));
-    sb->datatype = b->datatype_out;
-    sb->nelements = b->nelements_local;
-    sb->data = b->data;
-
-    list_append(slice_list, sb);
-
-    if (ascii_header)
-        printf("# %s\t%s\t(%s)\n", b->id, b->name, b->units);
-
-    return 0;
-}
-
-
-static void pretty_print_slice_finish(void)
-{
-    int i;
-    struct slice_block *sb, *first;
-
-    if (!slice_list) return;
-
-    if (ascii_header) printf("#\n");
-
-    first = list_start(slice_list);
-
-    for (i = 0; i < first->nelements; i++) {
-        sb = list_start(slice_list);
-        while (sb) {
-            if (sb != first) printf(format_space,1);
-            print_value_element(sb->data, sb->datatype, i);
-            sb = list_next(slice_list);
-        }
-        printf("\n");
-    }
-
-    // Cleanup
-    sb = list_start(slice_list);
-    while (sb) {
-        if (sb->free_data) free(sb->data);
-        sb = list_next(slice_list);
-    }
-
-    list_destroy(&slice_list);
-}
-
-
-static void pretty_print_mesh(sdf_file_t *h, sdf_block_t *b, int idnum)
-{
-    int *idx, *fac;
-    int i, n, rem, sz, left, digit, ncount, dim;
-    char *ptr;
-    static const int fmtlen = 32;
-    char **fmt;
-
-    if (slice_direction != -1) {
-        pretty_print_slice(h, b);
-        return;
-    }
-
-    idx = calloc(b->ndims, sizeof(*idx));
-    fac = calloc(b->ndims, sizeof(*fac));
-    fmt = calloc(b->ndims, sizeof(*fmt));
-
-    rem = 1;
-    for (i = 0; i < b->ndims; i++) {
-        if (b->array_starts)
-            left = b->array_ends[i] - b->array_starts[i];
-        else
-            left = b->local_dims[i];
-        fac[i] = rem;
-        rem *= left;
-        digit = 0;
-        if (b->array_ends)
-            left = b->array_ends[i] + index_offset - 1;
-        while (left) {
-            left /= 10;
-            digit++;
-        }
-        if (!digit) digit = 1;
-        if (format_rowindex || format_index) {
-            ptr = fmt[i] = malloc(fmtlen * sizeof(**fmt));
-            if (i != 0) *ptr++ = ',';
-            sz = snprintf(ptr, fmtlen-2, "%%%i.%ii", digit, digit);
-            if (i == b->ndims-1) {
-                ptr += sz;
-                *ptr++ = ')';
-                *ptr++ = '\0';
-            }
-        } else
-            fmt[i] = calloc(1, sizeof(**fmt));
-    }
-
-    sz = SDF_TYPE_SIZES[b->datatype_out];
-
-    ncount = 0;
-    dim = 0;
-    if (b->array_starts) {
-        for (i = 0; i < b->ndims; i++)
-            idx[i] = b->array_starts[i];
-        for (i = 0; i < b->ndims; i++) {
-            if (b->array_ends[i] > b->array_starts[i])
-                break;
-            dim++;
-        }
-    }
-    ptr = b->grids[dim];
-
-    for (n = 0; n < b->nelements_local; n++) {
-        ncount++;
-        if (ncount == 1) {
-            if (format_number) printf("%i ", idnum);
-        } else {
-            if (format_index) printf(" ");
-        }
-
-        if ((ncount ==1 && format_rowindex) || format_index) {
-            for (i = 0; i < b->ndims; i++) {
-                if (i == dim) {
-                    printf(fmt[i], idx[i]+index_offset);
-                } else {
-                    if (i != 0) printf(",");
-                    printf("0");
-                    if (i == b->ndims-1) printf(")");
-                }
-            }
-        }
-
-        if (ncount != 1 && format_index) printf(format_space,1);
-
-        print_value(ptr, b->datatype_out);
-
-        idx[dim]++;
-        ptr += sz;
-        if (b->array_ends && idx[dim] >= b->array_ends[dim]) {
-            idx[dim] = 0;
-            dim++;
-            ptr = b->grids[dim];
-            ncount = element_count;
-        } else if (idx[dim] >= b->local_dims[dim]) {
-            idx[dim] = 0;
-            dim++;
-            ptr = b->grids[dim];
-            ncount = element_count;
-        }
-        if (ncount == element_count) {
-            printf("\n");
-            ncount = 0;
-        }
-    }
-    if (ncount) printf("\n");
-
-    free(idx);
-    free(fac);
-
-    for (i = 0; i < b->ndims; i++) free(fmt[i]);
-    free(fmt);
-}
-
-
-static void pretty_print(sdf_file_t *h, sdf_block_t *b, int idnum)
-{
-    int *idx, *fac;
-    int i, n, rem, sz, left, digit, ncount, idx0;
-    char *ptr;
-    static const int fmtlen = 32;
-    char **fmt;
-
-    if (b->blocktype == SDF_BLOCKTYPE_PLAIN_MESH ||
-            b->blocktype == SDF_BLOCKTYPE_POINT_MESH) {
-        pretty_print_mesh(h, b, idnum);
-        return;
-    }
-
-    if (slice_direction != -1) {
-        pretty_print_slice(h, b);
-        return;
-    }
-
-    idx = malloc(b->ndims * sizeof(*idx));
-    fac = malloc(b->ndims * sizeof(*fac));
-    fmt = malloc(b->ndims * sizeof(*fmt));
-
-    rem = 1;
-    for (i = 0; i < b->ndims; i++) {
-        if (b->array_starts)
-            left = b->array_ends[i] - b->array_starts[i];
-        else
-            left = b->local_dims[i];
-        fac[i] = rem;
-        rem *= left;
-        digit = 0;
-        if (b->array_ends)
-            left = b->array_ends[i] + index_offset - 1;
-        while (left) {
-            left /= 10;
-            digit++;
-        }
-        if (!digit) digit = 1;
-        if (format_rowindex || format_index) {
-            fmt[i] = malloc(fmtlen * sizeof(**fmt));
-            if (i == 0)
-                snprintf(fmt[i], fmtlen, "%%%i.%ii", digit, digit);
-            else if (i == b->ndims-1)
-                snprintf(fmt[i], fmtlen, ",%%%i.%ii)", digit, digit);
-            else
-                snprintf(fmt[i], fmtlen, ",%%%i.%ii", digit, digit);
-        } else
-            fmt[i] = calloc(1, sizeof(**fmt));
-    }
-
-    sz = SDF_TYPE_SIZES[b->datatype_out];
-
-    ptr = b->data;
-    ncount = 0;
-    for (n = 0; n < b->nelements_local; n++) {
-        rem = n;
-        for (i = b->ndims-1; i >= 0; i--) {
-            idx0 = idx[i] = rem / fac[i];
-            if (b->array_starts) idx[i] += b->array_starts[i];
-            rem -= idx0 * fac[i];
-        }
-
-        ncount++;
-        if (ncount == 1) {
-            if (format_number)
-                printf("%i ", idnum);
-            for (i = 0; i < b->ndims; i++)
-                printf(fmt[i], idx[i]+index_offset);
-        } else {
-            if (format_index) {
-                printf(" ");
-                for (i = 0; i < b->ndims; i++)
-                    printf(fmt[i], idx[i]+index_offset);
-            }
-            printf(format_space,1);
-        }
-
-        print_value(ptr, b->datatype_out);
-
-        if (ncount == element_count) {
-            printf("\n");
-            ncount = 0;
-        }
-        ptr += sz;
-    }
-    if (ncount) printf("\n");
-
-    free(idx);
-    free(fac);
-
-    for (i = 0; i < b->ndims; i++) free(fmt[i]);
-    free(fmt);
-}
-
-
-static void print_header(sdf_file_t *h)
-{
-    printf("Block 0: File header\n");
-    if (just_id) return;
-
-    sprintf(indent, default_indent, 1);
-
-    SET_WIDTH("first_block_location:");
-    PRINTC("endianness:", h->endianness, "%#8.8x");
-    PRINTC("file_version:", h->file_version, "%i");
-    PRINTC("file_revision:", h->file_revision, "%i");
-    PRINTC("code_name:", h->code_name, "%s");
-    PRINTC("first_block_location:", (long long)h->first_block_location, "%#8.8llx");
-    PRINTC("summary_location:", (long long)h->summary_location, "%#8.8llx");
-    PRINTC("summary_size:", h->summary_size, "%i");
-    PRINTC("nblocks_file:", h->nblocks_file, "%i");
-    PRINTC("block_header_length:", h->block_header_length, "%i");
-    PRINTC("step:", h->step, "%i");
-    PRINTC("time:", h->time, "%g");
-    printf(indent, 1);
-    printf(width_fmt, "jobid:");
-    printf(" %i.%i\n", h->jobid1, h->jobid2);
-    PRINTC("string_length:", h->string_length, "%i");
-    PRINTC("code_io_version:", h->code_io_version, "%i");
-    PRINTC("restart_flag:", h->restart_flag, "%i");
-    PRINTC("other_domains:", h->other_domains, "%i");
-    printf("\n");
-}
-
-
 static void print_metadata_plain_mesh(sdf_block_t *b)
 {
     // Metadata is
@@ -1175,7 +665,8 @@ static void print_metadata_plain_mesh(sdf_block_t *b)
     // - dims      INTEGER(i4), DIMENSION(ndims)
 
     SET_WIDTH("dim_labels:");
-    PRINTAR("dim_mults:", b->dim_mults, "%g", b->ndims);
+    if (verbose_metadata)
+        PRINTAR("dim_mults:", b->dim_mults, "%g", b->ndims);
     PRINTAR("dim_labels:", b->dim_labels, "%s", b->ndims);
     PRINTAR("dim_units:", b->dim_units, "%s", b->ndims);
     PRINT("geometry:", sdf_geometry_c[b->geometry], "%s");
@@ -1197,7 +688,8 @@ static void print_metadata_point_mesh(sdf_block_t *b)
     // - speciesid CHARACTER(id_length)
 
     SET_WIDTH("dim_labels:");
-    PRINTAR("dim_mults", b->dim_mults, "%g", b->ndims);
+    if (verbose_metadata)
+        PRINTAR("dim_mults", b->dim_mults, "%g", b->ndims);
     PRINTAR("dim_labels", b->dim_labels, "%s", b->ndims);
     PRINTAR("dim_units", b->dim_units, "%s", b->ndims);
     PRINT("geometry:", sdf_geometry_c[b->geometry], "%s");
@@ -1219,11 +711,13 @@ static void print_metadata_plain_variable(sdf_block_t *b)
     // - stagger   INTEGER(i4)
 
     SET_WIDTH("mesh id:");
-    PRINT("mult:", b->mult, "%g");
     PRINT("units:", b->units, "%s");
     PRINT("mesh id:", b->mesh_id, "%s");
     PRINTAR("dims:", b->dims, "%" PRIi64, b->ndims);
-    PRINT("stagger:", sdf_stagger_c[b->stagger], "%s");
+    if (verbose_metadata) {
+        PRINT("mult:", b->mult, "%g");
+        PRINT("stagger:", sdf_stagger_c[b->stagger], "%s");
+    }
 }
 
 
@@ -1237,12 +731,13 @@ static void print_metadata_point_variable(sdf_block_t *b)
     // - speciesid CHARACTER(id_length)
 
     SET_WIDTH("species id:");
-    PRINT("mult:", b->mult, "%g");
     PRINT("units:", b->units, "%s");
     PRINT("mesh id:", b->mesh_id, "%s");
     PRINT("nelements:", b->nelements, "%" PRIi64);
     if (b->material_id)
         PRINT("species id:", b->material_id, "%s");
+    if (verbose_metadata)
+        PRINT("mult:", b->mult, "%g");
 }
 
 
@@ -1361,7 +856,8 @@ static void print_metadata_stitched(sdf_block_t *b)
     // - varids    ndims*CHARACTER(id_length)
 
     SET_WIDTH("variable ids:");
-    PRINT("stagger:", sdf_stagger_c[b->stagger], "%s");
+    if (verbose_metadata)
+        PRINT("stagger:", sdf_stagger_c[b->stagger], "%s");
     PRINT("mesh id:", b->mesh_id, "%s");
     PRINTAR("variable ids:", b->variable_ids, "%s", b->ndims);
 }
@@ -1376,7 +872,8 @@ static void print_metadata_stitched_material(sdf_block_t *b)
     // - varids    ndims*CHARACTER(id_length)
 
     SET_WIDTH("material names:");
-    PRINT("stagger:", sdf_stagger_c[b->stagger], "%s");
+    if (verbose_metadata)
+        PRINT("stagger:", sdf_stagger_c[b->stagger], "%s");
     PRINT("mesh id:", b->mesh_id, "%s");
     PRINTAR("material names:", b->material_names, "%s", b->ndims);
     PRINTAR("variable ids:", b->variable_ids, "%s", b->ndims);
@@ -1392,7 +889,8 @@ static void print_metadata_stitched_matvar(sdf_block_t *b)
     // - varids    ndims*CHARACTER(id_length)
 
     SET_WIDTH("variable ids:");
-    PRINT("stagger:", sdf_stagger_c[b->stagger], "%s");
+    if (verbose_metadata)
+        PRINT("stagger:", sdf_stagger_c[b->stagger], "%s");
     PRINT("mesh id:", b->mesh_id, "%s");
     PRINT("material id:", b->material_id, "%s");
     PRINTAR("variable ids:", b->variable_ids, "%s", b->ndims);
@@ -1410,7 +908,8 @@ static void print_metadata_stitched_species(sdf_block_t *b)
     // - varids    ndims*CHARACTER(id_length)
 
     SET_WIDTH("species names:");
-    PRINT("stagger:", sdf_stagger_c[b->stagger], "%s");
+    if (verbose_metadata)
+        PRINT("stagger:", sdf_stagger_c[b->stagger], "%s");
     PRINT("mesh id:", b->mesh_id, "%s");
     PRINT("material id:", b->material_id, "%s");
     PRINT("material name:", b->material_name, "%s");
@@ -1428,7 +927,8 @@ static void print_metadata_stitched_obstacle_group(sdf_block_t *b)
     // - obstacle_names  ndims*CHARACTER(string_length)
 
     SET_WIDTH("volume fraction id:");
-    PRINT("stagger:", sdf_stagger_c[b->stagger], "%s");
+    if (verbose_metadata)
+        PRINT("stagger:", sdf_stagger_c[b->stagger], "%s");
     PRINT("obstacle id:", b->obstacle_id, "%s");
     PRINT("volume fraction id:", b->vfm_id, "%s");
     PRINTAR("obstacle names:", b->material_names, "%s", b->ndims);
@@ -1481,7 +981,7 @@ static void print_metadata_station(sdf_block_t *b)
     PRINTAR("variable_names:", b->material_names, "%s", b->nvariables);
     PRINTDAR("variable_types:", b->variable_types, "%s", b->nvariables);
     PRINTAR("variable_units:", b->dim_units, "%s", b->nvariables);
-    if (b->dim_mults)
+    if (b->dim_mults && verbose_metadata)
         PRINTAR("variable_mults:", b->dim_mults, "%g", b->nvariables);
 }
 
@@ -1569,10 +1069,10 @@ static void print_metadata_namevalue(sdf_block_t *b)
 }
 
 
-static void print_metadata(sdf_block_t *b, int inum, int nblocks)
+static void print_metadata_id(sdf_block_t *b, int inum, int nblocks)
 {
     int digit = 0;
-    static const int fmtlen = 32;
+    static const int fmtlen = 64;
     char fmt[fmtlen];
 
     while (nblocks) {
@@ -1580,11 +1080,17 @@ static void print_metadata(sdf_block_t *b, int inum, int nblocks)
         digit++;
     }
 
-    snprintf(fmt, fmtlen, "Block %%%ii, ID: %%s", digit);
-    printf(fmt, inum, b->id);
-    if (!b->in_file)
-        printf("  (derived)");
-    printf("\n");
+    snprintf(fmt, fmtlen, "\nBlock %%%ii", digit);
+    printf(fmt, inum);
+    printf(", ID: %s", b->id);
+}
+
+
+static void print_metadata(sdf_block_t *b, int inum, int nblocks)
+{
+    print_header();
+    print_metadata_id(b, inum, nblocks);
+    printf(" - not in second file\n");
     if (just_id) return;
 
     sprintf(indent, default_indent, 1);
@@ -1683,18 +1189,617 @@ static void print_data(sdf_block_t *b)
 }
 
 
+void get_index_str(sdf_block_t *b, int64_t n, int *idx, int *fac, char **fmt,
+                   char *str)
+{
+    int64_t rem, idx0;
+    int i, len;
+
+    *str = '\0';
+    if (b->ndims < 1)
+        return;
+
+    switch (b->blocktype) {
+    case SDF_BLOCKTYPE_PLAIN_DERIVED:
+    case SDF_BLOCKTYPE_PLAIN_VARIABLE:
+    case SDF_BLOCKTYPE_POINT_DERIVED:
+    case SDF_BLOCKTYPE_POINT_VARIABLE:
+    case SDF_BLOCKTYPE_ARRAY:
+    case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
+        break;
+    case SDF_BLOCKTYPE_PLAIN_MESH:
+    case SDF_BLOCKTYPE_POINT_MESH:
+        i = idx[0];
+        str[0] = '(';
+        sprintf(str+1, fmt[i], n + index_offset);
+        len = strlen(str);
+        str[len] = ')';
+        str[len+1] = '\0';
+        return;
+    default:
+        return;
+    }
+
+    rem = n;
+    for (i = b->ndims-1; i >= 0; i--) {
+        idx0 = idx[i] = rem / fac[i];
+        rem -= idx0 * fac[i];
+    }
+
+    str[0] = '(';
+    str[1] = '\0';
+    for (i = 0; i < b->ndims; i++) {
+        len = strlen(str);
+        sprintf(str+len, fmt[i], idx[i] + index_offset);
+    }
+    len = strlen(str);
+    str[len] = ')';
+    str[len+1] = '\0';
+}
+
+
+void set_header_string(sdf_file_t **handles)
+{
+    int len;
+    char *name;
+    struct stat st;
+    struct tm *tm;
+    static const int idxlen = 64;
+    char prestr[idxlen];
+
+    if (done_header)
+        return;
+
+    name = handles[0]->filename;
+    stat(name, &st);
+    tm = localtime(&st.st_mtime);
+    //strftime(prestr, idxlen, "%Y-%m-%d %H:%M:%S.%N %z", tm);
+    strftime(prestr, idxlen, "%Y-%m-%d %H:%M:%S.000000000 %z", tm);
+    snprintf(header_string, HEADER_LEN, "--- %s\t%s\n", name, prestr);
+
+    name = handles[1]->filename;
+    stat(name, &st);
+    tm = localtime(&st.st_mtime);
+    strftime(prestr, idxlen, "%Y-%m-%d %H:%M:%S.000000000 %z", tm);
+    len = strlen(header_string);
+    snprintf(header_string+len, HEADER_LEN-len, "+++ %s\t%s\n", name, prestr);
+}
+
+
+static inline void print_header(void)
+{
+    if (done_header)
+        return;
+
+    printf("%s", header_string);
+    done_header = 1;
+}
+
+
+#define PRINT_DIFF(v1, v2, format) do { \
+    get_index_str(b, n, idx, fac, fmt, idxstr); \
+    printf("-%s%s: ", prestr, idxstr); \
+    printf(format, (v1)); \
+    printf("\n"); \
+    printf("+%s%s: ", prestr, idxstr); \
+    printf(format, (v2)); \
+    printf("\n"); \
+    if (show_errors) \
+        printf(" Error absolute %25.17e, relative %25.17e\n", \
+               abserr_val, relerr_val); \
+} while(0)
+
+
+#define DIFF(v1, v2, pv1, pv2, format) do { \
+    val1 = (v1); \
+    val2 = (v2); \
+    denom = MIN(ABS(val1), ABS(val2)); \
+    abserr_val = ABS(val1 - val2); \
+    if (denom < DBL_MIN) { \
+        if (abserr_val < DBL_MIN) \
+            relerr_val = 0; \
+        else \
+            relerr_val = 1; \
+    } else \
+        relerr_val = abserr_val / denom; \
+    if (relerr_val > relerr_max) relerr_max = relerr_val; \
+    if (abserr_val > abserr_max) abserr_max = abserr_val; \
+    if (relerr_val >= relerr || abserr_val >= abserr) { \
+        /* If we got here then the numbers differ */ \
+        print_header(); \
+        gotdiff = 1; \
+        if (!quiet) { \
+            if (!gotblock) { \
+                gotblock = 1; \
+                print_metadata_id(b, inum, handles[0]->nblocks); \
+                printf("\n"); \
+            } \
+            if (!just_id) { \
+                PRINT_DIFF(pv1, pv2, format); \
+            } \
+        } \
+    } \
+} while(0)
+
+
+#define LDIFF(v1, v2, pv1, pv2, format) do { \
+    i1 = (v1); \
+    i2 = (v2); \
+    if (i1 != i2) { \
+        /* If we got here then the numbers differ */ \
+        abserr_val = abserr_max = relerr_val = relerr_max = 1.0; \
+        print_header(); \
+        gotdiff = 1; \
+        if (!quiet) { \
+            if (!gotblock) { \
+                gotblock = 1; \
+                print_metadata_id(b, inum, handles[0]->nblocks); \
+                printf("\n"); \
+            } \
+            if (!just_id) { \
+                PRINT_DIFF(pv1, pv2, format); \
+            } \
+        } \
+    } \
+} while(0)
+
+
+#define DIFF_PREAMBLE() do { \
+    switch (b->datatype) { \
+    case(SDF_DATATYPE_INTEGER4): \
+    case(SDF_DATATYPE_INTEGER8): \
+    case(SDF_DATATYPE_REAL4): \
+    case(SDF_DATATYPE_REAL8): \
+    case(SDF_DATATYPE_LOGICAL): \
+        break; \
+    default: \
+        return gotdiff; \
+    } \
+\
+    sdf_helper_read_data(handles[0], b1); \
+    sdf_helper_read_data(handles[1], b2); \
+\
+    gotblock = 0; \
+    abserr_max = relerr_max = 0.0; \
+} while(0)
+
+
+#define DIFF_PRINT_MAX_ERROR() do { \
+    if (!quiet && gotblock) { \
+        print_header(); \
+        if (!gotblock) { \
+            print_metadata_id(b, inum, handles[0]->nblocks); \
+            printf("\n"); \
+        } \
+        printf("Max error absolute %25.17e, relative %25.17e\n", \
+               abserr_max, relerr_max); \
+    } \
+} while(0)
+
+
+int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
+{
+    int32_t *i4_1, *i4_2;
+    int64_t *i8_1, *i8_2;
+    float *r4_1, *r4_2;
+    double *r8_1, *r8_2;
+    double val1, val2;
+    int64_t ival1, ival2;
+    int i1, i2;
+    char clogical[2] = {'F', 'T'};
+    char *l_1, *l_2;
+    int gotblock;
+    int gotdiff = 0;
+    static const int fmtlen = 32;
+    static const int idxlen = 64;
+    char idxstr[idxlen];
+    char prestr[idxlen];
+    sdf_block_t *b = b1;
+    double relerr_max, relerr_val, abserr_max, abserr_val, denom;
+    int64_t n = 0;
+    int *idx = NULL, *fac = NULL;
+    char **fmt = NULL;
+    int i, rem, left, digit, len;
+
+    DIFF_PREAMBLE();
+
+    /* Get index format */
+
+    idx = malloc(b->ndims * sizeof(*idx));
+    fac = malloc(b->ndims * sizeof(*fac));
+    fmt = malloc(b->ndims * sizeof(*fmt));
+
+    snprintf(prestr, idxlen, "%s[", b->id);
+
+    rem = 1;
+    for (i = 0; i < b->ndims; i++) {
+        left = b->local_dims[i];
+        fac[i] = rem;
+        rem *= left;
+        digit = 0;
+        while (left) {
+            left /= 10;
+            digit++;
+        }
+        if (!digit) digit = 1;
+        fmt[i] = malloc(fmtlen * sizeof(**fmt));
+        if (i == 0)
+            snprintf(fmt[i], fmtlen, "%%%ii", digit);
+        else
+            snprintf(fmt[i], fmtlen, ",%%%ii", digit);
+        len = strlen(prestr);
+        snprintf(prestr+len, idxlen-len, fmt[i], b->dims[i]);
+    }
+    len = strlen(prestr);
+    snprintf(prestr+len, idxlen-len, "] ");
+
+    switch (b->datatype) {
+    case(SDF_DATATYPE_INTEGER4):
+        i4_1 = b1->data;
+        i4_2 = b2->data;
+        for (n = 0; n < b->nelements_local; n++) {
+            ival1 = i4_1[n];
+            ival2 = i4_2[n];
+            DIFF(ival1, ival2, ival1, ival2, format_int);
+        }
+        break;
+    case(SDF_DATATYPE_INTEGER8):
+        i8_1 = b1->data;
+        i8_2 = b2->data;
+        for (n = 0; n < b->nelements_local; n++) {
+            ival1 = i8_1[n];
+            ival2 = i8_2[n];
+            DIFF(ival1, ival2, ival1, ival2, format_int);
+        }
+        break;
+    case(SDF_DATATYPE_REAL4):
+        r4_1 = b1->data;
+        r4_2 = b2->data;
+        for (n = 0; n < b->nelements_local; n++) {
+            DIFF(r4_1[n], r4_2[n], val1, val2, format_float);
+        }
+        break;
+    case(SDF_DATATYPE_REAL8):
+        r8_1 = b1->data;
+        r8_2 = b2->data;
+        for (n = 0; n < b->nelements_local; n++) {
+            DIFF(r8_1[n], r8_2[n], val1, val2, format_float);
+        }
+        break;
+    case(SDF_DATATYPE_LOGICAL):
+        l_1 = b1->data;
+        l_2 = b2->data;
+        for (n = 0; n < b->nelements_local; n++) {
+            LDIFF(l_1[n], l_2[n], clogical[i1], clogical[i2], "%c");
+        }
+        break;
+    }
+
+    DIFF_PRINT_MAX_ERROR();
+
+    for (i = 0; i < b->ndims; i++) free(fmt[i]);
+    free(fmt);
+    free(idx);
+    free(fac);
+
+    return gotdiff;
+}
+
+
+int diff_mesh(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
+{
+    int32_t *i4_1, *i4_2;
+    int64_t *i8_1, *i8_2;
+    float *r4_1, *r4_2;
+    double *r8_1, *r8_2;
+    double val1, val2;
+    int64_t ival1, ival2;
+    int gotblock;
+    static int gotdiff = 0;
+    static const int fmtlen = 32;
+    static const int idxlen = 64;
+    char idxstr[idxlen];
+    char *prestr;
+    char **prestr_dim;
+    sdf_block_t *b = b1;
+    double relerr_max, relerr_val, abserr_max, abserr_val, denom;
+    int64_t n = 0;
+    int *idx = NULL, *fac = NULL;
+    char **fmt = NULL;
+    int i, rem, left, digit, len;
+
+    DIFF_PREAMBLE();
+
+    /* Get index format */
+
+    idx = malloc(b->ndims * sizeof(*idx));
+    fac = malloc(b->ndims * sizeof(*fac));
+    fmt = malloc(b->ndims * sizeof(*fmt));
+    prestr_dim = malloc(b->ndims * sizeof(*prestr_dim));
+
+    for (i = 0; i < b->ndims; i++) {
+        left = b->local_dims[i] + index_offset - 1;
+        digit = 0;
+        while (left) {
+            left /= 10;
+            digit++;
+        }
+        if (!digit) digit = 1;
+        fmt[i] = malloc(fmtlen * sizeof(**fmt));
+        snprintf(fmt[i], fmtlen, "%%%ii", digit);
+
+        rem = strlen(b->dim_labels[i]) + strlen(fmt[i]) + 4;
+        prestr_dim[i] = malloc(rem * sizeof(**prestr_dim));
+        snprintf(prestr_dim[i], rem, "%s[", b->dim_labels[i]);
+        len = strlen(prestr_dim[i]);
+        left = rem - len;
+        snprintf(prestr_dim[i]+len, rem-len, fmt[i], b->dims[i]);
+        len = strlen(prestr_dim[i]);
+        snprintf(prestr_dim[i]+len, rem-len, "] ");
+    }
+    idxstr[0] = '\0';
+
+    switch (b->datatype) {
+    case(SDF_DATATYPE_INTEGER4):
+        for (i = 0; i < b->ndims; i++) {
+            prestr = prestr_dim[i];
+            idx[0] = i;
+            i4_1 = ((int32_t**)b1->grids)[i];
+            i4_2 = ((int32_t**)b2->grids)[i];
+            for (n = 0; n < b->dims[i]; n++) {
+                ival1 = i4_1[n];
+                ival2 = i4_2[n];
+                DIFF(ival1, ival2, ival1, ival2, format_int);
+            }
+        }
+        break;
+    case(SDF_DATATYPE_INTEGER8):
+        for (i = 0; i < b->ndims; i++) {
+            prestr = prestr_dim[i];
+            idx[0] = i;
+            i8_1 = ((int64_t**)b1->grids)[i];
+            i8_2 = ((int64_t**)b2->grids)[i];
+            for (n = 0; n < b->dims[i]; n++) {
+                ival1 = i8_1[n];
+                ival2 = i8_2[n];
+                DIFF(ival1, ival2, ival1, ival2, format_int);
+            }
+        }
+        break;
+    case(SDF_DATATYPE_REAL4):
+        for (i = 0; i < b->ndims; i++) {
+            prestr = prestr_dim[i];
+            idx[0] = i;
+            r4_1 = ((float**)b1->grids)[i];
+            r4_2 = ((float**)b2->grids)[i];
+            for (n = 0; n < b->dims[i]; n++) {
+                DIFF(r4_1[n], r4_2[n], val1, val2, format_float);
+            }
+        }
+        break;
+    case(SDF_DATATYPE_REAL8):
+        for (i = 0; i < b->ndims; i++) {
+            prestr = prestr_dim[i];
+            idx[0] = i;
+            r8_1 = ((double**)b1->grids)[i];
+            r8_2 = ((double**)b2->grids)[i];
+            for (n = 0; n < b->dims[i]; n++) {
+                DIFF(r8_1[n], r8_2[n], val1, val2, format_float);
+            }
+        }
+        break;
+    }
+
+    DIFF_PRINT_MAX_ERROR();
+
+    for (i = 0; i < b->ndims; i++) free(fmt[i]);
+    free(fmt);
+    free(idx);
+    free(fac);
+
+    return gotdiff;
+}
+
+
+int diff_constant(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2,
+                  int inum)
+{
+    int32_t i4_1, i4_2;
+    int64_t i8_1, i8_2;
+    float r4_1, r4_2;
+    double r8_1, r8_2;
+    double val1, val2;
+    int64_t ival1, ival2;
+    int i1, i2;
+    char clogical[2] = {'F', 'T'};
+    int gotblock;
+    static int gotdiff = 0;
+    char idxstr[1] = {'\0'};
+    char *prestr;
+    sdf_block_t *b = b1;
+    double relerr_max, relerr_val, abserr_max, abserr_val, denom;
+    int64_t n = 0;
+    int *idx = NULL, *fac = NULL;
+    char **fmt = NULL;
+
+    DIFF_PREAMBLE();
+
+    prestr = b->id;
+
+    switch (b->datatype) {
+    case SDF_DATATYPE_INTEGER4:
+        memcpy(&i4_1, b1->const_value, sizeof(i4_1));
+        memcpy(&i4_2, b2->const_value, sizeof(i4_2));
+        ival1 = i4_1;
+        ival2 = i4_2;
+        DIFF(ival1, ival2, ival1, ival2, format_int);
+        break;
+    case SDF_DATATYPE_INTEGER8:
+        memcpy(&i8_1, b1->const_value, sizeof(i8_1));
+        memcpy(&i8_2, b2->const_value, sizeof(i8_2));
+        ival1 = i8_1;
+        ival2 = i8_2;
+        DIFF(ival1, ival2, ival1, ival2, format_int);
+        break;
+    case SDF_DATATYPE_REAL4:
+        memcpy(&r4_1, b1->const_value, sizeof(r4_1));
+        memcpy(&r4_2, b2->const_value, sizeof(r4_2));
+        DIFF(r4_1, r4_2, val1, val2, format_float);
+        break;
+    case SDF_DATATYPE_REAL8:
+        memcpy(&r8_1, b1->const_value, sizeof(r8_1));
+        memcpy(&r8_2, b2->const_value, sizeof(r8_2));
+        DIFF(r8_1, r8_2, val1, val2, format_float);
+        break;
+    case SDF_DATATYPE_LOGICAL:
+        LDIFF(*b1->const_value, *b2->const_value,
+              clogical[i1], clogical[i2], "%c");
+        break;
+    }
+
+    DIFF_PRINT_MAX_ERROR();
+
+    return gotdiff;
+}
+
+
+int diff_namevalue(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2,
+                   int inum)
+{
+    int32_t *i4_1, *i4_2;
+    int64_t *i8_1, *i8_2;
+    float *r4_1, *r4_2;
+    double *r8_1, *r8_2;
+    double val1, val2;
+    int64_t ival1, ival2;
+    int i1, i2;
+    char clogical[2] = {'F', 'T'};
+    char *l_1, *l_2;
+    int gotblock;
+    static int gotdiff = 0;
+    char idxstr[1] = {'\0'};
+    char *prestr;
+    sdf_block_t *b = b1;
+    double relerr_max, relerr_val, abserr_max, abserr_val, denom;
+    int64_t n = 0;
+    int *idx = NULL, *fac = NULL;
+    char **fmt = NULL;
+
+    DIFF_PREAMBLE();
+
+    switch (b->datatype) {
+    case(SDF_DATATYPE_INTEGER4):
+        i4_1 = b1->data;
+        i4_2 = b2->data;
+        for (n = 0; n < b->ndims; n++) {
+            prestr = b->material_names[n];
+            ival1 = i4_1[n];
+            ival2 = i4_2[n];
+            DIFF(ival1, ival2, ival1, ival2, format_int);
+        }
+        break;
+    case(SDF_DATATYPE_INTEGER8):
+        i8_1 = b1->data;
+        i8_2 = b2->data;
+        for (n = 0; n < b->ndims; n++) {
+            prestr = b->material_names[n];
+            ival1 = i8_1[n];
+            ival2 = i8_2[n];
+            DIFF(ival1, ival2, ival1, ival2, format_int);
+        }
+        break;
+    case(SDF_DATATYPE_REAL4):
+        r4_1 = b1->data;
+        r4_2 = b2->data;
+        for (n = 0; n < b->ndims; n++) {
+            prestr = b->material_names[n];
+            DIFF(r4_1[n], r4_2[n], val1, val2, format_float);
+        }
+        break;
+    case(SDF_DATATYPE_REAL8):
+        r8_1 = b1->data;
+        r8_2 = b2->data;
+        for (n = 0; n < b->ndims; n++) {
+            prestr = b->material_names[n];
+            DIFF(r8_1[n], r8_2[n], val1, val2, format_float);
+        }
+        break;
+    case(SDF_DATATYPE_LOGICAL):
+        l_1 = b1->data;
+        l_2 = b2->data;
+        for (n = 0; n < b->ndims; n++) {
+            prestr = b->material_names[n];
+            LDIFF(l_1[n], l_2[n], clogical[i1], clogical[i2], "%c");
+        }
+        break;
+    }
+
+    DIFF_PRINT_MAX_ERROR();
+
+    return gotdiff;
+}
+
+
+int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
+{
+    int i, gotdiff = 0;
+
+    /* Sanity check */
+    if (b1->blocktype != b2->blocktype) gotdiff = 1;
+    if (b1->datatype != b2->datatype) gotdiff = 1;
+    if (b1->ndims != b2->ndims) gotdiff = 1;
+
+    for (i = 0; i < b1->ndims; i++) {
+        if (b1->dims[i] == b2->dims[i])
+            continue;
+        gotdiff = 1;
+    }
+
+    if (gotdiff) {
+        print_header();
+        print_metadata_id(b1, inum, handles[0]->nblocks);
+        printf(" - mismatched\n");
+        return gotdiff;
+    }
+
+    switch (b1->blocktype) {
+    case SDF_BLOCKTYPE_PLAIN_DERIVED:
+    case SDF_BLOCKTYPE_PLAIN_VARIABLE:
+    case SDF_BLOCKTYPE_POINT_DERIVED:
+    case SDF_BLOCKTYPE_POINT_VARIABLE:
+    case SDF_BLOCKTYPE_ARRAY:
+    case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
+        return diff_plain(handles, b1, b2, inum);
+        break;
+    case SDF_BLOCKTYPE_CONSTANT:
+        return diff_constant(handles, b1, b2, inum);
+        break;
+    case SDF_BLOCKTYPE_NAMEVALUE:
+        return diff_namevalue(handles, b1, b2, inum);
+        break;
+    case SDF_BLOCKTYPE_PLAIN_MESH:
+    case SDF_BLOCKTYPE_POINT_MESH:
+        return diff_mesh(handles, b1, b2, inum);
+        break;
+    default:
+        return 0;
+    }
+}
+
+
 int main(int argc, char **argv)
 {
-    char *file = NULL;
-    int i, n, block, err, found, idx, len, range_start;
-    int nelements_max;
-    sdf_file_t *h, *oh;
-    sdf_block_t *b, *next, *mesh, *mesh0;
-    list_t *station_blocks;
+    char **files = NULL;
+    int i, n, block, err, found, idx, range_start;
+    //int nelements_max;
+    sdf_file_t *h, *h2, **handles;
+    sdf_block_t *b, *b2, *next;
+    //sdf_block_t *mesh, *mesh0;
+    //list_t *station_blocks;
     comm_t comm;
-    char zero[16] = {0};
+    int gotdiff = 0;
 
-    file = parse_args(&argc, &argv);
+    files = parse_args(&argc, &argv);
 
 #ifdef PARALLEL
     MPI_Init(&argc, &argv);
@@ -1703,58 +1808,46 @@ int main(int argc, char **argv)
     comm = 0;
 #endif
 
-    h = sdf_open(file, comm, SDF_READ, use_mmap);
-    if (!h) {
-        fprintf(stderr, "Error opening file %s\n", file);
-        return 1;
-    }
-    h->use_float = single;
-    h->print = debug;
-    if (ignore_summary) h->use_summary = 0;
-    if (ignore_nblocks) h->ignore_nblocks = 1;
-    sdf_stack_init(h);
+    handles = calloc(2, sizeof(*handles));
+    for (i=0; i<2; i++) {
+        h = handles[i] = sdf_open(files[i], comm, SDF_READ, 0);
+        if (!h) {
+            fprintf(stderr, "Error opening file %s\n", files[i]);
+            return 1;
+        }
 
-    sdf_read_header(h);
-    h->current_block = NULL;
+        h->print = debug;
+        if (ignore_summary) h->use_summary = 0;
+        if (ignore_nblocks) h->ignore_nblocks = 1;
+        sdf_stack_init(h);
 
-    // If nblocks is negative then the file is corrupt
-    if (h->nblocks < 0) {
-        block = (-h->nblocks) / 64;
-        err = -h->nblocks - 64 * block;
-        fprintf(stderr, "Error code %s found at block %i\n",
-                sdf_error_codes_c[err], block);
-        if (output_file) free(output_file);
-        output_file = NULL;
-        //return 1;
-    }
+        sdf_read_header(h);
+        h->current_block = NULL;
 
-    if (output_file) {
-        oh = sdf_open(output_file, comm, SDF_WRITE, 0);
-        sdf_close(oh);
-    }
+        // If nblocks is negative then the file is corrupt
+        if (h->nblocks < 0) {
+            block = (-h->nblocks) / 64;
+            err = -h->nblocks - 64 * block;
+            fprintf(stderr, "Error code %s found at block %i\n",
+                    sdf_error_codes_c[err], block);
+        }
 
-    if (derived && extension_info) sdf_extension_print_version(h);
+        h->purge_duplicated_ids = purge_duplicate;
 
-    if (!metadata && !contents) return close_files(h);
-
-    if ((nrange == 0 && !variable_ids)
-            || (nrange > 0 && range_list[0].start == 0)) {
-        if (!blocktype_mask || blocktype_mask[0] != 0)
-            print_header(h);
-    }
-
-    h->purge_duplicated_ids = purge_duplicate;
-
-    if (derived)
-        sdf_read_blocklist_all(h);
-    else
         sdf_read_blocklist(h);
+    }
+    free(files);
 
-    list_init(&station_blocks);
+    h  = handles[0];
+    h2 = handles[1];
 
-    nelements_max = 0;
+    //list_init(&station_blocks);
+
+    set_header_string(handles);
+
     range_start = 0;
-    mesh0 = NULL;
+    //nelements_max = 0;
+    //mesh0 = NULL;
     found = 1;
     next = h->blocklist;
     for (i = 0, idx = 1; next; i++, idx++) {
@@ -1795,14 +1888,22 @@ int main(int argc, char **argv)
         if (blocktype_mask && blocktype_mask[b->blocktype] == 0)
             continue;
 
-        if (metadata && slice_direction == -1)
-            print_metadata(b, idx, h->nblocks);
+        b2 = sdf_find_block_by_id(h2, b->id);
+        if (!b2) {
+            if (metadata)
+                print_metadata(b, idx, h->nblocks);
+            else {
+                print_header();
+                print_metadata_id(b, idx, handles[0]->nblocks);
+                printf(" - not in second file\n");
+            }
+            continue;
+        }
 
-        if (!contents) continue;
-
+        gotdiff += diff_block(handles, b, b2, idx);
+/*
         switch (b->blocktype) {
         case SDF_BLOCKTYPE_PLAIN_DERIVED:
-            set_array_section(b);
             sdf_helper_read_data(h, b);
             if (b->station_id) {
                 mesh = sdf_find_block_by_id(h, b->mesh_id);
@@ -1823,7 +1924,6 @@ int main(int argc, char **argv)
         case SDF_BLOCKTYPE_PLAIN_MESH:
         case SDF_BLOCKTYPE_POINT_VARIABLE:
         case SDF_BLOCKTYPE_POINT_MESH:
-            set_array_section(b);
             sdf_helper_read_data(h, b);
             pretty_print(h, b, idx);
             break;
@@ -1835,32 +1935,19 @@ int main(int argc, char **argv)
             printf("Unsupported blocktype %s\n",
                    sdf_blocktype_c[b->blocktype]);
         }
+*/
     }
 
-    pretty_print_slice_finish();
-
+/*
     if (mesh0 && (variable_ids || nrange > 0)) {
-        if (ascii_header) {
-            printf("# Stations Time History File\n#\n");
-            // This gives garbage output
-            //printf("# %s\t%s\t(%s)\n", mesh0->id, mesh0->name, mesh0->units);
-            printf("# time\tTime\t(%s)\n", mesh0->units);
-        }
-
         nelements_max = 0;
         b = list_start(station_blocks);
         for (i = 0; i < station_blocks->count; i++) {
-            len = strlen(b->station_id);
-            if (ascii_header)
-                printf("# %s\t%s\t(%s)\n", &b->id[len+1],
-                       &b->name[len+1], b->units);
             idx = b->offset + b->nelements_local - mesh0->offset;
             if (idx > nelements_max)
                 nelements_max = idx;
             b = list_next(station_blocks);
         }
-
-        if (ascii_header) printf("#\n");
 
         for (n = 0; n < nelements_max; n++) {
             print_value_element(mesh0->data, mesh0->datatype, n);
@@ -1881,17 +1968,22 @@ int main(int argc, char **argv)
     }
 
     list_destroy(&station_blocks);
+*/
     if (range_list) free(range_list);
     if (blocktype_mask) free(blocktype_mask);
 
-    return close_files(h);
+    close_files(handles);
+
+    return gotdiff;
 }
 
 
-int close_files(sdf_file_t *h)
+int close_files(sdf_file_t **handles)
 {
-    free_memory(h);
-    sdf_close(h);
+    free_memory(handles);
+    sdf_close(handles[0]);
+    sdf_close(handles[1]);
+    free(handles);
 #ifdef PARALLEL
     MPI_Finalize();
 #endif
