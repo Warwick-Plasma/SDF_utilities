@@ -44,8 +44,10 @@ int exclude_variables, derived, extension_info, index_offset, element_count;
 int just_id, verbose_metadata, special_format, scale_factor;
 int format_rowindex, format_index, format_number;
 int purge_duplicate, ignore_nblocks;
+int array_blocktypes, mesh_blocktypes;
 int64_t array_ndims, *array_starts, *array_ends, *array_strides;
 int slice_direction, slice_dim[3];
+int *blocktype_mask;
 char *output_file;
 char *format_float, *format_int, *format_space;
 //static char *default_float = "%9.6fE%+2.2d1p";
@@ -61,11 +63,12 @@ struct id_list {
     struct id_list *next;
 } *variable_ids, *variable_last_id;
 
-int nrange;
-
 struct range_type {
     int start, end;
-} *range_list;
+} *range_list, *blocktype_list;
+
+int nrange, nrange_max;
+int nblist, nblist_max;
 
 struct slice_block {
     char *data;
@@ -155,14 +158,34 @@ void usage(int err)
   -R --format-rowindex Show array indices before each row of array elements.\n\
   -J --format-index    Show array indices before each array element.\n\
   -p --purge-duplicate Delete duplicated block IDs\n\
+  -B --block-types     List of SDF block types to consider\n\
+  -A --array-blocks    Only consider array block types (%i,%i,%i,%i,%i)\n\
+  -M --mesh-blocks     Only consider mesh block types (%i,%i,%i,%i)\n\
+  -P --print-types     Print the list of SDF blocktypes\n\
   -V --version         Print version information and exit\n\
-");
+", SDF_BLOCKTYPE_PLAIN_VARIABLE, SDF_BLOCKTYPE_POINT_VARIABLE,
+   SDF_BLOCKTYPE_ARRAY,
+   SDF_BLOCKTYPE_PLAIN_DERIVED, SDF_BLOCKTYPE_POINT_DERIVED,
+   SDF_BLOCKTYPE_PLAIN_MESH, SDF_BLOCKTYPE_POINT_MESH,
+   SDF_BLOCKTYPE_UNSTRUCTURED_MESH, SDF_BLOCKTYPE_LAGRANGIAN_MESH);
 /*
   -o --output          Output filename\n\
   -D --debug           Show the contents of the debug buffer\n\
 */
 
     exit(err);
+}
+
+
+void print_blocktypes(void)
+{
+    int i;
+
+    printf("%2i Header block\n", 0);
+    for (i=1; i < sdf_blocktype_len; i++) {
+        printf("%2i %s\n", i, sdf_blocktype_c[i]);
+    }
+    exit(0);
 }
 
 
@@ -312,16 +335,157 @@ void parse_format(void)
 }
 
 
+int parse_range(char *optarg, struct range_type **range_list_p, int *nrange,
+                int *nrange_max)
+{
+    int i, range;
+    size_t sz;
+    char *ptr;
+    struct range_type *range_list = *range_list_p;
+    struct range_type *range_tmp;
+
+    if (!((*optarg >= '0' && *optarg <= '9') || *optarg == '-'))
+        return 1;
+
+    sz = sizeof(struct range_type);
+    ptr = optarg;
+    range = 0;
+    while (ptr < optarg + strlen(optarg) + 1) {
+        if (range) {
+            i = (int)strtol(ptr, &ptr, 10);
+            if (i == 0)
+                range_list[*nrange-1].end = INT_MAX;
+            else if (i < range_list[*nrange-1].start)
+                (*nrange)--;
+            else
+                range_list[*nrange-1].end = i;
+            range = 0;
+        } else {
+            (*nrange)++;
+            // Grow array if necessary
+            if (*nrange > *nrange_max) {
+                if (*nrange_max == 0) {
+                    *nrange_max = 128;
+                    range_list = calloc(*nrange_max, sz);
+                } else {
+                    i = 2 * *nrange_max;
+
+                    range_tmp = calloc(i, sz);
+                    memcpy(range_tmp, range_list, *nrange_max * sz);
+                    free(range_list);
+                    range_list = range_tmp;
+
+                    *nrange_max = i;
+                }
+            }
+
+            if (*ptr == '-') {
+                range = 1;
+                range_list[*nrange-1].end = INT_MAX;
+            } else {
+                i = (int)strtol(ptr, &ptr, 10);
+                range_list[*nrange-1].start = i;
+                range_list[*nrange-1].end = i;
+                if (*ptr == '-') range = 1;
+            }
+        }
+
+        ptr++;
+    }
+
+    *range_list_p = range_list;
+
+    return 0;
+}
+
+
+void sort_range(struct range_type **range_list_p, int *nrange)
+{
+    struct range_type *range_list = *range_list_p;
+    struct range_type *range_tmp;
+    size_t sz;
+    int i;
+
+    if (*nrange <= 0)
+        return;
+
+    sz = sizeof(struct range_type);
+    // Sanitize range list
+    qsort(range_list, *nrange, sz, &range_sort);
+    for (i=1; i < *nrange; ) {
+        if (range_list[i].start <= range_list[i-1].end+1) {
+            if (range_list[i].end > range_list[i-1].end)
+                range_list[i-1].end = range_list[i].end;
+            memcpy(range_list+i, range_list+i+1, (*nrange-i) * sz);
+            (*nrange)--;
+        } else
+            i++;
+    }
+
+    // Shrink array
+    range_tmp = malloc(*nrange * sz);
+    memcpy(range_tmp, range_list, *nrange * sz);
+    free(range_list);
+    *range_list_p = range_list = range_tmp;
+}
+
+
+void setup_blocklist_mask(void)
+{
+    int i, n, blist_start = 0;
+
+    blocktype_mask = NULL;
+
+    if (mesh_blocktypes + array_blocktypes + nblist == 0)
+        return;
+
+    blocktype_mask = calloc(sdf_blocktype_len, sizeof(*blocktype_mask));
+
+    if (mesh_blocktypes) {
+        blocktype_mask[SDF_BLOCKTYPE_PLAIN_MESH]        = 1;
+        blocktype_mask[SDF_BLOCKTYPE_POINT_MESH]        = 1;
+        blocktype_mask[SDF_BLOCKTYPE_UNSTRUCTURED_MESH] = 1;
+        blocktype_mask[SDF_BLOCKTYPE_LAGRANGIAN_MESH]   = 1;
+    }
+
+    if (array_blocktypes) {
+        blocktype_mask[SDF_BLOCKTYPE_PLAIN_VARIABLE] = 1;
+        blocktype_mask[SDF_BLOCKTYPE_POINT_VARIABLE] = 1;
+        blocktype_mask[SDF_BLOCKTYPE_PLAIN_DERIVED]  = 1;
+        blocktype_mask[SDF_BLOCKTYPE_POINT_DERIVED]  = 1;
+        blocktype_mask[SDF_BLOCKTYPE_ARRAY]          = 1;
+    }
+
+    if (nblist == 0)
+        return;
+
+    for (i=0; i < sdf_blocktype_len; i++) {
+        for (n = blist_start; n < nblist; n++) {
+            if (i < blocktype_list[n].start)
+                break;
+            if (i <= blocktype_list[n].end) {
+                blocktype_mask[i] = 1;
+                break;
+            }
+            blist_start++;
+        }
+    }
+
+    free(blocktype_list);
+}
+
+
 char *parse_args(int *argc, char ***argv)
 {
-    char *ptr, *file = NULL;
-    int c, i, err, range, sz, nrange_max, got_include, got_exclude;
-    struct range_type *range_tmp;
+    char *file = NULL;
+    int c, err, got_include, got_exclude;
     struct stat statbuf;
     static struct option longopts[] = {
         { "1dslice",         required_argument, NULL, '1' },
         { "array-section",   required_argument, NULL, 'a' },
+        { "array-blocks",    no_argument,       NULL, 'A' },
         { "no-nblocks",      no_argument,       NULL, 'b' },
+        { "block-types",     required_argument, NULL, 'B' },
         { "contents",        no_argument,       NULL, 'c' },
         { "count",           required_argument, NULL, 'C' },
         { "derived",         no_argument,       NULL, 'd' },
@@ -336,6 +500,7 @@ char *parse_args(int *argc, char ***argv)
         { "format-number",   no_argument,       NULL, 'K' },
         { "less-verbose",    no_argument,       NULL, 'l' },
         { "mmap",            no_argument,       NULL, 'm' },
+        { "mesh-blocks",     no_argument,       NULL, 'M' },
         { "no-metadata",     no_argument,       NULL, 'n' },
         { "format-int",      required_argument, NULL, 'N' },
         { "format-rowindex", no_argument,       NULL, 'R' },
@@ -344,6 +509,7 @@ char *parse_args(int *argc, char ***argv)
         { "variable",        required_argument, NULL, 'v' },
         { "exclude",         required_argument, NULL, 'x' },
         { "purge-duplicate", no_argument,       NULL, 'p' },
+        { "print-types",     no_argument,       NULL, 'P' },
         { "version",         no_argument,       NULL, 'V' },
         { NULL,              0,                 NULL,  0  }
         //{ "debug",           no_argument,       NULL, 'D' },
@@ -355,13 +521,14 @@ char *parse_args(int *argc, char ***argv)
     contents = single = use_mmap = ignore_summary = exclude_variables = 0;
     derived = format_rowindex = format_index = format_number = just_id = 0;
     purge_duplicate = ignore_nblocks = extension_info = 0;
+    array_blocktypes = mesh_blocktypes = 0;
     slice_direction = -1;
     variable_ids = NULL;
     variable_last_id = NULL;
     output_file = NULL;
     array_starts = array_ends = array_strides = NULL;
     array_ndims = nrange_max = nrange = 0;
-    sz = sizeof(struct range_type);
+    nblist_max = nblist = 0;
 
     format_int = malloc(strlen(default_int)+1);
     memcpy(format_int, default_int, strlen(default_int)+1);
@@ -375,7 +542,7 @@ char *parse_args(int *argc, char ***argv)
     got_include = got_exclude = 0;
 
     while ((c = getopt_long(*argc, *argv,
-            "1:a:bcC:deF:hHiIjJKlmnN:RsS:v:x:pV", longopts, NULL)) != -1) {
+            "1:a:AbB:cC:deF:hHiIjJKlmMnN:RsS:v:x:pPV", longopts, NULL)) != -1) {
         switch (c) {
         case '1':
             contents = 1;
@@ -385,8 +552,14 @@ char *parse_args(int *argc, char ***argv)
             contents = 1;
             parse_array_section(optarg);
             break;
+        case 'A':
+            array_blocktypes = 1;
+            break;
         case 'b':
             ignore_nblocks = 1;
+            break;
+        case 'B':
+            parse_range(optarg, &blocktype_list, &nblist, &nblist_max);
             break;
         case 'c':
             contents = 1;
@@ -433,6 +606,9 @@ char *parse_args(int *argc, char ***argv)
         case 'm':
             use_mmap = 1;
             break;
+        case 'M':
+            mesh_blocktypes = 1;
+            break;
         case 'n':
             metadata = 0;
             break;
@@ -446,14 +622,17 @@ char *parse_args(int *argc, char ***argv)
             output_file = malloc(strlen(optarg)+1);
             memcpy(output_file, optarg, strlen(optarg)+1);
             break;
+        case 'p':
+            purge_duplicate = 1;
+            break;
+        case 'P':
+            print_blocktypes();
+            break;
         case 'R':
             format_rowindex = 1;
             break;
         case 's':
             single = 1;
-            break;
-        case 'p':
-            purge_duplicate = 1;
             break;
         case 'S':
             free(format_space);
@@ -483,52 +662,8 @@ char *parse_args(int *argc, char ***argv)
                         "exclude variables.\n");
                 exit(1);
             }
-            if ((*optarg >= '0' && *optarg <= '9') || *optarg == '-') {
-                ptr = optarg;
-                range = 0;
-                while (ptr < optarg + strlen(optarg) + 1) {
-                    if (range) {
-                        i = (int)strtol(ptr, &ptr, 10);
-                        if (i == 0)
-                            range_list[nrange-1].end = INT_MAX;
-                        else if (i < range_list[nrange-1].start)
-                            nrange--;
-                        else
-                            range_list[nrange-1].end = i;
-                        range = 0;
-                    } else {
-                        nrange++;
-                        // Grow array if necessary
-                        if (nrange > nrange_max) {
-                            if (nrange_max == 0) {
-                                nrange_max = 128;
-                                range_list = calloc(nrange_max, sz);
-                            } else {
-                                i = 2 * nrange_max;
-
-                                range_tmp = calloc(i, sz);
-                                memcpy(range_tmp, range_list, nrange_max * sz);
-                                free(range_list);
-                                range_list = range_tmp;
-
-                                nrange_max = i;
-                            }
-                        }
-
-                        if (*ptr == '-') {
-                            range = 1;
-                            range_list[nrange-1].end = INT_MAX;
-                        } else {
-                            i = (int)strtol(ptr, &ptr, 10);
-                            range_list[nrange-1].start = i;
-                            range_list[nrange-1].end = i;
-                            if (*ptr == '-') range = 1;
-                        }
-                    }
-
-                    ptr++;
-                }
-            } else {
+            err = parse_range(optarg, &range_list, &nrange, &nrange_max);
+            if (!err) {
                 if (!variable_ids) {
                     variable_last_id =
                             variable_ids = malloc(sizeof(*variable_ids));
@@ -558,25 +693,9 @@ char *parse_args(int *argc, char ***argv)
         usage(1);
     }
 
-    if (nrange > 0) {
-        // Sanitize range list
-        qsort(range_list, nrange, sz, &range_sort);
-        for (i=1; i < nrange; ) {
-            if (range_list[i].start <= range_list[i-1].end+1) {
-                if (range_list[i].end > range_list[i-1].end)
-                    range_list[i-1].end = range_list[i].end;
-                memcpy(range_list+i, range_list+i+1, (nrange-i) * sz);
-                nrange--;
-            } else
-                i++;
-        }
-
-        // Shrink array
-        range_tmp = malloc(nrange * sz);
-        memcpy(range_tmp, range_list, nrange * sz);
-        free(range_list);
-        range_list = range_tmp;
-    }
+    sort_range(&range_list, &nrange);
+    sort_range(&blocktype_list, &nblist);
+    setup_blocklist_mask();
 
     parse_format();
 
@@ -1619,8 +1738,10 @@ int main(int argc, char **argv)
     if (!metadata && !contents) return close_files(h);
 
     if ((nrange == 0 && !variable_ids)
-            || (nrange > 0 && range_list[0].start == 0))
-        print_header(h);
+            || (nrange > 0 && range_list[0].start == 0)) {
+        if (!blocktype_mask || blocktype_mask[0] != 0)
+            print_header(h);
+    }
 
     h->purge_duplicated_ids = purge_duplicate;
 
@@ -1669,6 +1790,10 @@ int main(int argc, char **argv)
         } else {
             if (!found) continue;
         }
+
+        /* Only consider blocks in the blocktype mask */
+        if (blocktype_mask && blocktype_mask[b->blocktype] == 0)
+            continue;
 
         if (metadata && slice_direction == -1)
             print_metadata(b, idx, h->nblocks);
@@ -1757,6 +1882,7 @@ int main(int argc, char **argv)
 
     list_destroy(&station_blocks);
     if (range_list) free(range_list);
+    if (blocktype_mask) free(blocktype_mask);
 
     return close_files(h);
 }
