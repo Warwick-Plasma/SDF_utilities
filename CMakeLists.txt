@@ -25,6 +25,7 @@ add_custom_target(
         ${CMAKE_CURRENT_SOURCE_DIR}/gen_commit_string.cmake)
 
 add_executable(sdf2ascii sdf2ascii.c)
+add_dependencies(sdf2ascii commit_info.h)
 target_link_libraries(sdf2ascii sdfc dl)
 
 add_executable(sdffilter sdffilter.c)
@@ -42,7 +43,7 @@ if(BUILD_SDFPY)
    add_custom_command(OUTPUT build/timestamp
       COMMAND ${PYTHON_EXECUTABLE} setup.py build ${DEBUG_OPT}
       COMMAND ${CMAKE_COMMAND} -E touch build/timestamp
-      DEPENDS setup.py sdf_python.c sdfc)
+      DEPENDS setup.py sdf_python.c sdfc commit_info.h)
    add_custom_target(sdfpy ALL DEPENDS build/timestamp)
 
    configure_file(sdfpy_install.cmake.in sdfpy_install.cmake)
