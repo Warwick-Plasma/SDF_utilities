@@ -42,7 +42,7 @@ if(BUILD_SDFPY)
    add_custom_command(OUTPUT build/timestamp
       COMMAND ${PYTHON_EXECUTABLE} setup.py build ${DEBUG_OPT}
       COMMAND ${CMAKE_COMMAND} -E touch build/timestamp
-      DEPENDS setup.py sdf_python.c sdfc)
+      DEPENDS setup.py sdf_python.c sdfc commit_info.h)
    add_custom_target(sdfpy ALL DEPENDS build/timestamp)
 
    configure_file(sdfpy_install.cmake.in sdfpy_install.cmake)
