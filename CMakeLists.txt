@@ -25,6 +25,7 @@ add_custom_target(
         ${CMAKE_CURRENT_SOURCE_DIR}/gen_commit_string.cmake)
 
 add_executable(sdf2ascii sdf2ascii.c)
+add_dependencies(sdf2ascii commit_info.h)
 target_link_libraries(sdf2ascii sdfc dl)
 
 add_executable(sdffilter sdffilter.c)
