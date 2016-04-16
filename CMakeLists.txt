@@ -32,8 +32,13 @@ add_executable(sdffilter sdffilter.c)
 add_dependencies(sdffilter commit_info.h)
 target_link_libraries(sdffilter sdfc dl m)
 
-add_custom_target(sdf-utilities DEPENDS sdf2ascii sdffilter)
-install(TARGETS sdf2ascii sdffilter DESTINATION bin COMPONENT sdf-utilities)
+add_executable(sdfdiff sdfdiff.c)
+add_dependencies(sdfdiff commit_info.h)
+target_link_libraries(sdfdiff sdfc dl m)
+
+add_custom_target(sdf-utilities DEPENDS sdf2ascii sdffilter sdfdiff)
+install(TARGETS sdf2ascii sdffilter sdfdiff DESTINATION bin COMPONENT
+        sdf-utilities)
 
 set(BUILD_SDFPY ON CACHE BOOL "Build the Python interface")
 if(BUILD_SDFPY)
