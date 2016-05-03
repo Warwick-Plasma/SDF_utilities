@@ -75,6 +75,10 @@ struct slice_block {
     int datatype, nelements, free_data;
 };
 
+enum output_types {
+    vtk
+} output_type;
+
 static char width_fmt[16];
 #define SET_WIDTH_LEN(len) do { \
         snprintf(width_fmt, 16, "%%-%is", (len)); \
@@ -127,6 +131,7 @@ static char width_fmt[16];
 
 
 int close_files(sdf_file_t *h);
+int sdf_write_vtk_file(sdf_file_t *h, char *stem);
 
 
 void usage(int err)
@@ -171,13 +176,14 @@ void usage(int err)
   -M --mesh-blocks     Only consider mesh block types (%i,%i,%i,%i)\n\
   -P --print-types     Print the list of SDF blocktypes\n\
   -V --version         Print version information and exit\n\
+  -t --output-type     Output file format. Currently only vtk\n\
+  -o --output          Output filename stem\n\
 ", SDF_BLOCKTYPE_PLAIN_VARIABLE, SDF_BLOCKTYPE_POINT_VARIABLE,
    SDF_BLOCKTYPE_ARRAY,
    SDF_BLOCKTYPE_PLAIN_DERIVED, SDF_BLOCKTYPE_POINT_DERIVED,
    SDF_BLOCKTYPE_PLAIN_MESH, SDF_BLOCKTYPE_POINT_MESH,
    SDF_BLOCKTYPE_UNSTRUCTURED_MESH, SDF_BLOCKTYPE_LAGRANGIAN_MESH);
 /*
-  -o --output          Output filename\n\
   -D --debug           Show the contents of the debug buffer\n\
 */
 
@@ -511,17 +517,18 @@ char *parse_args(int *argc, char ***argv)
         { "mesh-blocks",     no_argument,       NULL, 'M' },
         { "no-metadata",     no_argument,       NULL, 'n' },
         { "format-int",      required_argument, NULL, 'N' },
+        { "output",          required_argument, NULL, 'o' },
+        { "purge-duplicate", no_argument,       NULL, 'p' },
+        { "print-types",     no_argument,       NULL, 'P' },
         { "format-rowindex", no_argument,       NULL, 'R' },
         { "single",          no_argument,       NULL, 's' },
         { "format-space",    required_argument, NULL, 'S' },
+        { "output-type",     required_argument, NULL, 't' },
         { "variable",        required_argument, NULL, 'v' },
         { "exclude",         required_argument, NULL, 'x' },
-        { "purge-duplicate", no_argument,       NULL, 'p' },
-        { "print-types",     no_argument,       NULL, 'P' },
         { "version",         no_argument,       NULL, 'V' },
         { NULL,              0,                 NULL,  0  }
         //{ "debug",           no_argument,       NULL, 'D' },
-        //{ "output",          required_argument, NULL, 'o' },
     };
 
     metadata = debug = index_offset = element_count = verbose_metadata = 1;
@@ -548,9 +555,11 @@ char *parse_args(int *argc, char ***argv)
     memcpy(format_space, default_space, strlen(default_space)+1);
 
     got_include = got_exclude = 0;
+    output_type = vtk;
 
     while ((c = getopt_long(*argc, *argv,
-            "1:a:AbB:cC:deF:hHiIjJKlmMnN:RsS:v:x:pPV", longopts, NULL)) != -1) {
+            "1:a:AbB:cC:deF:hHiIjJKlmMnN:o:pPRsS:t:v:x:V",
+            longopts, NULL)) != -1) {
         switch (c) {
         case '1':
             contents = 1;
@@ -647,6 +656,13 @@ char *parse_args(int *argc, char ***argv)
             format_space = malloc(strlen(optarg)+1);
             memcpy(format_space, optarg, strlen(optarg)+1);
             break;
+        case 't':
+            if (!strncmp("vtk", optarg, 4)) {
+                output_type = vtk;
+            } else {
+                fprintf(stderr, "ERROR: output type not supported\n");
+                exit(1);
+            }
         case 'V':
             printf("sdffilter version %s\n", VERSION);
             printf("commit info: %s, %s\n", SDF_COMMIT_ID, SDF_COMMIT_DATE);
@@ -1700,10 +1716,12 @@ int main(int argc, char **argv)
         //return 1;
     }
 
+/*
     if (output_file) {
         oh = sdf_open(output_file, comm, SDF_WRITE, 0);
         sdf_close(oh);
     }
+*/
 
     if (derived && extension_info) sdf_extension_print_version(h);
 
@@ -1851,6 +1869,9 @@ int main(int argc, char **argv)
             printf("\n");
         }
     }
+
+    if (output_file)
+        sdf_write_vtk_file(h, output_file);
 
     list_destroy(&station_blocks);
     if (range_list) free(range_list);
