@@ -1676,7 +1676,7 @@ int main(int argc, char **argv)
     char *file = NULL;
     int i, n, block, err, found, idx, len, range_start;
     int nelements_max;
-    sdf_file_t *h, *oh;
+    sdf_file_t *h;
     sdf_block_t *b, *next, *mesh, *mesh0;
     list_t *station_blocks;
     comm_t comm;
