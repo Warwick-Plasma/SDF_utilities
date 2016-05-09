@@ -1578,6 +1578,7 @@ MOD_INIT(sdf)
 {
     PyObject *m;
     char *s;
+    long i;
 
     MOD_DEF(m, "sdf", "SDF file reading library", SDF_methods)
 
@@ -1595,6 +1596,8 @@ MOD_INIT(sdf)
     PyModule_AddStringConstant(m, "__library_commit_date__", s);
     if (s)
         free(s);
+    for (i=0; i < sdf_stagger_len; i++)
+        PyModule_AddIntConstant(m, sdf_stagger_c[i], i);
 
     SDFType.tp_dealloc = SDF_dealloc;
     SDFType.tp_flags = Py_TPFLAGS_DEFAULT;
