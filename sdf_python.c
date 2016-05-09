@@ -308,6 +308,7 @@ static PyMemberDef BlockMeshVariable_members[] = {
     {"grid_mid", T_OBJECT_EX, offsetof(Block, grid_mid), 0,
      "Associated median mesh"},
     {"grid_id", T_OBJECT_EX, offsetof(Block, grid_id), 0, "Associated mesh id"},
+    {"stagger", T_OBJECT_EX, offsetof(Block, stagger), 0, "Grid stagger"},
     {"units", T_OBJECT_EX, offsetof(Block, units), 0, "Units of variable"},
     {"mult", T_OBJECT_EX, offsetof(Block, mult), 0, "Multiplication factor"},
     {NULL}  /* Sentinel */
@@ -325,7 +326,6 @@ static PyMemberDef BlockPointVariable_members[] = {
 };
 
 static PyMemberDef BlockPlainMesh_members[] = {
-    {"stagger", T_OBJECT_EX, offsetof(Block, stagger), 0, "Grid stagger"},
     {NULL}  /* Sentinel */
 };
 
@@ -335,7 +335,6 @@ static PyMemberDef BlockPointMesh_members[] = {
 };
 
 static PyMemberDef BlockStitchedMaterial_members[] = {
-    {"stagger", T_OBJECT_EX, offsetof(Block, stagger), 0, "Grid stagger"},
     {"material_names", T_OBJECT_EX, offsetof(Block, material_names), 0,
      "Material names"},
     {"material_ids", T_OBJECT_EX, offsetof(Block, material_ids), 0,
@@ -344,6 +343,7 @@ static PyMemberDef BlockStitchedMaterial_members[] = {
     {"grid_mid", T_OBJECT_EX, offsetof(Block, grid_mid), 0,
      "Associated median mesh"},
     {"grid_id", T_OBJECT_EX, offsetof(Block, grid_id), 0, "Associated mesh id"},
+    {"stagger", T_OBJECT_EX, offsetof(Block, stagger), 0, "Grid stagger"},
     {NULL}  /* Sentinel */
 };
 
@@ -510,8 +510,8 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
     }
 
     switch(b->blocktype) {
-        case SDF_BLOCKTYPE_PLAIN_MESH:
-        case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
+        case SDF_BLOCKTYPE_PLAIN_VARIABLE:
+        case SDF_BLOCKTYPE_PLAIN_DERIVED:
         case SDF_BLOCKTYPE_STITCHED_MATERIAL:
         case SDF_BLOCKTYPE_CONTIGUOUS_MATERIAL:
             ob->stagger = PyLong_FromLong(b->stagger);
