@@ -1,8 +1,8 @@
 project(SDF_UTILITIES)
 cmake_minimum_required(VERSION 2.8.11)
 
-set(CFLAGS "${CMAKE_C_FLAGS}")
-set(CXXFLAGS "${CMAKE_CXX_FLAGS}")
+set(CFLAGS "${CMAKE_C_FLAGS} -g")
+set(CXXFLAGS "${CMAKE_CXX_FLAGS} -g")
 if(${CMAKE_BUILD_TYPE}x STREQUAL "Debugx")
    add_definitions(-DSDF_DEBUG_ALL)
    set(DEBUG_OPT --debug)
