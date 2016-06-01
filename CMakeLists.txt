@@ -36,6 +36,14 @@ add_executable(sdfdiff sdfdiff.c)
 add_dependencies(sdfdiff commit_info.h)
 target_link_libraries(sdfdiff sdfc dl m)
 
+if(PARALLEL)
+    add_definitions(-DPARALLEL)
+    include_directories(${MPI_C_INCLUDE_PATH})
+    target_link_libraries(sdf2ascii ${MPI_C_LIBRARIES})
+    target_link_libraries(sdffilter ${MPI_C_LIBRARIES})
+    target_link_libraries(sdfdiff ${MPI_C_LIBRARIES})
+endif()
+
 add_custom_target(sdf-utilities DEPENDS sdf2ascii sdffilter sdfdiff)
 install(TARGETS sdf2ascii sdffilter sdfdiff DESTINATION bin COMPONENT
         sdf-utilities)
