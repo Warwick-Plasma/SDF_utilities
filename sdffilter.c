@@ -35,7 +35,7 @@
 #include <mpi.h>
 #endif
 
-#define VERSION "2.4.13"
+#define VERSION "2.4.14"
 
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 
@@ -663,7 +663,7 @@ char *parse_args(int *argc, char ***argv)
                 exit(1);
             }
             err = parse_range(optarg, &range_list, &nrange, &nrange_max);
-            if (!err) {
+            if (err) {
                 if (!variable_ids) {
                     variable_last_id =
                             variable_ids = malloc(sizeof(*variable_ids));
