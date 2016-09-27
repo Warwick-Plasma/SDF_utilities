@@ -253,7 +253,8 @@ def oplot1d(*args, **kwargs):
 
 
 def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, cgs=False,
-           title=True, sym=True, set_ylabel=True, hold=False, **kwargs):
+           title=True, sym=True, set_ylabel=True, hold=False, subplot=None,
+           figure=None, **kwargs):
     global data
     global x, y, mult_x, mult_y
 
@@ -261,12 +262,18 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, cgs=False,
         print("error: Not a 1d dataset")
         return
 
-    figure = plt.gcf()
-    if not hold:
-        try:
-            plt.clf()
-        except:
-            pass
+    if figure is None:
+        figure = plt.gcf()
+        # Only clear the figure if one isn't supplied by the user
+        if not hold:
+            try:
+                figure.clf()
+            except:
+                pass
+
+    # Have to add subplot after clearing figure
+    if subplot is None:
+        subplot = figure.add_subplot(111)
 
     if var.dims[0] == var.grid.dims[0]:
         grid = var.grid
@@ -315,16 +322,17 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, cgs=False,
     Y = mult_y * Y
 
     if fmt:
-        plt.plot(X, Y, fmt, **kwargs)
+        subplot.plot(X, Y, fmt, **kwargs)
     else:
-        plt.plot(X, Y, **kwargs)
+        subplot.plot(X, Y, **kwargs)
 
-    plt.xlabel(grid.labels[xdir] + ' $(' + sym_x + grid.units[xdir] + ')$')
+    subplot.set_xlabel(grid.labels[xdir] + ' $(' + sym_x +
+                       grid.units[xdir] + ')$')
     if set_ylabel:
-        plt.ylabel(var.name + ' $(' + sym_y + var.units + ')$')
+        subplot.set_ylabel(var.name + ' $(' + sym_y + var.units + ')$')
 
     if title:
-        plt.title(get_title(), fontsize='large', y=1.03)
+        subplot.set_title(get_title(), fontsize='large', y=1.03)
 
     figure.set_tight_layout(True)
     figure.canvas.draw()
@@ -337,7 +345,8 @@ def oplot2d(*args, **kwargs):
 
 def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
            ix=None, iy=None, iz=None, reflect=0, norm=None, irange=None,
-           jrange=None, hold=False, xscale=0, yscale=0):
+           jrange=None, hold=False, xscale=0, yscale=0, figure=None,
+           subplot=None):
     global data, fig, im, cbar
     global x, y, mult_x, mult_y
 
@@ -411,12 +420,16 @@ def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
         cmap = plt.colors.LinearSegmentedColormap.from_list(
             'tr', cmap(np.linspace(low, high, 256)))
 
-    figure = plt.gcf()
-    if not hold:
-        try:
-            plt.clf()
-        except:
-            pass
+    if figure is None:
+        figure = plt.gcf()
+        if not hold:
+            try:
+                figure.clf()
+            except:
+                pass
+
+    if subplot is None:
+        subplot = figure.add_subplot(111)
 
     if iso is None:
         iso = get_default_iso(data)
@@ -477,41 +490,45 @@ def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
         ext[i1] = ext[i2]
         ext[i2] = e
         if vrange is None:
-            im = plt.imshow(var_data.T, interpolation='none',
-                            origin='lower', extent=ext, cmap=cmap)
+            im = subplot.imshow(var_data.T, interpolation='none',
+                                origin='lower', extent=ext, cmap=cmap)
         else:
-            im = plt.imshow(var_data, interpolation='none',
-                            origin='lower', extent=ext, cmap=cmap,
-                            vmin=vrange[0], vmax=vrange[1])
+            im = subplot.imshow(var_data, interpolation='none',
+                                origin='lower', extent=ext, cmap=cmap,
+                                vmin=vrange[0], vmax=vrange[1])
     else:
         X = np.multiply(mult_x, X)
         Y = np.multiply(mult_y, Y)
         if vrange is None:
-            im = plt.pcolormesh(X, Y, var_data, cmap=cmap)
+            im = subplot.pcolormesh(X, Y, var_data, cmap=cmap)
         else:
-            im = plt.pcolormesh(X, Y, var_data, cmap=cmap,
-                                vmin=vrange[0], vmax=vrange[1])
+            im = subplot.pcolormesh(X, Y, var_data, cmap=cmap,
+                                    vmin=vrange[0], vmax=vrange[1])
 
-    plt.xlabel(var.grid.labels[i0] + ' $(' + sym_x + var.grid.units[i0] + ')$')
-    plt.ylabel(var.grid.labels[i1] + ' $(' + sym_y + var.grid.units[i1] + ')$')
+    subplot.set_xlabel(var.grid.labels[i0] + ' $(' + sym_x +
+                       var.grid.units[i0] + ')$')
+    subplot.set_ylabel(var.grid.labels[i1] + ' $(' + sym_y +
+                       var.grid.units[i1] + ')$')
     if full:
-        plt.title(var.name + ' $(' + var.units + ')$, ' + get_title(),
-                  fontsize='large', y=1.03)
+        subplot.set_title(var.name + ' $(' + var.units + ')$, ' + get_title(),
+                          fontsize='large', y=1.03)
     elif title:
-        plt.title(var.name + ' $(' + var.units + ')$',
-                  fontsize='large', y=1.03)
+        subplot.set_title(var.name + ' $(' + var.units + ')$',
+                          fontsize='large', y=1.03)
 
-    plt.axis('tight')
+    subplot.axis('tight')
     if iso:
-        plt.axis('image')
+        subplot.axis('image')
 
     if not hold:
-        ca = plt.gca()
+        ca = subplot
         divider = make_axes_locatable(ca)
         cax = divider.append_axes("right", "5%", pad="3%")
-        cbar = plt.colorbar(im, cax=cax)
-        plt.draw()
-        plt.sca(ca)
+        cbar = figure.colorbar(im, cax=cax)
+        if (full or title):
+            cbar.set_label(var.name + ' $(' + var.units + ')$',
+                           fontsize='large', x=1.2)
+    figure.canvas.draw()
 
     figure.set_tight_layout(True)
     figure.canvas.draw()
