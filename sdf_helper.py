@@ -829,7 +829,7 @@ def ogrid(skip=None):
 
 
 def plotgrid(fname=None, iso=None, title=True):
-    if type(fname) is sdf.BlockList:
+    if type(fname) is sdf.BlockList or type(fname) is dict:
         dat = fname
     elif fname is not None:
         dat = getdata(fname, verbose=verbose)
