@@ -280,11 +280,11 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, cgs=False,
                 xdir = 1
         if xdir == 0:
             if idx == -1:
-                idx = var.dims[1] / 2
+                idx = int(var.dims[1] / 2)
             s = [slice(None), idx]
         else:
             if idx == -1:
-                idx = var.dims[0] / 2
+                idx = int(var.dims[0] / 2)
             s = [idx, slice(None)]
         Y = var.data[s]
     else:
@@ -350,19 +350,19 @@ def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
         if ix is not None:
             if iz is None:
                 if ix < 0:
-                    ix = var.dims[0] / 2
+                    ix = int(var.dims[0] / 2)
                 i0 = 1
                 i1 = 2
                 ss = [ix,si,sj]
             else:
                 if ix < 0:
-                    ix = var.dims[2] / 2
+                    ix = int(var.dims[2] / 2)
                 i0 = 0
                 i1 = 2
                 ss = [si,sj,ix]
         elif iy is not None:
             if iy < 0:
-                iy = var.dims[1] / 2
+                iy = int(var.dims[1] / 2)
             i0 = 0
             i1 = 2
             ss = [si,iy,sj]
@@ -372,7 +372,7 @@ def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
                 ss = [si,iy,sj]
         elif iz is not None:
             if iz < 0:
-                iz = var.dims[2] / 2
+                iz = int(var.dims[2] / 2)
             i0 = 0
             i1 = 1
             ss = [si,sj,iz]
@@ -571,7 +571,7 @@ def plot_levels(var, r0=None, r1=None, nl=10, iso=None, out=False,
 
         sidx = ""
         slvl = ""
-        for l, i in reversed(zip(cs.levels, range(1, len(cs.levels)+1))):
+        for l, i in reversed(list(zip(cs.levels, range(1, len(cs.levels)+1)))):
             # sidx += rtn + "%i" % i
             # slvl += rtn + "%-6.4g" % l
             # rtn = "\n"
