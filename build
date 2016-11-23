@@ -47,6 +47,7 @@ if [ $clean -le 1 ] ; then
   gcc $OPT -o sdf2ascii sdf2ascii.c -lsdfc -ldl || errcode=1
   gcc $OPT -o sdffilter sdffilter.c -lsdfc -ldl -lm || errcode=1
   gcc $OPT -o sdfdiff sdfdiff.c -lsdfc -ldl -lm || errcode=1
+  ./sdf2ascii -V > /dev/null || rm -f sdf2ascii
   # Test if python is new enough for the --user flag
   user=$($PYTHONCMD -c 'import sys, os
 newenough = sys.hexversion > 0x02060000

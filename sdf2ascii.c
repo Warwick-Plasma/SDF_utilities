@@ -24,6 +24,8 @@
 #include "sdf.h"
 #include "commit_info.h"
 
+#define SDF_DEBUG
+
 #ifdef PARALLEL
 #include <mpi.h>
 #endif
@@ -253,6 +255,14 @@ int main(int argc, char **argv)
     sdf_file_t *h;
     sdf_block_t *b;
     comm_t comm;
+
+    if (sdf_has_debug_info() == 0) {
+        fprintf(stderr, "ERROR: sdf2ascii has been linked against a copy of "
+                "the SDF C library that has\n"
+                "       no debug info. Both library and sdf2ascii utility must "
+                "be recompiled.\n");
+        return 1;
+    }
 
     file = parse_args(&argc, &argv);
 
