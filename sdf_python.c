@@ -592,7 +592,8 @@ static PyObject *Block_getdata(Block *block, void *closure)
     sdf_block_t *b = block->b;
     PyObject *ob;
     ArrayObject *array = NULL;
-    Py_ssize_t ndims, n, i, j;
+    Py_ssize_t ndims, n;
+    volatile Py_ssize_t i, j;
     npy_intp *dims;
     npy_intp adims[1];
     void *mem;
