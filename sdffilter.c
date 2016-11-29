@@ -35,7 +35,7 @@
 #include <mpi.h>
 #endif
 
-#define VERSION "2.4.15"
+#define VERSION "2.4.16"
 
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 

@@ -592,7 +592,8 @@ static PyObject *Block_getdata(Block *block, void *closure)
     sdf_block_t *b = block->b;
     PyObject *ob;
     ArrayObject *array = NULL;
-    Py_ssize_t ndims, n, i, j;
+    Py_ssize_t ndims, n;
+    volatile Py_ssize_t i, j;
     npy_intp *dims;
     npy_intp adims[1];
     void *mem;
@@ -1583,7 +1584,7 @@ MOD_INIT(sdf)
     if (!m)
         return MOD_ERROR_VAL;
 
-    PyModule_AddStringConstant(m, "__version__", "2.4.15");
+    PyModule_AddStringConstant(m, "__version__", "2.4.16");
     PyModule_AddStringConstant(m, "__commit_id__", SDF_COMMIT_ID);
     PyModule_AddStringConstant(m, "__commit_date__", SDF_COMMIT_DATE);
     s = sdf_get_library_commit_id();
