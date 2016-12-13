@@ -1584,7 +1584,7 @@ MOD_INIT(sdf)
     if (!m)
         return MOD_ERROR_VAL;
 
-    PyModule_AddStringConstant(m, "__version__", "2.4.16");
+    PyModule_AddStringConstant(m, "__version__", "2.4.17");
     PyModule_AddStringConstant(m, "__commit_id__", SDF_COMMIT_ID);
     PyModule_AddStringConstant(m, "__commit_date__", SDF_COMMIT_DATE);
     s = sdf_get_library_commit_id();
