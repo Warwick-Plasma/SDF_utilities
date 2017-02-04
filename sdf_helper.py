@@ -1,18 +1,26 @@
 import os
 import re
 import glob
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.transforms import Bbox
-from matplotlib.offsetbox import HPacker, VPacker, TextArea, AnchoredOffsetbox
+try:
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from matplotlib.transforms import Bbox
+    from matplotlib.offsetbox import HPacker, VPacker, TextArea, \
+                                     AnchoredOffsetbox
+except:
+    pass
 try:
     from mpl_toolkits.axes_grid1 import make_axes_locatable
 except:
-    # Workaround for broken macOS installation
-    import sys
-    import matplotlib
-    sys.path.append(os.path.join(matplotlib.__path__[0], '..', 'mpl_toolkits'))
-    from axes_grid1 import make_axes_locatable
+    try:
+        # Workaround for broken macOS installation
+        import sys
+        import matplotlib
+        sys.path.append(os.path.join(matplotlib.__path__[0], \
+                                     '..', 'mpl_toolkits'))
+        from axes_grid1 import make_axes_locatable
+    except:
+        pass
 try:
     import builtins
 except:
