@@ -64,7 +64,7 @@
 
 #ifndef PyArray_SetBaseObject
     #define PyArray_SetBaseObject(array, base) \
-             PyArray_BASE(array) = base
+        PyArray_BASE(array) = base
 #endif
 
 #if PY_MAJOR_VERSION >= 3
@@ -308,6 +308,7 @@ static PyMemberDef BlockMeshVariable_members[] = {
     {"grid_mid", T_OBJECT_EX, offsetof(Block, grid_mid), 0,
      "Associated median mesh"},
     {"grid_id", T_OBJECT_EX, offsetof(Block, grid_id), 0, "Associated mesh id"},
+    {"stagger", T_OBJECT_EX, offsetof(Block, stagger), 0, "Grid stagger"},
     {"units", T_OBJECT_EX, offsetof(Block, units), 0, "Units of variable"},
     {"mult", T_OBJECT_EX, offsetof(Block, mult), 0, "Multiplication factor"},
     {NULL}  /* Sentinel */
@@ -325,7 +326,6 @@ static PyMemberDef BlockPointVariable_members[] = {
 };
 
 static PyMemberDef BlockPlainMesh_members[] = {
-    {"stagger", T_OBJECT_EX, offsetof(Block, stagger), 0, "Grid stagger"},
     {NULL}  /* Sentinel */
 };
 
@@ -335,7 +335,6 @@ static PyMemberDef BlockPointMesh_members[] = {
 };
 
 static PyMemberDef BlockStitchedMaterial_members[] = {
-    {"stagger", T_OBJECT_EX, offsetof(Block, stagger), 0, "Grid stagger"},
     {"material_names", T_OBJECT_EX, offsetof(Block, material_names), 0,
      "Material names"},
     {"material_ids", T_OBJECT_EX, offsetof(Block, material_ids), 0,
@@ -344,6 +343,7 @@ static PyMemberDef BlockStitchedMaterial_members[] = {
     {"grid_mid", T_OBJECT_EX, offsetof(Block, grid_mid), 0,
      "Associated median mesh"},
     {"grid_id", T_OBJECT_EX, offsetof(Block, grid_id), 0, "Associated mesh id"},
+    {"stagger", T_OBJECT_EX, offsetof(Block, stagger), 0, "Grid stagger"},
     {NULL}  /* Sentinel */
 };
 
@@ -510,8 +510,8 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
     }
 
     switch(b->blocktype) {
-        case SDF_BLOCKTYPE_PLAIN_MESH:
-        case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
+        case SDF_BLOCKTYPE_PLAIN_VARIABLE:
+        case SDF_BLOCKTYPE_PLAIN_DERIVED:
         case SDF_BLOCKTYPE_STITCHED_MATERIAL:
         case SDF_BLOCKTYPE_CONTIGUOUS_MATERIAL:
             ob->stagger = PyLong_FromLong(b->stagger);
@@ -695,7 +695,7 @@ static PyObject *Block_getdata(Block *block, void *closure)
                 for (j = 0; j < block->adims[1]; j++) {
                 for (i = 0; i < block->adims[0]; i++) {
                     *ptr_out++ = 0.25 * (ptr_in[IJ(i,j)] + ptr_in[IJ(i+1,j)]
-                                  + ptr_in[IJ(i,j+1)] + ptr_in[IJ(i+1,j+1)]);
+                            + ptr_in[IJ(i,j+1)] + ptr_in[IJ(i+1,j+1)]);
                 }}
             } else if (double2d) {
                 double *ptr_in, *ptr_out;
@@ -706,7 +706,7 @@ static PyObject *Block_getdata(Block *block, void *closure)
                 for (j = 0; j < block->adims[1]; j++) {
                 for (i = 0; i < block->adims[0]; i++) {
                     *ptr_out++ = 0.25 * (ptr_in[IJ(i,j)] + ptr_in[IJ(i+1,j)]
-                                  + ptr_in[IJ(i,j+1)] + ptr_in[IJ(i+1,j+1)]);
+                            + ptr_in[IJ(i,j+1)] + ptr_in[IJ(i+1,j+1)]);
                 }}
             }
 
@@ -890,7 +890,7 @@ free_mem:
 
 
 static void extract_station_time_histories(sdf_file_t *h, PyObject *stations,
-      PyObject *variables, double t0, double t1, PyObject *dict)
+        PyObject *variables, double t0, double t1, PyObject *dict)
 {
     Py_ssize_t nvars, i, nstat;
     PyObject *sub;
@@ -1270,10 +1270,10 @@ static Block *dict_find_mesh_id(PyObject *dict, char *id)
 
     value = PyDict_GetItemString(dict, id);
     if ( !value )
-       return NULL;
+        return NULL;
 
     if ( !PyObject_TypeCheck(value, &BlockType) )
-       return NULL;
+        return NULL;
 
     block = (Block*)value;
 
@@ -1281,7 +1281,7 @@ static Block *dict_find_mesh_id(PyObject *dict, char *id)
         case SDF_BLOCKTYPE_PLAIN_MESH:
         case SDF_BLOCKTYPE_POINT_MESH:
         case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
-           return block;
+            return block;
     }
 
     return NULL;
@@ -1559,7 +1559,7 @@ static PyMethodDef SDF_methods[] = {
      "    Starting time for station data.\n"
      "t1 : double, optional\n"
      "    Ending time for station data.\n"
-     },
+    },
     {NULL}
 };
 
@@ -1578,6 +1578,7 @@ MOD_INIT(sdf)
 {
     PyObject *m;
     char *s;
+    long i;
 
     MOD_DEF(m, "sdf", "SDF file reading library", SDF_methods)
 
@@ -1590,11 +1591,13 @@ MOD_INIT(sdf)
     s = sdf_get_library_commit_id();
     PyModule_AddStringConstant(m, "__library_commit_id__", s);
     if (s)
-       free(s);
+        free(s);
     s = sdf_get_library_commit_date();
     PyModule_AddStringConstant(m, "__library_commit_date__", s);
     if (s)
-       free(s);
+        free(s);
+    for (i=0; i < sdf_stagger_len; i++)
+        PyModule_AddIntConstant(m, sdf_stagger_c[i], i);
 
     SDFType.tp_dealloc = SDF_dealloc;
     SDFType.tp_flags = Py_TPFLAGS_DEFAULT;
