@@ -7,7 +7,7 @@ PYTHONCMD=`which python`
 clean=0
 errcode=0
 CFLAGS="-DSDF_DEBUG_ALL -D_XOPEN_SOURCE=600 -I$SDFDIR/include -L$SDFDIR/lib"
-OPT="$CFLAGS -O3"
+OPT="$CFLAGS -O3 -g"
 
 while getopts crdph23 name
 do
@@ -45,7 +45,7 @@ if [ $clean -le 1 ] ; then
   fi
   sh gen_commit_string.sh
   gcc $OPT -o sdf2ascii sdf2ascii.c -lsdfc -ldl || errcode=1
-  gcc $OPT -o sdffilter sdffilter.c -lsdfc -ldl -lm || errcode=1
+  gcc $OPT -o sdffilter sdffilter.c sdf_vtk_writer.c -lsdfc -ldl -lm || errcode=1
   gcc $OPT -o sdfdiff sdfdiff.c -lsdfc -ldl -lm || errcode=1
   ./sdf2ascii -V > /dev/null || rm -f sdf2ascii
   # Test if python is new enough for the --user flag
