@@ -28,7 +28,7 @@ add_executable(sdf2ascii sdf2ascii.c)
 add_dependencies(sdf2ascii commit_info.h)
 target_link_libraries(sdf2ascii sdfc dl)
 
-add_executable(sdffilter sdffilter.c)
+add_executable(sdffilter sdffilter.c sdf_vtk_writer.c)
 add_dependencies(sdffilter commit_info.h)
 target_link_libraries(sdffilter sdfc dl m)
 
