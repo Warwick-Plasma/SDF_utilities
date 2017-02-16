@@ -35,7 +35,7 @@
 #include <mpi.h>
 #endif
 
-#define VERSION "2.6.0"
+#define VERSION "2.6.1"
 
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 #define ABS(a) (((a) < 0.0) ? -(a) : (a))
@@ -1721,10 +1721,23 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
     if (b1->datatype != b2->datatype) gotdiff = 1;
     if (b1->ndims != b2->ndims) gotdiff = 1;
 
-    for (i = 0; i < b1->ndims; i++) {
-        if (b1->dims[i] == b2->dims[i])
-            continue;
-        gotdiff = 1;
+    switch (b1->blocktype) {
+    case SDF_BLOCKTYPE_PLAIN_DERIVED:
+    case SDF_BLOCKTYPE_PLAIN_VARIABLE:
+    case SDF_BLOCKTYPE_POINT_DERIVED:
+    case SDF_BLOCKTYPE_POINT_VARIABLE:
+    case SDF_BLOCKTYPE_ARRAY:
+    case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
+    case SDF_BLOCKTYPE_PLAIN_MESH:
+    case SDF_BLOCKTYPE_POINT_MESH:
+        for (i = 0; i < b1->ndims; i++) {
+            if (b1->dims[i] == b2->dims[i])
+                continue;
+            gotdiff = 1;
+        }
+        break;
+    default:
+        break;
     }
 
     if (gotdiff) {
