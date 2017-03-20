@@ -50,7 +50,15 @@
     #define PyInt_FromLong PyLong_FromLong
     #define PyASCII_FromString PyString_FromString
 #else
-    #define PyASCII_FromString PyUnicode_FromString
+PyObject *PyASCII_FromString(char *str)
+{
+    PyObject *ob = PyUnicode_FromString(str);
+    if (ob == NULL) {
+        PyErr_Clear();
+        ob = PyUnicode_FromString("");
+    }
+    return ob;
+}
 #endif
 
 #ifndef NPY_ARRAY_F_CONTIGUOUS
