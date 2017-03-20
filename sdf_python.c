@@ -50,7 +50,15 @@
     #define PyInt_FromLong PyLong_FromLong
     #define PyASCII_FromString PyString_FromString
 #else
-    #define PyASCII_FromString PyUnicode_FromString
+PyObject *PyASCII_FromString(char *str)
+{
+    PyObject *ob = PyUnicode_FromString(str);
+    if (ob == NULL) {
+        PyErr_Clear();
+        ob = PyUnicode_FromString("");
+    }
+    return ob;
+}
 #endif
 
 #ifndef NPY_ARRAY_F_CONTIGUOUS
@@ -1585,7 +1593,7 @@ MOD_INIT(sdf)
     if (!m)
         return MOD_ERROR_VAL;
 
-    PyModule_AddStringConstant(m, "__version__", "2.6.1");
+    PyModule_AddStringConstant(m, "__version__", "2.6.2");
     PyModule_AddStringConstant(m, "__commit_id__", SDF_COMMIT_ID);
     PyModule_AddStringConstant(m, "__commit_date__", SDF_COMMIT_DATE);
     s = sdf_get_library_commit_id();
