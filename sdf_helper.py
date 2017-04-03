@@ -1,24 +1,25 @@
 import os
 import re
 import glob
+import types
 try:
     import numpy as np
     import matplotlib.pyplot as plt
     from matplotlib.transforms import Bbox
     from matplotlib.offsetbox import HPacker, VPacker, TextArea, \
-                                     AnchoredOffsetbox
+        AnchoredOffsetbox
 except:
     pass
 try:
-    from mpl_toolkits.axes_grid1 import make_axes_locatable, ImageGrid
+    from mpl_toolkits.axes_grid1 import ImageGrid
 except:
     try:
         # Workaround for broken macOS installation
         import sys
         import matplotlib
-        sys.path.append(os.path.join(matplotlib.__path__[0], \
+        sys.path.append(os.path.join(matplotlib.__path__[0],
                                      '..', 'mpl_toolkits'))
-        from axes_grid1 import make_axes_locatable
+        from axes_grid1 import ImageGrid
     except:
         pass
 try:
@@ -86,6 +87,7 @@ def _check_validity():
     if our_version[1] > lib_version[1]:
         return _error_message()
 
+
 _check_validity()
 
 
@@ -101,7 +103,7 @@ class ic_type():
     ADVECT = 9
 
 
-def get_si_prefix(scale, full_units = False):
+def get_si_prefix(scale, full_units=False):
     scale = abs(scale)
     mult = 1
     sym = ''
@@ -126,10 +128,10 @@ def get_si_prefix(scale, full_units = False):
             sym = 'm'
         elif scale >= 1e18:
             mult = 1e-18
-            sym='E'
+            sym = 'E'
         elif scale >= 1e15:
             mult = 1e-15
-            sym='P'
+            sym = 'P'
         elif scale >= 1e12:
             mult = 1e-12
             sym = 'T'
@@ -147,7 +149,7 @@ def get_si_prefix(scale, full_units = False):
     if full_units:
         scale = scale * mult
         pwr = (-np.floor(np.log10(scale)))
-        mult = mult * np.power(10.0,pwr)
+        mult = mult * np.power(10.0, pwr)
         remain = 1.0
         if np.rint(pwr) != 0:
             sym = "(10^{%.0f})" % (-pwr) + sym
@@ -273,11 +275,13 @@ def get_wkdir():
 def sdfr(filename):
     return sdf.read(filename)
 
+
 def plot_auto(*args, **kwargs):
     try:
         dims = args[0].dims
     except:
-        print('error: Variable cannot be auto determined. Use plot1d or plot2d')
+        print('error: Variable cannot be auto determined. '
+              + 'Use plot1d or plot2d')
         return
     if (len(dims) == 1):
         plot1d(*args, **kwargs)
@@ -291,14 +295,16 @@ def oplot_auto(*args, **kwargs):
     try:
         dims = args[0].dims
     except:
-        print('error: Variable cannot be auto determined. Use plot1d or plot2d')
+        print('error: Variable cannot be auto determined. '
+              + 'Use plot1d or plot2d')
         return
     if (len(dims) == 1):
         oplot1d(*args, **kwargs)
-    elif (len(dims) ==2):
+    elif (len(dims) == 2):
         oplot2d(*args, **kwargs)
     else:
         print('error: Unable to plot variables of this dimensionality')
+
 
 def oplot1d(*args, **kwargs):
     kwargs['set_ylabel'] = False
@@ -482,8 +488,8 @@ def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
             except:
                 pass
 
-    grid = ImageGrid(figure, 111, nrows_ncols = (1,1), axes_pad = 0.1,
-        cbar_mode = 'single')
+    grid = ImageGrid(figure, 111, nrows_ncols=(1, 1), axes_pad=0.1,
+                     cbar_mode='single')
 
     if subplot is None:
         subplot = grid[0]
@@ -579,14 +585,14 @@ def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
 
     if not hold:
         ca = subplot
-        aspectratio=remain_y/remain_x
-        #Limit the maximum aspect ratio to 1:3 one way or another
+        aspectratio = remain_y / remain_x
+        # Limit the maximum aspect ratio to 1:3 one way or another
         if aspectratio < 1.0/3.0:
             aspectratio = 1.0/3.0
         if aspectratio > 3.0:
             aspectratio = 3.0
-        ratio_default=(ca.get_xlim()[1]-ca.get_xlim()[0])/\
-            (ca.get_ylim()[1]-ca.get_ylim()[0])
+        ratio_default = (ca.get_xlim()[1] - ca.get_xlim()[0]) \
+            / (ca.get_ylim()[1] - ca.get_ylim()[0])
         ca.set_aspect(ratio_default*aspectratio)
 
         cax = grid.cbar_axes[0]
@@ -761,13 +767,13 @@ def getdata(fname, wkd=None, verbose=True):
 
     sdfdict = {}
     for key, value in data.__dict__.items():
-        dims=[]
-        #Remove single element dimensions
-        #These are common in EPOCH output because of
+        dims = []
+        # Remove single element dimensions
+        # These are common in EPOCH output because of
         try:
             for element in value.dims:
-                dims.append([0L,element-1])
-            subarray(value,dims)
+                dims.append([0L, element-1])
+            subarray(value, dims)
         except:
             pass
         if hasattr(value, "id"):
@@ -1029,11 +1035,12 @@ def list_variables(self):
     print("")
     for element in self.__dict__.keys():
         try:
-            u=self.__dict__[element].grid
+            # u = self.__dict__[element].grid
             print(element)
         except:
             pass
     print("")
+
 
 pi = 3.141592653589793238462643383279503
 q0 = 1.602176565e-19
