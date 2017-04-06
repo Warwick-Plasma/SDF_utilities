@@ -32,6 +32,7 @@ try:
     got_sdf = True
 except ImportError:
     got_sdf = False
+
 try:
     from matplotlib.pyplot import *  # NOQA
     got_mpl = True
@@ -57,38 +58,6 @@ im = None
 cbar = None
 mult_x = 1
 mult_y = 1
-
-__version__ = "2.2.0"
-_module_name = "sdf_helper"
-_sdf_version = __version__
-
-
-def _error_message():
-    if not got_sdf:
-        raise ImportError(
-            r"This module relies on the sdf python module \n"
-            "which we were unable to load\n")
-    raise ImportError(
-        r"Your sdf python module is too old for this version "
-        "of " + _module_name + ".\n"
-        "Either upgrade to sdf python " + _sdf_version + " or newer, or "
-        "downgrade " + _module_name)
-
-
-def _check_validity():
-    if not got_sdf or not hasattr(sdf, "__version__"):
-        return _error_message()
-    our_version = list(map(int, _sdf_version.split(".")))
-    lib_version = list(map(int, sdf.__version__.split(".")))
-    # Check that major version number matches, and minor version is at least
-    # as big as that specified
-    if our_version[0] != lib_version[0]:
-        return _error_message()
-    if our_version[1] > lib_version[1]:
-        return _error_message()
-
-
-_check_validity()
 
 
 class ic_type():
@@ -146,6 +115,7 @@ def get_si_prefix(scale, full_units=False):
             sym = 'k'
     else:
         full_units = True
+
     if full_units:
         scale = scale * mult
         pwr = (-np.floor(np.log10(scale)))
@@ -155,6 +125,7 @@ def get_si_prefix(scale, full_units=False):
             sym = "(10^{%.0f})" % (-pwr) + sym
     else:
         remain = scale * mult
+
     return mult, sym, remain
 
 

@@ -9,4 +9,5 @@ sdf2ascii.dSYM
 sdffilter.dSYM
 sdfdiff.dSYM
 commit_info.h
-sdf_helper.pyc
+sdf_helper/*.pyc
+sdf_helper/_version.py

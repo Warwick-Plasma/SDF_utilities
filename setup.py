@@ -2,6 +2,7 @@ import os
 import sys
 from distutils.sysconfig import get_python_lib
 from distutils.core import setup, Extension
+import subprocess as sp
 try:
     import numpy
     gotnumpy = True
@@ -38,7 +39,30 @@ srcfiles = ['sdf_python.c']
 incdirs = [get_numpy_dir()] + [os.path.join(sdfdir, 'src')]
 libdirs = [os.path.join(sdfdir, 'lib')]
 
+
+def get_version():
+    commit_id = "UNKNOWN"
+    version = "UNKNOWN"
+
+    with open("commit_info.h") as f:
+        lines = f.readlines()
+        for l in lines:
+            if l.find('SDF_COMMIT_ID') != -1:
+                commit_id = l.split('"')[1]
+                version = commit_id.lstrip('v').split('-')[0]
+            elif l.find('SDF_COMMIT_DATE') != -1:
+                commit_date = l.split('"')[1]
+
+    with open("sdf_helper/_version.py", "w") as f:
+        f.write('__version__ = "{}"\n'.format(version))
+        f.write('__commit_id__ = "{}"\n'.format(commit_id))
+        f.write('__commit_date__ = "{}"\n'.format(commit_date))
+
+    return commit_id
+
+get_version()
+
 setup(name="sdf", version="1.0",
       ext_modules=[Extension("sdf", srcfiles, include_dirs=incdirs,
                    library_dirs=libdirs, libraries=['sdfc'])],
-      py_modules=["sdf_legacy","sdf_helper"])
+      packages=["sdf_helper"], py_modules=["sdf_legacy"])
