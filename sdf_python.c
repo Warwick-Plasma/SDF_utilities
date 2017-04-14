@@ -38,6 +38,7 @@
 #include <Python.h>
 #include <numpy/arrayobject.h>
 #include <structmember.h>
+#include <stdlib.h>
 #include "sdf.h"
 #include "sdf_extension.h"
 #include "sdf_helper.h"
@@ -1051,8 +1052,14 @@ int append_station_metadata(sdf_block_t *b, PyObject *dict)
 static PyObject *fill_header(sdf_file_t *h)
 {
     PyObject *dict;
+    PyObject *fname;
+    char fullpath[PATH_MAX];
 
     dict = PyDict_New();
+
+    fname = Py_BuildValue("s", realpath(h->filename, fullpath));
+    PyDict_SetItemString(dict, "filename", fname);
+    Py_DECREF(fname);
 
     SET_ENTRY(i, file_version);
     SET_ENTRY(i, file_revision);
