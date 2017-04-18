@@ -581,10 +581,12 @@ def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
         subplot.axis('image')
 
     if not hold:
+        ax = subplot.axes
         ca = subplot
         divider = make_axes_locatable(ca)
         cax = divider.append_axes("right", "5%", pad="3%")
-        cbar = figure.colorbar(im, cax=cax)
+        cbar = figure.colorbar(im, cax=cax, ax=ax)
+        figure.sca(ax)
         if (full or title):
             cbar.set_label(var.name + ' $(' + var.units + ')$',
                            fontsize='large', x=1.2)
