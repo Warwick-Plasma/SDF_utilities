@@ -2,9 +2,9 @@ _module_name = "sdf_helper"
 _sdf_version = "2.2.0"
 
 try:
-    from _version import __version__ as v
-    from _version import __commit_id__ as c
-    from _version import __commit_date__ as d
+    from ._version import __version__ as v
+    from ._version import __commit_id__ as c
+    from ._version import __commit_date__ as d
     __version__ = v
     __commit_id__ = c
     __commit_date__ = d
