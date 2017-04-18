@@ -755,6 +755,14 @@ def getdata(fname, wkd=None, verbose=True):
 
     sdfdict = {}
     for key, value in data.__dict__.items():
+        dims = []
+        # Remove single element dimensions
+        try:
+            for element in value.dims:
+                dims.append([0, element-1])
+            subarray(value, dims)
+        except:
+            pass
         if hasattr(value, "id"):
             sdfdict[value.id] = value
         else:
@@ -972,6 +980,39 @@ def axis_offset(boxed=False):
     ax.set_ylabel(ylab)
 
     plt.draw()
+
+
+def tuple_to_slice(slices):
+    subscripts = []
+    for val in slices:
+        start = val[0]
+        end = val[1]
+        if end is not None:
+            end = end + 1
+        subscripts.append(slice(start, end, 1))
+    subscripts = tuple(subscripts)
+    return subscripts
+
+
+def subarray(base, slices):
+    if (len(slices) != len(base.dims)):
+        print("Must specify a range in all dimensions")
+        return None
+    dims = []
+    # Construct the lengths of the subarray
+    for x in range(0, len(slices)):
+        begin = slices[x][0]
+        end = slices[x][1]
+        if begin is None:
+            begin = 0
+        if end is None:
+            end = base.dims[x]
+        if (end-begin != 0):
+            dims.append(end-begin+1)
+
+    subscripts = tuple_to_slice(slices)
+    base.data = np.squeeze(base.data[subscripts])
+    base.dims = dims
 
 
 pi = 3.141592653589793238462643383279503
