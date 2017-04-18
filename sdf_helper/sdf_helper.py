@@ -617,7 +617,7 @@ def plot_levels(var, r0=None, r1=None, nl=10, iso=None, out=False,
     if np.ndim(var.grid.data[0]) == 1:
         X, Y = np.meshgrid(var.grid.data[1], var.grid.data[0])
     else:
-        if var.grid.dims == var.dims:
+        if tuple(var.grid.dims) == tuple(var.dims):
             X = var.grid.data[0]
             Y = var.grid.data[1]
         else:
