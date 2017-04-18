@@ -71,38 +71,90 @@ class ic_type():
     ADVECT = 9
 
 
-def get_si_prefix(scale):
+def get_si_prefix(scale, full_units=False):
     scale = abs(scale)
     mult = 1
     sym = ''
-    if scale > 1e-24:
-        if scale < 1e-13:
-            mult = 1e15
-            sym = 'f'
-        elif scale < 1e-10:
-            mult = 1e12
-            sym = 'p'
-        elif scale < 1e-7:
-            mult = 1e9
-            sym = 'n'
-        elif scale < 1e-4:
-            mult = 1e6
-            sym = '{\mu}'
-        elif scale < 1e-1:
-            mult = 1e3
-            sym = 'm'
-        elif scale >= 1e12:
-            mult = 1e-12
-            sym = 'T'
-        elif scale >= 1e9:
-            mult = 1e-9
-            sym = 'G'
-        elif scale >= 1e6:
-            mult = 1e-6
-            sym = 'M'
-        elif scale >= 1e3:
-            mult = 1e-3
-            sym = 'k'
+
+    if scale < 1e-24:
+        full_units = True
+    elif scale < 1e-21:
+        # yocto
+        mult = 1e24
+        sym = 'y'
+    elif scale < 1e-19:
+        # zepto
+        mult = 1e21
+        sym = 'z'
+    elif scale < 1e-16:
+        # atto
+        mult = 1e18
+        sym = 'a'
+    elif scale < 1e-13:
+        # femto
+        mult = 1e15
+        sym = 'f'
+    elif scale < 1e-10:
+        # pico
+        mult = 1e12
+        sym = 'p'
+    elif scale < 1e-7:
+        # nano
+        mult = 1e9
+        sym = 'n'
+    elif scale < 1e-4:
+        # micro
+        mult = 1e6
+        sym = '{\mu}'
+    elif scale < 1e-1:
+        # milli
+        mult = 1e3
+        sym = 'm'
+    elif scale >= 1e24:
+        # yotta
+        mult = 1e-24
+        sym = 'Y'
+    elif scale >= 1e21:
+        # zetta
+        mult = 1e-21
+        sym = 'Z'
+    elif scale >= 1e18:
+        # exa
+        mult = 1e-18
+        sym = 'E'
+    elif scale >= 1e15:
+        # peta
+        mult = 1e-15
+        sym = 'P'
+    elif scale >= 1e12:
+        # tera
+        mult = 1e-12
+        sym = 'T'
+    elif scale >= 1e9:
+        # giga
+        mult = 1e-9
+        sym = 'G'
+    elif scale >= 1e6:
+        # mega
+        mult = 1e-6
+        sym = 'M'
+    elif scale >= 1e3:
+        # kilo
+        mult = 1e-3
+        sym = 'k'
+    else:
+        full_units = True
+
+    if full_units:
+        scale = scale * mult
+        if scale <= 0:
+            pwr = 0
+        else:
+            pwr = (-np.floor(np.log10(scale)))
+        mult = mult * np.power(10.0, pwr)
+        if np.rint(pwr) != 0:
+            sym = "(10^{%.0f})" % (-pwr) + sym
+
     return mult, sym
 
 
