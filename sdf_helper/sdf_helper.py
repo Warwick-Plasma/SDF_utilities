@@ -1,7 +1,6 @@
 import os
 import re
 import glob
-import types
 try:
     import numpy as np
     import matplotlib.pyplot as plt
@@ -11,7 +10,7 @@ try:
 except:
     pass
 try:
-    from mpl_toolkits.axes_grid1 import ImageGrid
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
 except:
     try:
         # Workaround for broken macOS installation
@@ -19,7 +18,7 @@ except:
         import matplotlib
         sys.path.append(os.path.join(matplotlib.__path__[0],
                                      '..', 'mpl_toolkits'))
-        from axes_grid1 import ImageGrid
+        from axes_grid1 import make_axes_locatable
     except:
         pass
 try:
@@ -72,14 +71,11 @@ class ic_type():
     ADVECT = 9
 
 
-def get_si_prefix(scale, full_units=False):
+def get_si_prefix(scale):
     scale = abs(scale)
     mult = 1
     sym = ''
-    if scale > 1e-20:
-        if scale < 1e-16:
-            mult = 1e18
-            sym = 'a'
+    if scale > 1e-24:
         if scale < 1e-13:
             mult = 1e15
             sym = 'f'
@@ -95,12 +91,6 @@ def get_si_prefix(scale, full_units=False):
         elif scale < 1e-1:
             mult = 1e3
             sym = 'm'
-        elif scale >= 1e18:
-            mult = 1e-18
-            sym = 'E'
-        elif scale >= 1e15:
-            mult = 1e-15
-            sym = 'P'
         elif scale >= 1e12:
             mult = 1e-12
             sym = 'T'
@@ -113,27 +103,14 @@ def get_si_prefix(scale, full_units=False):
         elif scale >= 1e3:
             mult = 1e-3
             sym = 'k'
-    else:
-        full_units = True
-
-    if full_units:
-        scale = scale * mult
-        pwr = (-np.floor(np.log10(scale)))
-        mult = mult * np.power(10.0, pwr)
-        remain = 1.0
-        if np.rint(pwr) != 0:
-            sym = "(10^{%.0f})" % (-pwr) + sym
-    else:
-        remain = scale * mult
-
-    return mult, sym, remain
+    return mult, sym
 
 
 def get_title(geom=False):
     global data
 
     t = data.Header['time']
-    mult, sym, remain = get_si_prefix(t)
+    mult, sym = get_si_prefix(t)
 
     stitle = r'$t = {:.3}{}s$'.format(mult * t, sym)
 
@@ -247,36 +224,6 @@ def sdfr(filename):
     return sdf.read(filename)
 
 
-def plot_auto(*args, **kwargs):
-    try:
-        dims = args[0].dims
-    except:
-        print('error: Variable cannot be auto determined. '
-              + 'Use plot1d or plot2d')
-        return
-    if (len(dims) == 1):
-        plot1d(*args, **kwargs)
-    elif (len(dims) == 2):
-        plot2d(*args, **kwargs)
-    else:
-        print('error: Unable to plot variables of this dimensionality')
-
-
-def oplot_auto(*args, **kwargs):
-    try:
-        dims = args[0].dims
-    except:
-        print('error: Variable cannot be auto determined. '
-              + 'Use plot1d or plot2d')
-        return
-    if (len(dims) == 1):
-        oplot1d(*args, **kwargs)
-    elif (len(dims) == 2):
-        oplot2d(*args, **kwargs)
-    else:
-        print('error: Unable to plot variables of this dimensionality')
-
-
 def oplot1d(*args, **kwargs):
     kwargs['set_ylabel'] = False
     kwargs['hold'] = True
@@ -339,15 +286,15 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, cgs=False,
 
     if xscale == 0:
         length = max(abs(X[0]), abs(X[-1]))
-        mult_x, sym_x, remain_x = get_si_prefix(length)
+        mult_x, sym_x = get_si_prefix(length)
     else:
-        mult_x, sym_x, remain_x = get_si_prefix(xscale)
+        mult_x, sym_x = get_si_prefix(xscale)
 
     if yscale == 0:
         length = max(abs(Y[0]), abs(Y[-1]))
-        mult_y, sym_y, remain_y = get_si_prefix(length)
+        mult_y, sym_y = get_si_prefix(length)
     else:
-        mult_y, sym_y, remain_y = get_si_prefix(yscale)
+        mult_y, sym_y = get_si_prefix(yscale)
 
     X = mult_x * X
     Y = mult_y * Y
@@ -459,11 +406,8 @@ def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
             except:
                 pass
 
-    grid = ImageGrid(figure, 111, nrows_ncols=(1, 1), axes_pad=0.1,
-                     cbar_mode='single')
-
     if subplot is None:
-        subplot = grid[0]
+        subplot = figure.add_subplot(111)
 
     if iso is None:
         iso = get_default_iso(data)
@@ -471,15 +415,15 @@ def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
     ext = list(var.grid.extents)
     if xscale == 0:
         length = max(abs(ext[i2]), abs(ext[i0]))
-        mult_x, sym_x, remain_x = get_si_prefix(length)
+        mult_x, sym_x = get_si_prefix(length)
     else:
-        mult_x, sym_x, remain_x = get_si_prefix(xscale)
+        mult_x, sym_x = get_si_prefix(xscale)
 
     if yscale == 0:
         length = max(abs(ext[i3]), abs(ext[i1]))
-        mult_y, sym_y, remain_y = get_si_prefix(length)
+        mult_y, sym_y = get_si_prefix(length)
     else:
-        mult_y, sym_y, remain_y = get_si_prefix(yscale)
+        mult_y, sym_y = get_si_prefix(yscale)
 
     if vrange == 1:
         v = np.max(abs(var_data))
@@ -556,17 +500,8 @@ def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
 
     if not hold:
         ca = subplot
-        aspectratio = remain_y / remain_x
-        # Limit the maximum aspect ratio to 1:3 one way or another
-        if aspectratio < 1.0/3.0:
-            aspectratio = 1.0/3.0
-        if aspectratio > 3.0:
-            aspectratio = 3.0
-        ratio_default = (ca.get_xlim()[1] - ca.get_xlim()[0]) \
-            / (ca.get_ylim()[1] - ca.get_ylim()[0])
-        ca.set_aspect(ratio_default*aspectratio)
-
-        cax = grid.cbar_axes[0]
+        divider = make_axes_locatable(ca)
+        cax = divider.append_axes("right", "5%", pad="3%")
         cbar = figure.colorbar(im, cax=cax)
         if (full or title):
             cbar.set_label(var.name + ' $(' + var.units + ')$',
@@ -738,15 +673,6 @@ def getdata(fname, wkd=None, verbose=True):
 
     sdfdict = {}
     for key, value in data.__dict__.items():
-        dims = []
-        # Remove single element dimensions
-        # These are common in EPOCH output because of
-        try:
-            for element in value.dims:
-                dims.append([0L, element-1])
-            subarray(value, dims)
-        except:
-            pass
         if hasattr(value, "id"):
             sdfdict[value.id] = value
         else:
@@ -880,7 +806,6 @@ def getdata(fname, wkd=None, verbose=True):
                 globals()[gkey] = var
                 builtins.__dict__[gkey] = var
 
-    data.list_variables = types.MethodType(list_variables, data)
     # X, Y = np.meshgrid(x, y)
     return data
 
@@ -965,52 +890,6 @@ def axis_offset(boxed=False):
     ax.set_ylabel(ylab)
 
     plt.draw()
-
-
-def tuple_to_slice(slices):
-    subscripts = []
-    for val in slices:
-        start = val[0]
-        end = val[1]
-        if end is not None:
-            end = end + 1
-        subscripts.append(slice(start, end, 1))
-    subscripts = tuple(subscripts)
-    return subscripts
-
-
-def subarray(base, slices):
-    if (len(slices) != len(base.dims)):
-        print("Must specify a range in all dimensions")
-        return None
-    dims = []
-    # Construct the lengths of the subarray
-    for x in range(0, len(slices)):
-        begin = slices[x][0]
-        end = slices[x][1]
-        if begin is None:
-            begin = 0
-        if end is None:
-            end = base.dims[x]
-        if (end-begin != 0):
-            dims.append(end-begin+1)
-
-    subscripts = tuple_to_slice(slices)
-    base.data = np.squeeze(base.data[subscripts])
-    base.dims = dims
-
-
-def list_variables(self):
-    print("This file contains the following variables: ")
-    print("********************************************")
-    print("")
-    for element in self.__dict__.keys():
-        try:
-            # u = self.__dict__[element].grid
-            print(element)
-        except:
-            pass
-    print("")
 
 
 pi = 3.141592653589793238462643383279503
