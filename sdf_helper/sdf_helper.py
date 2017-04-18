@@ -1012,7 +1012,7 @@ def subarray(base, slices):
 
     subscripts = tuple_to_slice(slices)
     base.data = np.squeeze(base.data[subscripts])
-    base.dims = dims
+    base.dims = tuple(dims)
 
 
 pi = 3.141592653589793238462643383279503
