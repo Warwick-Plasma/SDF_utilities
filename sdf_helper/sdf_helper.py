@@ -110,6 +110,8 @@ def get_si_prefix(scale, full_units=False):
         # milli
         mult = 1e3
         sym = 'm'
+    elif scale >= 1e27:
+        full_units = True
     elif scale >= 1e24:
         # yotta
         mult = 1e-24
@@ -142,8 +144,6 @@ def get_si_prefix(scale, full_units=False):
         # kilo
         mult = 1e-3
         sym = 'k'
-    else:
-        full_units = True
 
     if full_units:
         scale = scale * mult
