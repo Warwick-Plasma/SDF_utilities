@@ -1018,9 +1018,12 @@ def subarray(base, slices):
 
 
 def list_variables(data):
-    for element in data.__dict__.keys():
+    dct = data.__dict__
+    for key in sorted(dct):
         try:
-            print(element)
+            val = dct[key]
+            print('{} {} {}'.format(key, type(val),
+                  np.array2string(np.array(val.dims), separator=', ')))
         except:
             pass
 
