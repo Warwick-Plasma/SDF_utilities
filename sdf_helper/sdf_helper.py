@@ -1,7 +1,6 @@
 import os
 import re
 import glob
-import types
 try:
     import numpy as np
     import matplotlib.pyplot as plt
@@ -899,7 +898,6 @@ def getdata(fname, wkd=None, verbose=True):
                 globals()[gkey] = var
                 builtins.__dict__[gkey] = var
 
-    data.list_variables = types.MethodType(list_variables, data)
     # X, Y = np.meshgrid(x, y)
     return data
 
@@ -1019,17 +1017,12 @@ def subarray(base, slices):
     base.dims = tuple(dims)
 
 
-def list_variables(self):
-    print("This file contains the following variables: ")
-    print("********************************************")
-    print("")
-    for element in self.__dict__.keys():
+def list_variables(data):
+    for element in data.__dict__.keys():
         try:
-            # u = self.__dict__[element].grid
             print(element)
         except:
             pass
-    print("")
 
 
 pi = 3.141592653589793238462643383279503
