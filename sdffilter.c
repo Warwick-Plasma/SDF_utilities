@@ -35,7 +35,7 @@
 #include <mpi.h>
 #endif
 
-#define VERSION "2.6.2"
+#define VERSION "2.6.4"
 
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 
@@ -1061,6 +1061,96 @@ static void pretty_print_mesh(sdf_file_t *h, sdf_block_t *b, int idnum)
 }
 
 
+static void pretty_print_lagrangian(sdf_file_t *h, sdf_block_t *b, int idnum)
+{
+    int *idx, *fac;
+    int i, n, rem, sz, left, digit, ncount, idx0;
+    char *ptr;
+    static const int fmtlen = 32;
+    char **fmt;
+
+    if (slice_direction != -1) {
+        pretty_print_slice(h, b);
+        return;
+    }
+
+    idx = malloc(b->ndims * sizeof(*idx));
+    fac = malloc(b->ndims * sizeof(*fac));
+    fmt = malloc(b->ndims * sizeof(*fmt));
+
+    rem = 1;
+    for (i = 0; i < b->ndims; i++) {
+        if (b->array_starts)
+            left = b->array_ends[i] - b->array_starts[i];
+        else
+            left = b->local_dims[i];
+        fac[i] = rem;
+        rem *= left;
+        digit = 0;
+        if (b->array_ends)
+            left = b->array_ends[i] + index_offset - 1;
+        while (left) {
+            left /= 10;
+            digit++;
+        }
+        if (!digit) digit = 1;
+        if (format_rowindex || format_index) {
+            fmt[i] = malloc(fmtlen * sizeof(**fmt));
+            if (i == 0)
+                snprintf(fmt[i], fmtlen, "%%%i.%ii", digit, digit);
+            else if (i == b->ndims-1)
+                snprintf(fmt[i], fmtlen, ",%%%i.%ii)", digit, digit);
+            else
+                snprintf(fmt[i], fmtlen, ",%%%i.%ii", digit, digit);
+        } else
+            fmt[i] = calloc(1, sizeof(**fmt));
+    }
+
+    sz = SDF_TYPE_SIZES[b->datatype_out];
+
+    ptr = b->grids[0];
+    ncount = 0;
+    for (n = 0; n < b->nelements_local; n++) {
+        rem = n;
+        for (i = b->ndims-1; i >= 0; i--) {
+            idx0 = idx[i] = rem / fac[i];
+            if (b->array_starts) idx[i] += b->array_starts[i];
+            rem -= idx0 * fac[i];
+        }
+
+        ncount++;
+        if (ncount == 1) {
+            if (format_number)
+                printf("%i ", idnum);
+            for (i = 0; i < b->ndims; i++)
+                printf(fmt[i], idx[i]+index_offset);
+        } else {
+            if (format_index) {
+                printf(" ");
+                for (i = 0; i < b->ndims; i++)
+                    printf(fmt[i], idx[i]+index_offset);
+            }
+            printf(format_space,1);
+        }
+
+        print_value(ptr, b->datatype_out);
+
+        if (ncount == element_count) {
+            printf("\n");
+            ncount = 0;
+        }
+        ptr += sz;
+    }
+    if (ncount) printf("\n");
+
+    free(idx);
+    free(fac);
+
+    for (i = 0; i < b->ndims; i++) free(fmt[i]);
+    free(fmt);
+}
+
+
 static void pretty_print(sdf_file_t *h, sdf_block_t *b, int idnum)
 {
     int *idx, *fac;
@@ -1072,6 +1162,9 @@ static void pretty_print(sdf_file_t *h, sdf_block_t *b, int idnum)
     if (b->blocktype == SDF_BLOCKTYPE_PLAIN_MESH ||
             b->blocktype == SDF_BLOCKTYPE_POINT_MESH) {
         pretty_print_mesh(h, b, idnum);
+        return;
+    } else if (b->blocktype == SDF_BLOCKTYPE_LAGRANGIAN_MESH) {
+        pretty_print_lagrangian(h, b, idnum);
         return;
     }
 
@@ -1811,6 +1904,7 @@ int main(int argc, char **argv)
             break;
         case SDF_BLOCKTYPE_PLAIN_VARIABLE:
         case SDF_BLOCKTYPE_PLAIN_MESH:
+        case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
         case SDF_BLOCKTYPE_POINT_VARIABLE:
         case SDF_BLOCKTYPE_POINT_MESH:
             set_array_section(b);

@@ -1,7 +1,6 @@
 import os
 import re
 import glob
-import types
 try:
     import numpy as np
     import matplotlib.pyplot as plt
@@ -11,7 +10,7 @@ try:
 except:
     pass
 try:
-    from mpl_toolkits.axes_grid1 import ImageGrid
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
 except:
     try:
         # Workaround for broken macOS installation
@@ -19,7 +18,7 @@ except:
         import matplotlib
         sys.path.append(os.path.join(matplotlib.__path__[0],
                                      '..', 'mpl_toolkits'))
-        from axes_grid1 import ImageGrid
+        from axes_grid1 import make_axes_locatable
     except:
         pass
 try:
@@ -32,6 +31,7 @@ try:
     got_sdf = True
 except ImportError:
     got_sdf = False
+
 try:
     from matplotlib.pyplot import *  # NOQA
     got_mpl = True
@@ -58,38 +58,6 @@ cbar = None
 mult_x = 1
 mult_y = 1
 
-__version__ = "2.2.0"
-_module_name = "sdf_helper"
-_sdf_version = __version__
-
-
-def _error_message():
-    if not got_sdf:
-        raise ImportError(
-            r"This module relies on the sdf python module \n"
-            "which we were unable to load\n")
-    raise ImportError(
-        r"Your sdf python module is too old for this version "
-        "of " + _module_name + ".\n"
-        "Either upgrade to sdf python " + _sdf_version + " or newer, or "
-        "downgrade " + _module_name)
-
-
-def _check_validity():
-    if not got_sdf or not hasattr(sdf, "__version__"):
-        return _error_message()
-    our_version = list(map(int, _sdf_version.split(".")))
-    lib_version = list(map(int, sdf.__version__.split(".")))
-    # Check that major version number matches, and minor version is at least
-    # as big as that specified
-    if our_version[0] != lib_version[0]:
-        return _error_message()
-    if our_version[1] > lib_version[1]:
-        return _error_message()
-
-
-_check_validity()
-
 
 class ic_type():
     NEW = 1
@@ -107,62 +75,94 @@ def get_si_prefix(scale, full_units=False):
     scale = abs(scale)
     mult = 1
     sym = ''
-    if scale > 1e-20:
-        if scale < 1e-16:
-            mult = 1e18
-            sym = 'a'
-        if scale < 1e-13:
-            mult = 1e15
-            sym = 'f'
-        elif scale < 1e-10:
-            mult = 1e12
-            sym = 'p'
-        elif scale < 1e-7:
-            mult = 1e9
-            sym = 'n'
-        elif scale < 1e-4:
-            mult = 1e6
-            sym = '{\mu}'
-        elif scale < 1e-1:
-            mult = 1e3
-            sym = 'm'
-        elif scale >= 1e18:
-            mult = 1e-18
-            sym = 'E'
-        elif scale >= 1e15:
-            mult = 1e-15
-            sym = 'P'
-        elif scale >= 1e12:
-            mult = 1e-12
-            sym = 'T'
-        elif scale >= 1e9:
-            mult = 1e-9
-            sym = 'G'
-        elif scale >= 1e6:
-            mult = 1e-6
-            sym = 'M'
-        elif scale >= 1e3:
-            mult = 1e-3
-            sym = 'k'
-    else:
+
+    if scale < 1e-24:
         full_units = True
+    elif scale < 1e-21:
+        # yocto
+        mult = 1e24
+        sym = 'y'
+    elif scale < 1e-19:
+        # zepto
+        mult = 1e21
+        sym = 'z'
+    elif scale < 1e-16:
+        # atto
+        mult = 1e18
+        sym = 'a'
+    elif scale < 1e-13:
+        # femto
+        mult = 1e15
+        sym = 'f'
+    elif scale < 1e-10:
+        # pico
+        mult = 1e12
+        sym = 'p'
+    elif scale < 1e-7:
+        # nano
+        mult = 1e9
+        sym = 'n'
+    elif scale < 1e-4:
+        # micro
+        mult = 1e6
+        sym = '{\mu}'
+    elif scale < 1e-1:
+        # milli
+        mult = 1e3
+        sym = 'm'
+    elif scale >= 1e27:
+        full_units = True
+    elif scale >= 1e24:
+        # yotta
+        mult = 1e-24
+        sym = 'Y'
+    elif scale >= 1e21:
+        # zetta
+        mult = 1e-21
+        sym = 'Z'
+    elif scale >= 1e18:
+        # exa
+        mult = 1e-18
+        sym = 'E'
+    elif scale >= 1e15:
+        # peta
+        mult = 1e-15
+        sym = 'P'
+    elif scale >= 1e12:
+        # tera
+        mult = 1e-12
+        sym = 'T'
+    elif scale >= 1e9:
+        # giga
+        mult = 1e-9
+        sym = 'G'
+    elif scale >= 1e6:
+        # mega
+        mult = 1e-6
+        sym = 'M'
+    elif scale >= 1e3:
+        # kilo
+        mult = 1e-3
+        sym = 'k'
+
     if full_units:
         scale = scale * mult
-        pwr = (-np.floor(np.log10(scale)))
+        if scale <= 0:
+            pwr = 0
+        else:
+            pwr = (-np.floor(np.log10(scale)))
         mult = mult * np.power(10.0, pwr)
-        remain = 1.0
         if np.rint(pwr) != 0:
             sym = "(10^{%.0f})" % (-pwr) + sym
-    else:
-        remain = scale * mult
-    return mult, sym, remain
+
+    return mult, sym
 
 
 def get_title(geom=False):
     global data
 
     t = data.Header['time']
-    mult, sym, remain = get_si_prefix(t)
+    mult, sym = get_si_prefix(t)
 
     stitle = r'$t = {:.3}{}s$'.format(mult * t, sym)
 
@@ -368,15 +368,15 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, cgs=False,
 
     if xscale == 0:
         length = max(abs(X[0]), abs(X[-1]))
-        mult_x, sym_x, remain_x = get_si_prefix(length)
+        mult_x, sym_x = get_si_prefix(length)
     else:
-        mult_x, sym_x, remain_x = get_si_prefix(xscale)
+        mult_x, sym_x = get_si_prefix(xscale)
 
     if yscale == 0:
         length = max(abs(Y[0]), abs(Y[-1]))
-        mult_y, sym_y, remain_y = get_si_prefix(length)
+        mult_y, sym_y = get_si_prefix(length)
     else:
-        mult_y, sym_y, remain_y = get_si_prefix(yscale)
+        mult_y, sym_y = get_si_prefix(yscale)
 
     X = mult_x * X
     Y = mult_y * Y
@@ -406,7 +406,7 @@ def oplot2d(*args, **kwargs):
 def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
            ix=None, iy=None, iz=None, reflect=0, norm=None, irange=None,
            jrange=None, hold=False, xscale=0, yscale=0, figure=None,
-           subplot=None):
+           subplot=None, add_cbar=True, cbar_label=True):
     global data, fig, im, cbar
     global x, y, mult_x, mult_y
 
@@ -488,11 +488,8 @@ def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
             except:
                 pass
 
-    grid = ImageGrid(figure, 111, nrows_ncols=(1, 1), axes_pad=0.1,
-                     cbar_mode='single')
-
     if subplot is None:
-        subplot = grid[0]
+        subplot = figure.add_subplot(111)
 
     if iso is None:
         iso = get_default_iso(data)
@@ -500,15 +497,15 @@ def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
     ext = list(var.grid.extents)
     if xscale == 0:
         length = max(abs(ext[i2]), abs(ext[i0]))
-        mult_x, sym_x, remain_x = get_si_prefix(length)
+        mult_x, sym_x = get_si_prefix(length)
     else:
-        mult_x, sym_x, remain_x = get_si_prefix(xscale)
+        mult_x, sym_x = get_si_prefix(xscale)
 
     if yscale == 0:
         length = max(abs(ext[i3]), abs(ext[i1]))
-        mult_y, sym_y, remain_y = get_si_prefix(length)
+        mult_y, sym_y = get_si_prefix(length)
     else:
-        mult_y, sym_y, remain_y = get_si_prefix(yscale)
+        mult_y, sym_y = get_si_prefix(yscale)
 
     if vrange == 1:
         v = np.max(abs(var_data))
@@ -572,34 +569,34 @@ def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
                        var.grid.units[i0] + ')$')
     subplot.set_ylabel(var.grid.labels[i1] + ' $(' + sym_y +
                        var.grid.units[i1] + ')$')
+
+    var_label = var.name + ' $(' + var.units + ')$'
+    title_text = None
     if full:
-        subplot.set_title(var.name + ' $(' + var.units + ')$, ' + get_title(),
-                          fontsize='large', y=1.03)
+        if add_cbar and cbar_label:
+            title_text = get_title()
+        else:
+            title_text = var_label + ', ' + get_title()
     elif title:
-        subplot.set_title(var.name + ' $(' + var.units + ')$',
-                          fontsize='large', y=1.03)
+        if not (add_cbar and cbar_label):
+            title_text = var_label
+
+    if title_text:
+        subplot.set_title(title_text, fontsize='large', y=1.03)
 
     subplot.axis('tight')
     if iso:
         subplot.axis('image')
 
-    if not hold:
+    if not hold and add_cbar:
+        ax = subplot.axes
         ca = subplot
-        aspectratio = remain_y / remain_x
-        # Limit the maximum aspect ratio to 1:3 one way or another
-        if aspectratio < 1.0/3.0:
-            aspectratio = 1.0/3.0
-        if aspectratio > 3.0:
-            aspectratio = 3.0
-        ratio_default = (ca.get_xlim()[1] - ca.get_xlim()[0]) \
-            / (ca.get_ylim()[1] - ca.get_ylim()[0])
-        ca.set_aspect(ratio_default*aspectratio)
-
-        cax = grid.cbar_axes[0]
-        cbar = figure.colorbar(im, cax=cax)
-        if (full or title):
-            cbar.set_label(var.name + ' $(' + var.units + ')$',
-                           fontsize='large', x=1.2)
+        divider = make_axes_locatable(ca)
+        cax = divider.append_axes("right", "5%", pad="3%")
+        cbar = figure.colorbar(im, cax=cax, ax=ax)
+        figure.sca(ax)
+        if (cbar_label and (full or title)):
+            cbar.set_label(var_label, fontsize='large', x=1.2)
     figure.canvas.draw()
 
     figure.set_tight_layout(True)
@@ -629,7 +626,7 @@ def plot_levels(var, r0=None, r1=None, nl=10, iso=None, out=False,
     if np.ndim(var.grid.data[0]) == 1:
         X, Y = np.meshgrid(var.grid.data[1], var.grid.data[0])
     else:
-        if var.grid.dims == var.dims:
+        if tuple(var.grid.dims) == tuple(var.dims):
             X = var.grid.data[0]
             Y = var.grid.data[1]
         else:
@@ -769,10 +766,9 @@ def getdata(fname, wkd=None, verbose=True):
     for key, value in data.__dict__.items():
         dims = []
         # Remove single element dimensions
-        # These are common in EPOCH output because of
         try:
             for element in value.dims:
-                dims.append([0L, element-1])
+                dims.append([0, element-1])
             subarray(value, dims)
         except:
             pass
@@ -909,7 +905,6 @@ def getdata(fname, wkd=None, verbose=True):
                 globals()[gkey] = var
                 builtins.__dict__[gkey] = var
 
-    data.list_variables = types.MethodType(list_variables, data)
     # X, Y = np.meshgrid(x, y)
     return data
 
@@ -1026,20 +1021,18 @@ def subarray(base, slices):
 
     subscripts = tuple_to_slice(slices)
     base.data = np.squeeze(base.data[subscripts])
-    base.dims = dims
+    base.dims = tuple(dims)
 
 
-def list_variables(self):
-    print("This file contains the following variables: ")
-    print("********************************************")
-    print("")
-    for element in self.__dict__.keys():
+def list_variables(data):
+    dct = data.__dict__
+    for key in sorted(dct):
         try:
-            # u = self.__dict__[element].grid
-            print(element)
+            val = dct[key]
+            print('{} {} {}'.format(key, type(val),
+                  np.array2string(np.array(val.dims), separator=', ')))
         except:
             pass
-    print("")
 
 
 pi = 3.141592653589793238462643383279503
