@@ -110,6 +110,8 @@ def get_si_prefix(scale, full_units=False):
         # milli
         mult = 1e3
         sym = 'm'
+    elif scale >= 1e27:
+        full_units = True
     elif scale >= 1e24:
         # yotta
         mult = 1e-24
@@ -142,8 +144,6 @@ def get_si_prefix(scale, full_units=False):
         # kilo
         mult = 1e-3
         sym = 'k'
-    else:
-        full_units = True
 
     if full_units:
         scale = scale * mult
@@ -406,7 +406,7 @@ def oplot2d(*args, **kwargs):
 def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
            ix=None, iy=None, iz=None, reflect=0, norm=None, irange=None,
            jrange=None, hold=False, xscale=0, yscale=0, figure=None,
-           subplot=None):
+           subplot=None, add_cbar=True, cbar_label=True):
     global data, fig, im, cbar
     global x, y, mult_x, mult_y
 
@@ -569,25 +569,34 @@ def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
                        var.grid.units[i0] + ')$')
     subplot.set_ylabel(var.grid.labels[i1] + ' $(' + sym_y +
                        var.grid.units[i1] + ')$')
+
+    var_label = var.name + ' $(' + var.units + ')$'
+    title_text = None
     if full:
-        subplot.set_title(var.name + ' $(' + var.units + ')$, ' + get_title(),
-                          fontsize='large', y=1.03)
+        if add_cbar and cbar_label:
+            title_text = get_title()
+        else:
+            title_text = var_label + ', ' + get_title()
     elif title:
-        subplot.set_title(var.name + ' $(' + var.units + ')$',
-                          fontsize='large', y=1.03)
+        if not (add_cbar and cbar_label):
+            title_text = var_label
+
+    if title_text:
+        subplot.set_title(title_text, fontsize='large', y=1.03)
 
     subplot.axis('tight')
     if iso:
         subplot.axis('image')
 
-    if not hold:
+    if not hold and add_cbar:
+        ax = subplot.axes
         ca = subplot
         divider = make_axes_locatable(ca)
         cax = divider.append_axes("right", "5%", pad="3%")
-        cbar = figure.colorbar(im, cax=cax)
-        if (full or title):
-            cbar.set_label(var.name + ' $(' + var.units + ')$',
-                           fontsize='large', x=1.2)
+        cbar = figure.colorbar(im, cax=cax, ax=ax)
+        figure.sca(ax)
+        if (cbar_label and (full or title)):
+            cbar.set_label(var_label, fontsize='large', x=1.2)
     figure.canvas.draw()
 
     figure.set_tight_layout(True)
@@ -1013,6 +1022,17 @@ def subarray(base, slices):
     subscripts = tuple_to_slice(slices)
     base.data = np.squeeze(base.data[subscripts])
     base.dims = tuple(dims)
+
+
+def list_variables(data):
+    dct = data.__dict__
+    for key in sorted(dct):
+        try:
+            val = dct[key]
+            print('{} {} {}'.format(key, type(val),
+                  np.array2string(np.array(val.dims), separator=', ')))
+        except:
+            pass
 
 
 pi = 3.141592653589793238462643383279503
