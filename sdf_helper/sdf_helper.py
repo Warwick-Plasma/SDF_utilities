@@ -569,12 +569,20 @@ def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
                        var.grid.units[i0] + ')$')
     subplot.set_ylabel(var.grid.labels[i1] + ' $(' + sym_y +
                        var.grid.units[i1] + ')$')
+
+    var_label = var.name + ' $(' + var.units + ')$'
+    title_text = None
     if full:
-        subplot.set_title(var.name + ' $(' + var.units + ')$, ' + get_title(),
-                          fontsize='large', y=1.03)
+        if add_cbar and cbar_label:
+            title_text = get_title()
+        else:
+            title_text = var_label + ', ' + get_title()
     elif title:
-        subplot.set_title(var.name + ' $(' + var.units + ')$',
-                          fontsize='large', y=1.03)
+        if not (add_cbar and cbar_label):
+            title_text = var_label
+
+    if title_text:
+        subplot.set_title(title_text, fontsize='large', y=1.03)
 
     subplot.axis('tight')
     if iso:
@@ -588,8 +596,7 @@ def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
         cbar = figure.colorbar(im, cax=cax, ax=ax)
         figure.sca(ax)
         if (cbar_label and (full or title)):
-            cbar.set_label(var.name + ' $(' + var.units + ')$',
-                           fontsize='large', x=1.2)
+            cbar.set_label(var_label, fontsize='large', x=1.2)
     figure.canvas.draw()
 
     figure.set_tight_layout(True)
