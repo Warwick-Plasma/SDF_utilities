@@ -406,7 +406,7 @@ def oplot2d(*args, **kwargs):
 def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
            ix=None, iy=None, iz=None, reflect=0, norm=None, irange=None,
            jrange=None, hold=False, xscale=0, yscale=0, figure=None,
-           subplot=None):
+           subplot=None, add_cbar=True, cbar_label=True):
     global data, fig, im, cbar
     global x, y, mult_x, mult_y
 
@@ -580,14 +580,14 @@ def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
     if iso:
         subplot.axis('image')
 
-    if not hold:
+    if not hold and add_cbar:
         ax = subplot.axes
         ca = subplot
         divider = make_axes_locatable(ca)
         cax = divider.append_axes("right", "5%", pad="3%")
         cbar = figure.colorbar(im, cax=cax, ax=ax)
         figure.sca(ax)
-        if (full or title):
+        if (cbar_label and (full or title)):
             cbar.set_label(var.name + ' $(' + var.units + ')$',
                            fontsize='large', x=1.2)
     figure.canvas.draw()
