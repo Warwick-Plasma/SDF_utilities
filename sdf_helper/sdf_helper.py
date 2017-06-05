@@ -722,7 +722,7 @@ def plot_contour(var, r0=None, r1=None, nl=10, iso=None, title=True):
                        title=title, levels=False)
 
 
-def getdata(fname, wkd=None, verbose=True):
+def getdata(fname, wkd=None, verbose=True, squeeze=False):
     global data, t, step, p, ppi, ppe, rho, ei, ee, vx, vy, vz, bx, by, bz
     global x, y, z, xc, yc, zc, grid, grid_mid
     global old_mtime, old_filename, old_size, cached
@@ -760,23 +760,26 @@ def getdata(fname, wkd=None, verbose=True):
         return data
 
     cached = False
-    fdict = {}
+
+    if squeeze:
+        for key, value in data.__dict__.items():
+            # Remove single element dimensions
+            try:
+                dims = []
+                for element in value.dims:
+                    dims.append([0, element-1])
+                subarray(value, dims)
+            except:
+                pass
 
     sdfdict = {}
     for key, value in data.__dict__.items():
-        dims = []
-        # Remove single element dimensions
-        try:
-            for element in value.dims:
-                dims.append([0, element-1])
-            subarray(value, dims)
-        except:
-            pass
         if hasattr(value, "id"):
             sdfdict[value.id] = value
         else:
             sdfdict[key] = value
 
+    fdict = {}
     table = {'time': 't'}
     k = 'Header'
     if k in sdfdict:
