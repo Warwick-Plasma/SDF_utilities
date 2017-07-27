@@ -30,7 +30,7 @@
 #include <mpi.h>
 #endif
 
-#define VERSION "2.6.4"
+#define VERSION "2.6.5"
 
 #define DBG_FLUSH() do { \
         if (h && h->dbg_buf) { \
