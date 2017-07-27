@@ -44,7 +44,7 @@ if [ $clean -le 1 ] ; then
     exit 1
   fi
   sh gen_commit_string.sh
-  gcc $OPT -o sdf2ascii sdf2ascii.c -lsdfc -ldl || errcode=1
+  gcc $OPT -o sdf2ascii sdf2ascii.c -lsdfc -ldl -lm || errcode=1
   gcc $OPT -o sdffilter sdffilter.c sdf_vtk_writer.c -lsdfc -ldl -lm || errcode=1
   gcc $OPT -o sdfdiff sdfdiff.c -lsdfc -ldl -lm || errcode=1
   ./sdf2ascii -V > /dev/null || rm -f sdf2ascii
