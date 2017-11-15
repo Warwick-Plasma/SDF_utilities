@@ -1207,7 +1207,7 @@ setup_namevalue(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
     double *dd;
     int32_t *il;
     int64_t *ll;
-    char *cc;
+    char *cc, **cp;
     Py_ssize_t i;
 
     block = (Block*)Block_alloc(sdf, b);
@@ -1262,6 +1262,15 @@ setup_namevalue(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
                     sub = Py_False;
                 PyDict_SetItemString(block->dict, b->material_names[i], sub);
                 cc++;
+            }
+            break;
+        case SDF_DATATYPE_CHARACTER:
+            cp = (char**)b->data;
+            for (i=0; i < b->ndims; i++) {
+                sub = PyASCII_FromString(*cp);
+                PyDict_SetItemString(block->dict, b->material_names[i], sub);
+                Py_DECREF(sub);
+                cp++;
             }
             break;
     }
