@@ -6,16 +6,18 @@ PYTHONCMD=`which python`
 
 clean=0
 errcode=0
+ascii=0
 CFLAGS="-DSDF_DEBUG_ALL -D_XOPEN_SOURCE=600 -I$SDFDIR/include -L$SDFDIR/lib"
 OPT="$CFLAGS -O3 -g"
 
-while getopts crdph23 name
+while getopts crdpah23 name
 do
    case $name in
       c) clean=2 ;;
       r) clean=1 ;;
       d) OPT="$CFLAGS -g -O0 -Wall -Wno-unused-function -std=c99 -pedantic";
          PYDBG="-g" ;;
+      a) ascii=1 ;;
       2) PYTHONCMD=`which python2` ;;
       3) PYTHONCMD=`which python3` ;;
       h) cat <<EOF
@@ -23,6 +25,7 @@ build script options:
   -c: Clean up files. Do not build anything.
   -r: Rebuild. Clean up files and then build.
   -d: Build with debugging flags enabled.
+  -a: Build sdf2ascii script
   -2: Build for python2
   -3: Build for python3
 EOF
@@ -44,10 +47,12 @@ if [ $clean -le 1 ] ; then
     exit 1
   fi
   sh gen_commit_string.sh
-  gcc $OPT -o sdf2ascii sdf2ascii.c -lsdfc -ldl -lm || errcode=1
+  if [ $ascii -ne 0 ]; then
+    gcc $OPT -o sdf2ascii sdf2ascii.c -lsdfc -ldl -lm || errcode=1
+    ./sdf2ascii -V > /dev/null || rm -f sdf2ascii
+  fi
   gcc $OPT -o sdffilter sdffilter.c sdf_vtk_writer.c -lsdfc -ldl -lm || errcode=1
   gcc $OPT -o sdfdiff sdfdiff.c -lsdfc -ldl -lm || errcode=1
-  ./sdf2ascii -V > /dev/null || rm -f sdf2ascii
   # Test if python is new enough for the --user flag
   user=$($PYTHONCMD -c 'import sys, os
 newenough = sys.hexversion > 0x02060000
