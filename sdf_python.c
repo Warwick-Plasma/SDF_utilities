@@ -1198,16 +1198,36 @@ setup_constant(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
 }
 
 
+static char*
+get_unique_attr(Block *block, char *attr_in)
+{
+    int len;
+    char *attr = attr_in;
+
+    if (!block)
+        return attr;
+
+    if (PyObject_HasAttrString((PyObject*)block, attr_in)) {
+        len = strlen(attr_in);
+        attr = calloc(len + 2, sizeof(char));
+        memcpy(attr, attr_in, len);
+        attr[len] = '_';
+    }
+
+    return attr;
+}
+
+
 static void
 setup_namevalue(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
 {
     Block *block = NULL;
-    PyObject *sub;
+    PyObject *sub, *dict2 = NULL;
     float *ff;
     double *dd;
     int32_t *il;
     int64_t *ll;
-    char *cc;
+    char *cc, **cp, *attr;
     Py_ssize_t i;
 
     block = (Block*)Block_alloc(sdf, b);
@@ -1216,12 +1236,17 @@ setup_namevalue(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
     block->dict = PyDict_New();
     if (!block->dict) goto free_mem;
 
+    dict2 = PyDict_New();
+    if (!dict2) goto free_mem;
+
     switch(b->datatype) {
         case SDF_DATATYPE_REAL4:
             ff = (float*)b->data;
             for (i=0; i < b->ndims; i++) {
                 sub = PyFloat_FromDouble(*ff);
-                PyDict_SetItemString(block->dict, b->material_names[i], sub);
+                PyDict_SetItemString(dict2, b->material_names[i], sub);
+                attr = get_unique_attr(block, attr);
+                PyDict_SetItemString(block->dict, attr, sub);
                 Py_DECREF(sub);
                 ff++;
             }
@@ -1230,7 +1255,9 @@ setup_namevalue(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
             dd = (double*)b->data;
             for (i=0; i < b->ndims; i++) {
                 sub = PyFloat_FromDouble(*dd);
-                PyDict_SetItemString(block->dict, b->material_names[i], sub);
+                PyDict_SetItemString(dict2, b->material_names[i], sub);
+                attr = get_unique_attr(block, b->material_names[i]);
+                PyDict_SetItemString(block->dict, attr, sub);
                 Py_DECREF(sub);
                 dd++;
             }
@@ -1239,7 +1266,9 @@ setup_namevalue(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
             il = (int32_t*)b->data;
             for (i=0; i < b->ndims; i++) {
                 sub = PyLong_FromLong(*il);
-                PyDict_SetItemString(block->dict, b->material_names[i], sub);
+                PyDict_SetItemString(dict2, b->material_names[i], sub);
+                attr = get_unique_attr(block, b->material_names[i]);
+                PyDict_SetItemString(block->dict, attr, sub);
                 Py_DECREF(sub);
                 il++;
             }
@@ -1248,7 +1277,9 @@ setup_namevalue(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
             ll = (int64_t*)b->data;
             for (i=0; i < b->ndims; i++) {
                 sub = PyLong_FromLongLong(*ll);
-                PyDict_SetItemString(block->dict, b->material_names[i], sub);
+                PyDict_SetItemString(dict2, b->material_names[i], sub);
+                attr = get_unique_attr(block, b->material_names[i]);
+                PyDict_SetItemString(block->dict, attr, sub);
                 Py_DECREF(sub);
                 ll++;
             }
@@ -1260,12 +1291,26 @@ setup_namevalue(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
                     sub = Py_True;
                 else
                     sub = Py_False;
-                PyDict_SetItemString(block->dict, b->material_names[i], sub);
+                PyDict_SetItemString(dict2, b->material_names[i], sub);
+                attr = get_unique_attr(block, b->material_names[i]);
+                PyDict_SetItemString(block->dict, attr, sub);
                 cc++;
+            }
+            break;
+        case SDF_DATATYPE_CHARACTER:
+            cp = (char**)b->data;
+            for (i=0; i < b->ndims; i++) {
+                sub = PyASCII_FromString(*cp);
+                PyDict_SetItemString(dict2, b->material_names[i], sub);
+                attr = get_unique_attr(block, b->material_names[i]);
+                PyDict_SetItemString(block->dict, attr, sub);
+                Py_DECREF(sub);
+                cp++;
             }
             break;
     }
 
+    block->data = dict2;
     PyDict_SetItemString(dict, b->name, (PyObject*)block);
 
     Py_DECREF(block);
@@ -1273,6 +1318,7 @@ setup_namevalue(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
     return;
 
 free_mem:
+    if (dict2) Py_DECREF(dict2);
     if (block) Py_DECREF(block);
     return;
 }
