@@ -1860,7 +1860,7 @@ def ogrid(skip=None):
     X = np.multiply(mult_x, X)
     Y = np.multiply(mult_y, Y)
     plt.plot(X, Y, color='k', lw=0.5)
-    plt.plot(X.transpose(), Y.transpose(), color='k', lw=0.5, hold=True)
+    plt.plot(X.transpose(), Y.transpose(), color='k', lw=0.5)
 
 
 def plotgrid(fname=None, iso=None, title=True):
