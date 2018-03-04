@@ -1434,7 +1434,7 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
     double t0 = -DBL_MAX, t1 = DBL_MAX;
     BlockList *blocklist;
 
-    convert = 0; use_mmap = 1; use_dict = 0; use_derived = 1;
+    convert = 0; use_mmap = 0; use_dict = 0; use_derived = 1;
     mode = SDF_READ; comm = 0;
 
     if (!PyArg_ParseTupleAndKeywords(args, kw, "s|iiiiO!O!dd", kwlist, &file,
@@ -1442,13 +1442,16 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
             &stations, &PyList_Type, &variables, &t0, &t1))
         return NULL;
 
+    if (use_mmap)
+        PyErr_WarnEx(PyExc_DeprecationWarning, "mmap flag ignored", 1);
+
     sdf = (SDFObject*)type->tp_alloc(type, 0);
     if (!sdf) {
         PyErr_Format(PyExc_MemoryError, "Failed to allocate SDF object");
         return NULL;
     }
 
-    h = sdf_open(file, comm, mode, use_mmap);
+    h = sdf_open(file, comm, mode, 0);
     sdf->h = h;
     if (!sdf->h) {
         PyErr_Format(PyExc_IOError, "Failed to open file: '%s'", file);
@@ -1598,7 +1601,7 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
 
 static PyMethodDef SDF_methods[] = {
     {"read", (PyCFunction)SDF_read, METH_VARARGS | METH_KEYWORDS,
-     "read(file, [convert, mmap, dict, derived, stations, variables, t0, t1])\n"
+     "read(file, [convert, dict, derived, stations, variables, t0, t1])\n"
      "\nReads the SDF data and returns a dictionary of NumPy arrays.\n\n"
      "Parameters\n"
      "----------\n"
@@ -1606,8 +1609,6 @@ static PyMethodDef SDF_methods[] = {
      "    The name of the SDF file to open.\n"
      "convert : bool, optional\n"
      "    Convert double precision data to single when reading file.\n"
-     "mmap : bool, optional\n"
-     "    Use mmap to map file contents into memory.\n"
      "dict : bool, optional\n"
      "    Return file contents as a dictionary rather than member names.\n"
      "derived : bool, optional\n"
