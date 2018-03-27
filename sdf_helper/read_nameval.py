@@ -11,10 +11,10 @@ def parse_name_val(str, delim='=', include_strings=False):
 
   val = None
   try:
-    val = float(pair[1].strip())
+    val = int(pair[1].strip())
   except:
     try:
-      val = int(pair[1].strip())
+      val = float(pair[1].strip())
     except:
       if include_strings:
         val = pair[1].strip()
