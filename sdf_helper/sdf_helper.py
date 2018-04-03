@@ -38,8 +38,11 @@ try:
 except ImportError:
     got_mpl = False
 
+
 def read_nameval_stub():
     raise NameError('read_nameval not defined')
+
+
 try:
     from read_nameval import read_nameval
 except:
