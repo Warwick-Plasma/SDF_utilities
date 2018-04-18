@@ -1907,6 +1907,7 @@ int main(int argc, char **argv)
         case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
         case SDF_BLOCKTYPE_POINT_VARIABLE:
         case SDF_BLOCKTYPE_POINT_MESH:
+        case SDF_BLOCKTYPE_POINT_DERIVED:
             set_array_section(b);
             sdf_helper_read_data(h, b);
             pretty_print(h, b, idx);
