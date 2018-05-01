@@ -75,7 +75,7 @@ sys.exit(newenough)')
     uflags=
   fi
   CFLAGS="$OPT" $PYTHONCMD setup.py build $PYDBG -b pybuild install \
-      $uflags --record pybuild/files.txt
+      $uflags --record pybuild/files.txt || errcode=1
   which a2x > /dev/null 2>&1
   if [ $? -eq 0 ]; then
     for n in sdffilter sdf2ascii; do
