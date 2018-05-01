@@ -951,7 +951,8 @@ static void pretty_print_slice_finish(void)
 static void pretty_print_mesh(sdf_file_t *h, sdf_block_t *b, int idnum)
 {
     int *idx, *fac;
-    int i, n, rem, sz, left, digit, ncount, dim;
+    int i, rem, sz, left, digit, ncount, dim;
+    int64_t n, nelements;
     char *ptr;
     static const int fmtlen = 32;
     char **fmt;
@@ -1009,7 +1010,11 @@ static void pretty_print_mesh(sdf_file_t *h, sdf_block_t *b, int idnum)
     }
     ptr = b->grids[dim];
 
-    for (n = 0; n < b->nelements_local; n++) {
+    nelements = b->nelements_local;
+    if (b->blocktype == SDF_BLOCKTYPE_POINT_MESH)
+        nelements *= b->ndims;
+
+    for (n = 0; n < nelements; n++) {
         ncount++;
         if (ncount == 1) {
             if (format_number) printf("%i ", idnum);
