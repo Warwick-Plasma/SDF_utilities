@@ -1772,8 +1772,9 @@ static void print_data(sdf_block_t *b)
 int main(int argc, char **argv)
 {
     char *file = NULL;
-    int i, n, block, err, found, idx, len, range_start;
+    int i, n, block, found, idx, len, range_start;
     int nelements_max;
+    int err = 0;
     sdf_file_t *h;
     sdf_block_t *b, *next, *mesh, *mesh0;
     list_t *station_blocks;
@@ -1823,7 +1824,10 @@ int main(int argc, char **argv)
 
     if (derived && extension_info) sdf_extension_print_version(h);
 
-    if (!metadata && !contents) return close_files(h);
+    if (!metadata && !contents) {
+        err += close_files(h);
+        return err;
+    }
 
     if ((nrange == 0 && !variable_ids)
             || (nrange > 0 && range_list[0].start == 0)) {
@@ -1922,6 +1926,7 @@ int main(int argc, char **argv)
             print_data(b);
             break;
         default:
+            err++;
             printf("Unsupported blocktype %s\n",
                    sdf_blocktype_c[b->blocktype]);
         }
@@ -1977,7 +1982,8 @@ int main(int argc, char **argv)
     if (range_list) free(range_list);
     if (blocktype_mask) free(blocktype_mask);
 
-    return close_files(h);
+    err += close_files(h);
+    return err;
 }
 
 
