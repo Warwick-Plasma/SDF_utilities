@@ -1777,7 +1777,7 @@ int main(int argc, char **argv)
     int err = 0;
     sdf_file_t *h;
     sdf_block_t *b, *next, *mesh, *mesh0;
-    list_t *station_blocks;
+    list_t *station_blocks, *station_blocks_sorted;
     comm_t comm;
     char zero[16] = {0};
 
@@ -1933,6 +1933,24 @@ int main(int argc, char **argv)
     }
 
     pretty_print_slice_finish();
+
+    list_init(&station_blocks_sorted);
+    variable_last_id = variable_ids;
+    while (variable_last_id) {
+        b = list_start(station_blocks);
+        for (i = 0; i < station_blocks->count; i++) {
+            if (!memcmp(b->id, variable_last_id->id,
+                    strlen(variable_last_id->id)+1)) {
+                list_append(station_blocks_sorted, b);
+                found = 1;
+                break;
+            }
+            b = list_next(station_blocks);
+        }
+        variable_last_id = variable_last_id->next;
+    }
+    list_destroy(&station_blocks);
+    station_blocks = station_blocks_sorted;
 
     if (mesh0 && (variable_ids || nrange > 0)) {
         if (ascii_header) {
