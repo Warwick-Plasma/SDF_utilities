@@ -1,6 +1,19 @@
 project(SDF_UTILITIES)
 cmake_minimum_required(VERSION 2.8.11)
 
+if(TARGET sdfc)
+    set(SDFC sdfc)
+else()
+    find_library(SDFC sdfc)
+    if(SDFC)
+        get_filename_component(LIBDIR ${SDFC} DIRECTORY)
+        find_path(SDFC_INCLUDE_DIR sdf.h HINTS ${LIBDIR}/../include)
+    else()
+        add_subdirectory(../C C)
+        set(SDFC sdfc)
+    endif()
+endif()
+
 set(CFLAGS "${CMAKE_C_FLAGS} -g")
 set(CXXFLAGS "${CMAKE_CXX_FLAGS} -g")
 if(${CMAKE_BUILD_TYPE}x STREQUAL "Debugx")
@@ -26,15 +39,15 @@ add_custom_target(
 
 add_executable(sdf2ascii sdf2ascii.c)
 add_dependencies(sdf2ascii commit_info.h)
-target_link_libraries(sdf2ascii sdfc dl m)
+target_link_libraries(sdf2ascii ${SDFC} dl m)
 
 add_executable(sdffilter sdffilter.c sdf_vtk_writer.c)
 add_dependencies(sdffilter commit_info.h)
-target_link_libraries(sdffilter sdfc dl m)
+target_link_libraries(sdffilter ${SDFC} dl m)
 
 add_executable(sdfdiff sdfdiff.c)
 add_dependencies(sdfdiff commit_info.h)
-target_link_libraries(sdfdiff sdfc dl m)
+target_link_libraries(sdfdiff ${SDFC} dl m)
 
 if(PARALLEL)
     add_definitions(-DPARALLEL)
@@ -56,7 +69,7 @@ if(BUILD_SDFPY)
    add_custom_command(OUTPUT build/timestamp
       COMMAND ${PYTHON_EXECUTABLE} setup.py build ${DEBUG_OPT}
       COMMAND ${CMAKE_COMMAND} -E touch build/timestamp
-      DEPENDS setup.py sdf_python.c sdfc commit_info.h)
+      DEPENDS setup.py sdf_python.c ${SDFC} commit_info.h)
    add_custom_target(sdfpy ALL DEPENDS build/timestamp)
 
    configure_file(sdfpy_install.cmake.in sdfpy_install.cmake)
