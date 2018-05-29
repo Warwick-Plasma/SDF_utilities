@@ -110,4 +110,4 @@ def read_deck_file_all(dir='', pref='', file='deck.status'):
 def pretty_print_struct(const):
     from json import dumps
 
-    print dumps(const, sort_keys=True, indent=4)
+    print(dumps(const, sort_keys=True, indent=4))
