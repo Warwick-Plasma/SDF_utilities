@@ -63,7 +63,7 @@ install(TARGETS sdf2ascii sdffilter sdfdiff DESTINATION bin COMPONENT
 
 set(BUILD_SDFPY ON CACHE BOOL "Build the Python interface")
 if(BUILD_SDFPY)
-   find_package(PythonInterp)
+   find_package(PythonInterp REQUIRED)
    configure_file(setup.py.in setup.py)
    add_custom_command(OUTPUT build/timestamp
       COMMAND ${PYTHON_EXECUTABLE} setup.py build ${DEBUG_OPT}
