@@ -63,15 +63,14 @@ install(TARGETS sdf2ascii sdffilter sdfdiff DESTINATION bin COMPONENT
 
 set(BUILD_SDFPY ON CACHE BOOL "Build the Python interface")
 if(BUILD_SDFPY)
-   find_package(PythonInterp)
+   find_package(PythonInterp REQUIRED)
    configure_file(setup.py.in setup.py)
-   configure_file(setup.cfg.in setup.cfg)
    add_custom_command(OUTPUT build/timestamp
       COMMAND ${PYTHON_EXECUTABLE} setup.py build ${DEBUG_OPT}
       COMMAND ${CMAKE_COMMAND} -E touch build/timestamp
       DEPENDS setup.py sdf_python.c ${SDFC} commit_info.h)
    add_custom_target(sdfpy ALL DEPENDS build/timestamp)
 
-   configure_file(sdfpy_install.cmake.in sdfpy_install.cmake)
+   configure_file(sdfpy_install.cmake.in sdfpy_install.cmake @ONLY)
    install(SCRIPT ${PROJECT_BINARY_DIR}/sdfpy_install.cmake COMPONENT sdfpy)
 endif()
