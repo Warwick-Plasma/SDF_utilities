@@ -1300,7 +1300,10 @@ static void print_metadata_plain_mesh(sdf_block_t *b)
     PRINTAR("dim_mults:", b->dim_mults, format_float, b->ndims);
     PRINTAR("dim_labels:", b->dim_labels, "%s", b->ndims);
     PRINTAR("dim_units:", b->dim_units, "%s", b->ndims);
-    PRINT("geometry:", sdf_geometry_c[b->geometry], "%s");
+    if (b->geometry >= 0 && b->geometry < sdf_geometry_len)
+        PRINT("geometry:", sdf_geometry_c[b->geometry], "%s");
+    else
+        PRINT("geometry:", b->geometry, "%i");
     PRINTAR("extents:", b->extents, format_float, 2*b->ndims);
     PRINTAR("dims:", b->dims, "%" PRIi64, b->ndims);
 }
@@ -1322,7 +1325,10 @@ static void print_metadata_point_mesh(sdf_block_t *b)
     PRINTAR("dim_mults", b->dim_mults, format_float, b->ndims);
     PRINTAR("dim_labels", b->dim_labels, "%s", b->ndims);
     PRINTAR("dim_units", b->dim_units, "%s", b->ndims);
-    PRINT("geometry:", sdf_geometry_c[b->geometry], "%s");
+    if (b->geometry >= 0 && b->geometry < sdf_geometry_len)
+        PRINT("geometry:", sdf_geometry_c[b->geometry], "%s");
+    else
+        PRINT("geometry:", b->geometry, "%i");
     PRINTAR("extents", b->extents, format_float, 2*b->ndims);
     //PRINTAR("dims", b->dims, "%" PRIi64, b->ndims);
     PRINT("nelements:", b->nelements, "%" PRIi64);
@@ -1345,7 +1351,10 @@ static void print_metadata_plain_variable(sdf_block_t *b)
     PRINT("units:", b->units, "%s");
     PRINT("mesh id:", b->mesh_id, "%s");
     PRINTAR("dims:", b->dims, "%" PRIi64, b->ndims);
-    PRINT("stagger:", sdf_stagger_c[b->stagger], "%s");
+    if (b->stagger >= 0 && b->stagger < sdf_stagger_len)
+        PRINT("stagger:", sdf_stagger_c[b->stagger], "%s");
+    else
+        PRINT("stagger:", b->stagger, "%i");
 }
 
 
@@ -1395,7 +1404,10 @@ static void print_metadata_cpu_split(sdf_block_t *b)
     // - dims      INTEGER(i4), DIMENSION(ndims)
 
     SET_WIDTH("geometry:");
-    PRINT("geometry:", sdf_geometry_c[b->geometry], "%s");
+    if (b->geometry >= 0 && b->geometry < sdf_geometry_len)
+        PRINT("geometry:", sdf_geometry_c[b->geometry], "%s");
+    else
+        PRINT("geometry:", b->geometry, "%i");
     PRINTAR("dims:", b->dims, "%" PRIi64, b->ndims);
 }
 
@@ -1447,7 +1459,10 @@ static void print_metadata_stitched(sdf_block_t *b)
     // - varids    ndims*CHARACTER(id_length)
 
     SET_WIDTH("variable ids:");
-    PRINT("stagger:", sdf_stagger_c[b->stagger], "%s");
+    if (b->stagger >= 0 && b->stagger < sdf_stagger_len)
+        PRINT("stagger:", sdf_stagger_c[b->stagger], "%s");
+    else
+        PRINT("stagger:", b->stagger, "%i");
     PRINT("mesh id:", b->mesh_id, "%s");
     PRINTAR("variable ids:", b->variable_ids, "%s", b->ndims);
 }
@@ -1462,7 +1477,10 @@ static void print_metadata_stitched_material(sdf_block_t *b)
     // - varids    ndims*CHARACTER(id_length)
 
     SET_WIDTH("material names:");
-    PRINT("stagger:", sdf_stagger_c[b->stagger], "%s");
+    if (b->stagger >= 0 && b->stagger < sdf_stagger_len)
+        PRINT("stagger:", sdf_stagger_c[b->stagger], "%s");
+    else
+        PRINT("stagger:", b->stagger, "%i");
     PRINT("mesh id:", b->mesh_id, "%s");
     PRINTAR("material names:", b->material_names, "%s", b->ndims);
     PRINTAR("variable ids:", b->variable_ids, "%s", b->ndims);
@@ -1478,7 +1496,10 @@ static void print_metadata_stitched_matvar(sdf_block_t *b)
     // - varids    ndims*CHARACTER(id_length)
 
     SET_WIDTH("variable ids:");
-    PRINT("stagger:", sdf_stagger_c[b->stagger], "%s");
+    if (b->stagger >= 0 && b->stagger < sdf_stagger_len)
+        PRINT("stagger:", sdf_stagger_c[b->stagger], "%s");
+    else
+        PRINT("stagger:", b->stagger, "%i");
     PRINT("mesh id:", b->mesh_id, "%s");
     PRINT("material id:", b->material_id, "%s");
     PRINTAR("variable ids:", b->variable_ids, "%s", b->ndims);
@@ -1496,7 +1517,10 @@ static void print_metadata_stitched_species(sdf_block_t *b)
     // - varids    ndims*CHARACTER(id_length)
 
     SET_WIDTH("species names:");
-    PRINT("stagger:", sdf_stagger_c[b->stagger], "%s");
+    if (b->stagger >= 0 && b->stagger < sdf_stagger_len)
+        PRINT("stagger:", sdf_stagger_c[b->stagger], "%s");
+    else
+        PRINT("stagger:", b->stagger, "%i");
     PRINT("mesh id:", b->mesh_id, "%s");
     PRINT("material id:", b->material_id, "%s");
     PRINT("material name:", b->material_name, "%s");
@@ -1514,7 +1538,10 @@ static void print_metadata_stitched_obstacle_group(sdf_block_t *b)
     // - obstacle_names  ndims*CHARACTER(string_length)
 
     SET_WIDTH("volume fraction id:");
-    PRINT("stagger:", sdf_stagger_c[b->stagger], "%s");
+    if (b->stagger >= 0 && b->stagger < sdf_stagger_len)
+        PRINT("stagger:", sdf_stagger_c[b->stagger], "%s");
+    else
+        PRINT("stagger:", b->stagger, "%i");
     PRINT("obstacle id:", b->obstacle_id, "%s");
     PRINT("volume fraction id:", b->vfm_id, "%s");
     PRINTAR("obstacle names:", b->material_names, "%s", b->ndims);
@@ -1681,8 +1708,14 @@ static void print_metadata(sdf_block_t *b, int inum, int nblocks)
         SET_WIDTH("blocktype:");
 
     PRINT("name:", b->name, "%s");
-    PRINT("blocktype:", sdf_blocktype_c[b->blocktype], "%s");
-    PRINT("datatype:", sdf_datatype_c[b->datatype], "%s");
+    if (b->blocktype >= 0 && b->blocktype < sdf_blocktype_len)
+        PRINT("blocktype:", sdf_blocktype_c[b->blocktype], "%s");
+    else
+        PRINT("blocktype:", b->blocktype, "%i");
+    if (b->datatype >= 0 && b->datatype < sdf_datatype_len)
+        PRINT("datatype:", sdf_datatype_c[b->datatype], "%s");
+    else
+        PRINT("datatype:", b->datatype, "%i");
 
     if (verbose_metadata) {
         PRINT("ndims:", b->ndims, "%i");
@@ -1808,8 +1841,11 @@ int main(int argc, char **argv)
     if (h->nblocks < 0) {
         block = (-h->nblocks) / 64;
         err = -h->nblocks - 64 * block;
-        fprintf(stderr, "Error code %s found at block %i\n",
-                sdf_error_codes_c[err], block);
+        if (err >= 0 && err < sdf_error_codes_len)
+            fprintf(stderr, "Error code %s found at block %i\n",
+                    sdf_error_codes_c[err], block);
+        else
+            fprintf(stderr, "Error code %i found at block %i\n", err, block);
         if (output_file) free(output_file);
         output_file = NULL;
         //return 1;
@@ -1927,8 +1963,11 @@ int main(int argc, char **argv)
             break;
         default:
             err++;
-            printf("Unsupported blocktype %s\n",
-                   sdf_blocktype_c[b->blocktype]);
+            if (b->blocktype >= 0 && b->blocktype < sdf_blocktype_len)
+                printf("Unsupported blocktype %s\n",
+                       sdf_blocktype_c[b->blocktype]);
+            else
+                printf("Unsupported blocktype %i\n", b->blocktype);
         }
     }
 
