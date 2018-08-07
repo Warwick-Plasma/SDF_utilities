@@ -216,15 +216,81 @@ def get_default_iso(data):
     return iso
 
 
+def get_files(varname=None, wkd=None, base=None):
+    """Get a list of SDF filenames belonging to the same run
+
+       Parameters
+       ----------
+       varname : str
+           A variable name that must be present in the file
+       wkd : str
+           The directory in which to search
+       base : str
+           A representative filename or directory
+
+       Returns
+       -------
+       file_list : str array
+           An array of filenames
+    """
+    import os.path
+    import glob
+    global wkdir
+
+    if wkd is not None:
+        wkdir = wkd
+
+    if base:
+        if os.path.isfile(base[0]):
+            apath = os.path.abspath(base[0])
+        else:
+            apath = os.path.abspath(base)
+        wkdir = os.path.dirname(apath)
+        flist = glob.glob(wkdir + "/*.sdf")
+        flist.remove(apath)
+        flist = [apath] + sorted(flist)
+    else:
+        flist = glob.glob(wkdir + "/*[0-9][0-9]*.sdf")
+        if len(flist) == 0:
+            flist = glob.glob("*[0-9][0-9]*.sdf")
+        flist = sorted(flist)
+
+    # Find the job id
+    for f in flist:
+        try:
+            data = sdf.read(f, mmap=0)
+            job_id = data.Header['jobid1']
+            break
+        except:
+            pass
+
+    file_list = []
+
+    # Add all files matching the job id
+    for f in sorted(flist):
+        try:
+            data = sdf.read(f, mmap=0, dict=True)
+            file_job_id = data['Header']['jobid1']
+            if file_job_id == job_id:
+                if varname is None:
+                    file_list.append(f)
+                elif varname in data:
+                    file_list.append(f)
+        except:
+            pass
+
+    return file_list
+
+
 def get_time(time=0, wkd=None):
     global data, wkdir
 
     if wkd is not None:
         wkdir = wkd
 
-    flist = glob.glob(wkdir + "/[0-9]*.sdf")
+    flist = glob.glob(wkdir + "/*[0-9][0-9]*.sdf")
     if len(flist) == 0:
-        flist = glob.glob("./[0-9]*.sdf")
+        flist = glob.glob("*[0-9][0-9]*.sdf")
         if len(flist) == 0:
             print("No SDF files found")
             return
