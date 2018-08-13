@@ -25,7 +25,8 @@ setup(
             include_dirs=[numpy.get_include(), '.', '${SDFC_INCLUDE_DIR}'],
             library_dirs=['${SDFC_LIB_DIR}'], libraries=['${SDFC}'],
             extra_compile_args=['-O${OPT_LEVEL}', '-D_XOPEN_SOURCE=600']
-            + '@EXTRA_COMPILE_ARGS@'.replace(';', '\n').split()
+            + '@EXTRA_COMPILE_ARGS@'.replace(';', '\n').split(),
+            extra_link_args=['-Wl,-rpath=@CMAKE_INSTALL_PREFIX@/lib']
         )
     ],
     package_dir={'': '${CMAKE_CURRENT_SOURCE_DIR}'}
