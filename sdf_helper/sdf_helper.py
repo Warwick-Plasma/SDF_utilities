@@ -39,16 +39,6 @@ except ImportError:
     got_mpl = False
 
 
-def read_nameval_stub():
-    raise NameError('read_nameval not defined')
-
-
-try:
-    from read_nameval import read_nameval
-except:
-    print('Failed to import read_nameval')
-    read_nameval = read_nameval_stub
-
 # mpl.rcParams['interactive'] = True
 # hold()
 
