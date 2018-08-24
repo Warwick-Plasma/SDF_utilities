@@ -216,13 +216,11 @@ def get_default_iso(data):
     return iso
 
 
-def get_files(varname=None, wkd=None, base=None):
-    """Get a list of SDF filenames belonging to the same run
+def get_file_list(wkd=None, base=None):
+    """Get a list of SDF filenames containing sequence numbers
 
        Parameters
        ----------
-       varname : str
-           A variable name that must be present in the file
        wkd : str
            The directory in which to search
        base : str
@@ -255,6 +253,29 @@ def get_files(varname=None, wkd=None, base=None):
             flist = glob.glob("*[0-9][0-9]*.sdf")
         flist = sorted(flist)
 
+    return flist
+
+
+def get_files(varname=None, wkd=None, base=None):
+    """Get a list of SDF filenames belonging to the same run
+
+       Parameters
+       ----------
+       varname : str
+           A variable name that must be present in the file
+       wkd : str
+           The directory in which to search
+       base : str
+           A representative filename or directory
+
+       Returns
+       -------
+       file_list : str array
+           An array of filenames
+    """
+
+    flist = get_file_list(wkd=wkd, base=base)
+
     # Find the job id
     for f in flist:
         try:
@@ -285,16 +306,11 @@ def get_files(varname=None, wkd=None, base=None):
 def get_time(time=0, wkd=None):
     global data, wkdir
 
-    if wkd is not None:
-        wkdir = wkd
+    flist = get_file_list(wkd=wkd)
 
-    flist = glob.glob(wkdir + "/*[0-9][0-9]*.sdf")
     if len(flist) == 0:
-        flist = glob.glob("*[0-9][0-9]*.sdf")
-        if len(flist) == 0:
-            print("No SDF files found")
-            return
-        wkdir = '.'
+        print("No SDF files found")
+        return
 
     t = None
     t_old = -1
