@@ -280,6 +280,8 @@ def get_files(varname=None, wkd=None, base=None):
     for f in flist:
         try:
             data = sdf.read(f, mmap=0)
+            if len(data.__dict__) < 2:
+                continue
             job_id = data.Header['jobid1']
             break
         except:
@@ -291,6 +293,8 @@ def get_files(varname=None, wkd=None, base=None):
     for f in sorted(flist):
         try:
             data = sdf.read(f, mmap=0, dict=True)
+            if len(data) < 2:
+                continue
             file_job_id = data['Header']['jobid1']
             if file_job_id == job_id:
                 if varname is None:
