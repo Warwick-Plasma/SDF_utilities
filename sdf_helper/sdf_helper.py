@@ -393,6 +393,80 @@ def get_time(time=0, first=False, last=False, wkd=None, base=None, block=None):
     return data
 
 
+def get_step(step=0, first=False, last=False, wkd=None, base=None, block=None):
+    """Get an SDF dataset that matches a given step
+
+       Parameters
+       ----------
+       step : int
+           The step to search for. If specified then the dateset that is closest
+           to this step will be returned
+       first : bool
+           If set to True then the dataset with the earliest simulation step
+           will be returned
+       last : bool
+           If set to True then the dataset with the latest simulation step
+           will be returned
+       wkd : str
+           The directory in which to search
+       base : str
+           A representative filename or directory
+       block : sdf.BlockList
+           A representative sdf dataset
+
+       Returns
+       -------
+       data : sdf.BlockList
+           An SDF dataset
+    """
+    global data, wkdir
+
+    flist = get_file_list(wkd=wkd, base=base, block=block)
+
+    if len(flist) == 0:
+        print("No SDF files found")
+        return
+
+    if step is None and not first:
+        last = True
+
+    t = None
+    fname = None
+    if last:
+        t_old = -1e90
+    else:
+        t_old = 1e90
+
+    for f in flist:
+        dat_tmp = sdf.read(f)
+        if len(dat_tmp.__dict__) < 2:
+            continue
+
+        t = dat_tmp.Header['step']
+        if last:
+            if t > t_old:
+                fname = f
+                t_old = t
+        elif first:
+            if t < t_old:
+                fname = f
+                t_old = t
+        else:
+            td = abs(t - step)
+            if td < t_old:
+                t_old = td
+                fname = f
+                if td == 0:
+                    # Exact match found. No need to search further
+                    break
+
+    if fname is None:
+        raise Exception("No valid file found in directory: " + wkdir)
+
+    data = getdata(fname, verbose=False)
+    return data
+
+
 def get_latest(wkd=None, base=None, block=None):
     """Get the latest SDF dataset in a directory
 
@@ -410,7 +484,45 @@ def get_latest(wkd=None, base=None, block=None):
        data : sdf.BlockList
            An SDF dataset
     """
-    return get_time(last=True, wkd=wkd, base=base, block=base)
+    return get_step(last=True, wkd=wkd, base=base, block=base)
+
+
+def get_first(every=False, wkd=None, base=None, block=None):
+    if not every and not base:
+        base = get_newest_file(wkd=wkd, block=block)
+    return get_step(first=True, wkd=wkd, base=base, block=base)
+
+
+def get_last(every=False, wkd=None, base=None, block=None):
+    if not every and not base:
+        base = get_newest_file(wkd=wkd, block=block)
+    return get_step(last=True, wkd=wkd, base=base, block=base)
+
+
+def get_latest(**kwargs):
+    return get_last(**kwargs)
+
+
+def get_oldest_file(wkd=None, base=None, block=None):
+    import os.path
+
+    flist = get_file_list(wkd=wkd, base=base, block=block)
+    return min(flist, key=os.path.getmtime)
+
+
+def get_newest_file(wkd=None, base=None, block=None):
+    import os.path
+
+    flist = get_file_list(wkd=wkd, base=base, block=block)
+    return max(flist, key=os.path.getmtime)
+
+
+def get_oldest(**kwargs):
+    return getdata(get_oldest_file(**kwargs), verbose=False)
+
+
+def get_newest(**kwargs):
+    return getdata(get_newest_file(**kwargs), verbose=False)
 
 
 def set_wkdir(wkd):
