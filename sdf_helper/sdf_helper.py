@@ -798,7 +798,8 @@ def oplot2d(*args, **kwargs):
 def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
                  iso=None, fast=None, title=True, full=True, vrange=None,
                  reflect=0, norm=None, hold=False, xscale=0, yscale=0,
-                 figure=None, subplot=None, add_cbar=True, cbar_label=True):
+                 figure=None, subplot=None, add_cbar=True, cbar_label=True,
+                 **kwargs):
     import matplotlib as mpl
     global data, fig, im, cbar
     global mult_x, mult_y
@@ -900,21 +901,23 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
         ext[i1] = ext[i2]
         ext[i2] = e
         ext = [ext[i0], ext[i1], ext[i2], ext[i3]]
+        k = 'interpolation'
+        if k not in kwargs:
+            kwargs[k] = 'none'
         if vrange is None:
-            im = subplot.imshow(array.T, interpolation='none',
-                                origin='lower', extent=ext, cmap=cmap)
+            im = subplot.imshow(array.T, origin='lower', extent=ext, cmap=cmap,
+                                **kwargs)
         else:
-            im = subplot.imshow(array.T, interpolation='none',
-                                origin='lower', extent=ext, cmap=cmap,
-                                vmin=vrange[0], vmax=vrange[1])
+            im = subplot.imshow(array.T, origin='lower', extent=ext, cmap=cmap,
+                                vmin=vrange[0], vmax=vrange[1], **kwargs)
     else:
         X = np.multiply(mult_x, X)
         Y = np.multiply(mult_y, Y)
         if vrange is None:
-            im = subplot.pcolormesh(X, Y, array, cmap=cmap)
+            im = subplot.pcolormesh(X, Y, array, cmap=cmap, **kwargs)
         else:
             im = subplot.pcolormesh(X, Y, array, cmap=cmap,
-                                    vmin=vrange[0], vmax=vrange[1])
+                                    vmin=vrange[0], vmax=vrange[1], **kwargs)
 
     subplot.set_xlabel(xlabel)
     subplot.set_ylabel(ylabel)
@@ -954,7 +957,7 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
 def plot2d(var, iso=None, fast=None, title=True, full=True, vrange=None,
            ix=None, iy=None, iz=None, reflect=0, norm=None, irange=None,
            jrange=None, hold=False, xscale=0, yscale=0, figure=None,
-           subplot=None, add_cbar=True, cbar_label=True):
+           subplot=None, add_cbar=True, cbar_label=True, **kwargs):
     global data, fig, im, cbar
     global x, y, mult_x, mult_y
 
@@ -1041,7 +1044,7 @@ def plot2d(var, iso=None, fast=None, title=True, full=True, vrange=None,
                  title=title, full=full, vrange=vrange, reflect=reflect,
                  norm=norm, hold=hold, xscale=xscale, yscale=yscale,
                  figure=figure, subplot=subplot, add_cbar=add_cbar,
-                 cbar_label=cbar_label)
+                 cbar_label=cbar_label, **kwargs)
 
 
 def plot2d_update(var):
@@ -1053,7 +1056,7 @@ def plot2d_update(var):
 
 
 def plot_levels(var, r0=None, r1=None, nl=10, iso=None, out=False,
-                title=True, levels=True):
+                title=True, levels=True, **kwargs):
     global data
 
     try:
@@ -1090,7 +1093,17 @@ def plot_levels(var, r0=None, r1=None, nl=10, iso=None, out=False,
     else:
         ax = plt.gca()
 
-    cs = ax.contour(X, Y, var.data, levels=rl, colors='k', linewidths=0.5)
+    k = 'colors'
+    if k not in kwargs:
+        kwargs[k] = 'k'
+    k = 'linewidths'
+    if k not in kwargs:
+        kwargs[k] = 0.5
+    k = 'levels'
+    if k not in kwargs:
+        kwargs[k] = rl
+
+    cs = ax.contour(X, Y, var.data, **kwargs)
 
     if levels:
         fmt = {}
@@ -1160,9 +1173,9 @@ def plot_levels(var, r0=None, r1=None, nl=10, iso=None, out=False,
     plt.draw()
 
 
-def plot_contour(var, r0=None, r1=None, nl=10, iso=None, title=True):
+def plot_contour(var, r0=None, r1=None, nl=10, iso=None, title=True, **kwargs):
     return plot_levels(var, r0=r0, r1=r1, nl=nl, iso=iso, out=False,
-                       title=title, levels=False)
+                       title=title, levels=False, **kwargs)
 
 
 def getdata(fname, wkd=None, verbose=True, squeeze=False):
