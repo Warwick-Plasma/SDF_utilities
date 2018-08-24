@@ -216,7 +216,7 @@ def get_default_iso(data):
     return iso
 
 
-def get_file_list(wkd=None, base=None):
+def get_file_list(wkd=None, base=None, block=None):
     """Get a list of SDF filenames containing sequence numbers
 
        Parameters
@@ -225,6 +225,8 @@ def get_file_list(wkd=None, base=None):
            The directory in which to search
        base : str
            A representative filename or directory
+       block : sdf.BlockList
+           A representative sdf dataset
 
        Returns
        -------
@@ -238,7 +240,10 @@ def get_file_list(wkd=None, base=None):
     if wkd is not None:
         wkdir = wkd
 
-    if base:
+    if base is None and block is not None:
+        base = block.Header['filename']
+
+    if base is not None:
         if os.path.isfile(base[0]):
             apath = os.path.abspath(base[0])
         else:
@@ -256,7 +261,7 @@ def get_file_list(wkd=None, base=None):
     return flist
 
 
-def get_files(varname=None, wkd=None, base=None):
+def get_files(varname=None, wkd=None, base=None, block=None):
     """Get a list of SDF filenames belonging to the same run
 
        Parameters
@@ -267,6 +272,8 @@ def get_files(varname=None, wkd=None, base=None):
            The directory in which to search
        base : str
            A representative filename or directory
+       block : sdf.BlockList
+           A representative sdf dataset
 
        Returns
        -------
@@ -274,18 +281,23 @@ def get_files(varname=None, wkd=None, base=None):
            An array of filenames
     """
 
+    if block is not None:
+        base = block.Header['filename']
+        job_id = block.Header['jobid1']
+
     flist = get_file_list(wkd=wkd, base=base)
 
     # Find the job id
-    for f in flist:
-        try:
-            data = sdf.read(f, mmap=0)
-            if len(data.__dict__) < 2:
-                continue
-            job_id = data.Header['jobid1']
-            break
-        except:
-            pass
+    if block is None:
+        for f in flist:
+            try:
+                data = sdf.read(f, mmap=0)
+                if len(data.__dict__) < 2:
+                    continue
+                job_id = data.Header['jobid1']
+                break
+            except:
+                pass
 
     file_list = []
 
