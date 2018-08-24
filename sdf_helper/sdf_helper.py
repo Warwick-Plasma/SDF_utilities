@@ -319,36 +319,72 @@ def get_files(varname=None, wkd=None, base=None, block=None):
     return file_list
 
 
-def get_time(time=0, wkd=None):
+def get_time(time=0, first=False, last=False, wkd=None, base=None, block=None):
+    """Get an SDF dataset that matches a given time
+
+       Parameters
+       ----------
+       time : float
+           The time to search for. If specified then the dateset that is closest
+           to this time will be returned
+       first : bool
+           If set to True then the dataset with the earliest simulation time
+           will be returned
+       last : bool
+           If set to True then the dataset with the latest simulation time
+           will be returned
+       wkd : str
+           The directory in which to search
+       base : str
+           A representative filename or directory
+       block : sdf.BlockList
+           A representative sdf dataset
+
+       Returns
+       -------
+       data : sdf.BlockList
+           An SDF dataset
+    """
     global data, wkdir
 
-    flist = get_file_list(wkd=wkd)
+    flist = get_file_list(wkd=wkd, base=base, block=block)
 
     if len(flist) == 0:
         print("No SDF files found")
         return
 
+    if time is None and not first:
+        last = True
+
     t = None
-    t_old = -1
-    jobid = None
     fname = None
-    for f in sorted(flist):
+    if last:
+        t_old = -1e90
+    else:
+        t_old = 1e90
+
+    for f in flist:
         dat_tmp = sdf.read(f)
-        jobid_tmp = dat_tmp.Header['jobid1']
-        if jobid is None:
-            jobid = jobid_tmp
-        elif jobid != jobid_tmp:
+        if len(dat_tmp.__dict__) < 2:
             continue
 
         t = dat_tmp.Header['time']
-        if time is None:
+        if last:
             if t > t_old:
                 fname = f
                 t_old = t
-        else:
-            if t >= time - 1e-30:
+        elif first:
+            if t < t_old:
                 fname = f
-                break
+                t_old = t
+        else:
+            td = abs(t - time)
+            if td < t_old:
+                t_old = td
+                fname = f
+                if td < 1e-30:
+                    # Exact match found. No need to search further
+                    break
 
     if fname is None:
         raise Exception("No valid file found in directory: " + wkdir)
@@ -357,8 +393,24 @@ def get_time(time=0, wkd=None):
     return data
 
 
-def get_latest(wkd=None):
-    return get_time(time=None, wkd=wkd)
+def get_latest(wkd=None, base=None, block=None):
+    """Get the latest SDF dataset in a directory
+
+       Parameters
+       ----------
+       wkd : str
+           The directory in which to search
+       base : str
+           A representative filename or directory
+       block : sdf.BlockList
+           A representative sdf dataset
+
+       Returns
+       -------
+       data : sdf.BlockList
+           An SDF dataset
+    """
+    return get_time(last=True, wkd=wkd, base=base, block=base)
 
 
 def set_wkdir(wkd):
