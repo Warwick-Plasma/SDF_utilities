@@ -799,7 +799,7 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
                  iso=None, fast=None, title=True, full=True, vrange=None,
                  reflect=0, norm=None, hold=False, xscale=0, yscale=0,
                  figure=None, subplot=None, add_cbar=True, cbar_label=True,
-                 **kwargs):
+                 cbar_wd=5, **kwargs):
     import matplotlib as mpl
     global data, fig, im, cbar
     global mult_x, mult_y
@@ -943,7 +943,8 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
         ax = subplot.axes
         ca = subplot
         divider = make_axes_locatable(ca)
-        cax = divider.append_axes("right", "5%", pad="3%")
+        pad = int(0.6 * cbar_wd + 0.5)
+        cax = divider.append_axes("right", "%i%%"%cbar_wd, pad="%i%%"%pad)
         cbar = figure.colorbar(im, cax=cax, ax=ax)
         figure.sca(ax)
         if (cbar_label and (full or title)):
