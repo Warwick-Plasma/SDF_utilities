@@ -400,6 +400,9 @@ def get_time(time=0, first=False, last=False, wkd=None, base=None, block=None):
         print("No SDF files found")
         return
 
+    flist.sort(key=lambda x: os.path.getmtime(x))
+    job_id = get_job_id(flist, base=base, block=block)
+
     if time is None and not first:
         last = True
 
@@ -413,6 +416,8 @@ def get_time(time=0, first=False, last=False, wkd=None, base=None, block=None):
     for f in flist:
         dat_tmp = sdf.read(f)
         if len(dat_tmp.__dict__) < 2:
+            continue
+        if job_id != dat_tmp.Header['jobid1']:
             continue
 
         t = dat_tmp.Header['time']
@@ -474,6 +479,9 @@ def get_step(step=0, first=False, last=False, wkd=None, base=None, block=None):
         print("No SDF files found")
         return
 
+    flist.sort(key=lambda x: os.path.getmtime(x))
+    job_id = get_job_id(flist, base=base, block=block)
+
     if step is None and not first:
         last = True
 
@@ -487,6 +495,8 @@ def get_step(step=0, first=False, last=False, wkd=None, base=None, block=None):
     for f in flist:
         dat_tmp = sdf.read(f)
         if len(dat_tmp.__dict__) < 2:
+            continue
+        if job_id != dat_tmp.Header['jobid1']:
             continue
 
         t = dat_tmp.Header['step']
