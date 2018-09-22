@@ -518,14 +518,28 @@ def get_oldest_file(wkd=None, base=None, block=None):
     import os.path
 
     flist = get_file_list(wkd=wkd, base=base, block=block)
-    return min(flist, key=os.path.getmtime)
+    flist.sort(key=lambda x: os.path.getmtime(x))
+    for n in range(len(flist)):
+        f = flist[n]
+        data = sdf.read(f, mmap=0, dict=True)
+        if len(data) > 1:
+            return f
+
+    return None
 
 
 def get_newest_file(wkd=None, base=None, block=None):
     import os.path
 
     flist = get_file_list(wkd=wkd, base=base, block=block)
-    return max(flist, key=os.path.getmtime)
+    flist.sort(key=lambda x: os.path.getmtime(x))
+    for n in range(len(flist)):
+        f = flist[-n-1]
+        data = sdf.read(f, mmap=0, dict=True)
+        if len(data) > 1:
+            return f
+
+    return None
 
 
 def get_oldest(**kwargs):
