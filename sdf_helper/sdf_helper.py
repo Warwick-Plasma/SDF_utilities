@@ -266,6 +266,54 @@ def get_file_list(wkd=None, base=None, block=None):
     return flist
 
 
+def get_job_id(file_list=None, base=None, block=None):
+    """Get a representative job ID for a list of files
+
+       Parameters
+       ----------
+       file_list : str list
+           A list of filenames to search
+       base : str
+           A representative filename or directory
+       block : sdf.Block or sdf.BlockList
+           A representative sdf dataset or block
+
+       Returns
+       -------
+       job_id : str
+           The job ID
+    """
+
+    if block is not None and base is None:
+        if hasattr(block, 'blocklist'):
+            bl = block.blocklist
+            if hasattr(bl, 'Header') and 'filename' in bl.Header:
+                base = bl.Header['filename']
+        elif hasattr(block, 'Header') and 'filename' in block.Header:
+            base = block.Header['filename']
+
+    if base is not None:
+        try:
+            data = sdf.read(base, mmap=0)
+            if len(data.__dict__) > 1:
+                return data.Header['jobid1']
+        except:
+            pass
+
+    # Find the job id
+    if file_list is not None:
+        for f in file_list:
+            try:
+                data = sdf.read(f, mmap=0)
+                if len(data.__dict__) < 2:
+                    continue
+                return data.Header['jobid1']
+            except:
+                pass
+
+    return None
+
+
 def get_files(varname=None, wkd=None, base=None, block=None):
     """Get a list of SDF filenames belonging to the same run
 
@@ -291,29 +339,17 @@ def get_files(varname=None, wkd=None, base=None, block=None):
             bl = block.blocklist
             if hasattr(bl, 'Header') and 'filename' in bl.Header:
                 base = bl.Header['filename']
-                job_id = bl.Header['jobid1']
         elif hasattr(block, 'Header') and 'filename' in block.Header:
             base = block.Header['filename']
-            job_id = block.Header['jobid1']
 
     flist = get_file_list(wkd=wkd, base=base)
+    flist.sort(key=lambda x: os.path.getmtime(x))
 
-    # Find the job id
-    if block is None:
-        for f in flist:
-            try:
-                data = sdf.read(f, mmap=0)
-                if len(data.__dict__) < 2:
-                    continue
-                job_id = data.Header['jobid1']
-                break
-            except:
-                pass
-
-    file_list = []
+    job_id = get_job_id(flist, base=base, block=block)
 
     # Add all files matching the job id
-    for f in sorted(flist):
+    file_list = []
+    for f in flist:
         try:
             data = sdf.read(f, mmap=0, dict=True)
             if len(data) < 2:
