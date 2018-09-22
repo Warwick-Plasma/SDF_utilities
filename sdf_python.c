@@ -116,6 +116,7 @@ static const int typemap[] = {
 typedef struct {
     PyObject_HEAD
     sdf_file_t *h;
+    PyObject *blocklist;
 } SDFObject;
 
 
@@ -149,6 +150,7 @@ struct Block_struct {
     PyObject *material_names;
     PyObject *material_ids;
     PyObject *grid_id;
+    PyObject *blocklist;
     Block *grid;
     Block *grid_mid;
     Block *parent;
@@ -299,6 +301,7 @@ static PyMemberDef Block_members[] = {
     {"datatype", T_OBJECT_EX, offsetof(Block, datatype), 0, "Data type"},
     {"dims", T_OBJECT_EX, offsetof(Block, dims), 0, "Data dimensions"},
     {"data", T_OBJECT_EX, offsetof(Block, data), 0, "Block data contents"},
+    {"blocklist", T_OBJECT_EX, offsetof(Block, blocklist), 0, "Blocklist"},
     {"__dict__", T_OBJECT_EX, offsetof(Block, dict), READONLY},
     {NULL}  /* Sentinel */
 };
@@ -435,6 +438,9 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
         ob->grid_id = PyASCII_FromString(b->mesh_id);
         if (!ob->grid_id) goto error;
     }
+
+    ob->blocklist = sdf->blocklist;
+    if (!ob->blocklist) goto error;
 
     ob->data_length = PyLong_FromLongLong(b->data_length);
     if (!ob->data_length) goto error;
@@ -1470,6 +1476,19 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
 
     dict = PyDict_New();
     dict_id = PyDict_New();
+    sdf->blocklist = dict;
+
+    if (!use_dict) {
+        type = &BlockListType;
+        blocklist = (BlockList*)type->tp_alloc(type, 0);
+        if (!blocklist) {
+            Py_DECREF(dict_id);
+            PyErr_Format(PyExc_MemoryError, "Failed to allocate BlockList object");
+            return NULL;
+        }
+        blocklist->dict = dict;
+        sdf->blocklist = (PyObject*)blocklist;
+    }
 
     /* Add header */
     sub = fill_header(h);
@@ -1552,15 +1571,6 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
         Py_DECREF(sdf);
         return (PyObject*)dict;
     }
-
-    type = &BlockListType;
-    blocklist = (BlockList*)type->tp_alloc(type, 0);
-    if (!blocklist) {
-        Py_DECREF(dict_id);
-        PyErr_Format(PyExc_MemoryError, "Failed to allocate BlockList object");
-        return NULL;
-    }
-    blocklist->dict = dict;
 
     /* Mangle dictionary names */
     items_list = PyDict_Items(dict);
