@@ -314,7 +314,7 @@ def get_job_id(file_list=None, base=None, block=None):
     return None
 
 
-def get_files(varname=None, wkd=None, base=None, block=None):
+def get_files(varname=None, wkd=None, base=None, block=None, fast=True):
     """Get a list of SDF filenames belonging to the same run
 
        Parameters
@@ -327,6 +327,9 @@ def get_files(varname=None, wkd=None, base=None, block=None):
            A representative filename or directory
        block : sdf.Block or sdf.BlockList
            A representative sdf dataset or block
+       fast : bool
+           Assume that files follow strict datestamp ordering and exit once
+           the first file that doesn't match the job ID
 
        Returns
        -------
@@ -349,7 +352,7 @@ def get_files(varname=None, wkd=None, base=None, block=None):
 
     # Add all files matching the job id
     file_list = []
-    for f in flist:
+    for f in reversed(flist):
         try:
             data = sdf.read(f, mmap=0, dict=True)
             if len(data) < 2:
@@ -360,13 +363,16 @@ def get_files(varname=None, wkd=None, base=None, block=None):
                     file_list.append(f)
                 elif varname in data:
                     file_list.append(f)
+            elif len(file_list) > 0:
+                break
         except:
             pass
 
-    return file_list
+    return list(reversed(file_list))
 
 
-def get_time(time=0, first=False, last=False, wkd=None, base=None, block=None):
+def get_time(time=0, first=False, last=False, wkd=None, base=None, block=None,
+             fast=True):
     """Get an SDF dataset that matches a given time
 
        Parameters
@@ -386,6 +392,8 @@ def get_time(time=0, first=False, last=False, wkd=None, base=None, block=None):
            A representative filename or directory
        block : sdf.Block or sdf.BlockList
            A representative sdf dataset or block
+       fast : bool
+           Use a faster but less thorough method for returning first/last
 
        Returns
        -------
@@ -409,6 +417,7 @@ def get_time(time=0, first=False, last=False, wkd=None, base=None, block=None):
     t = None
     fname = None
     if last:
+        flist = list(reversed(flist))
         t_old = -1e90
     else:
         t_old = 1e90
@@ -422,10 +431,16 @@ def get_time(time=0, first=False, last=False, wkd=None, base=None, block=None):
 
         t = dat_tmp.Header['time']
         if last:
+            if fast:
+                fname = f
+                break
             if t > t_old:
                 fname = f
                 t_old = t
         elif first:
+            if fast:
+                fname = f
+                break
             if t < t_old:
                 fname = f
                 t_old = t
@@ -445,7 +460,8 @@ def get_time(time=0, first=False, last=False, wkd=None, base=None, block=None):
     return data
 
 
-def get_step(step=0, first=False, last=False, wkd=None, base=None, block=None):
+def get_step(step=0, first=False, last=False, wkd=None, base=None, block=None,
+             fast=True):
     """Get an SDF dataset that matches a given step
 
        Parameters
@@ -465,6 +481,8 @@ def get_step(step=0, first=False, last=False, wkd=None, base=None, block=None):
            A representative filename or directory
        block : sdf.Block or sdf.BlockList
            A representative sdf dataset or block
+       fast : bool
+           Use a faster but less thorough method for returning first/last
 
        Returns
        -------
@@ -488,6 +506,7 @@ def get_step(step=0, first=False, last=False, wkd=None, base=None, block=None):
     t = None
     fname = None
     if last:
+        flist = list(reversed(flist))
         t_old = -1e90
     else:
         t_old = 1e90
@@ -501,10 +520,16 @@ def get_step(step=0, first=False, last=False, wkd=None, base=None, block=None):
 
         t = dat_tmp.Header['step']
         if last:
+            if fast:
+                fname = f
+                break
             if t > t_old:
                 fname = f
                 t_old = t
         elif first:
+            if fast:
+                fname = f
+                break
             if t < t_old:
                 fname = f
                 t_old = t
