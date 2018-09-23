@@ -223,6 +223,8 @@ def get_file_list(wkd=None, base=None, block=None):
        ----------
        wkd : str
            The directory in which to search
+           If no other keyword arguments are passed, then the code will
+           automatically attempt to detect if this field is base or block
        base : str
            A representative filename or directory
        block : sdf.Block or sdf.BlockList
@@ -238,7 +240,13 @@ def get_file_list(wkd=None, base=None, block=None):
     global wkdir
 
     if wkd is not None:
-        wkdir = wkd
+        if os.path.isdir(wkd):
+            wkdir = wkd
+        elif os.path.ispath(wkd):
+            base = wkd
+        elif isinstance(wkd, sdf.BlockList) \
+                or isinstance(wkd, sdf.Block) or type(wkd) is dict:
+            block = wkd
 
     if base is None and block is not None:
         if hasattr(block, 'blocklist'):
@@ -273,6 +281,8 @@ def get_job_id(file_list=None, base=None, block=None):
        ----------
        file_list : str list
            A list of filenames to search
+           If no other keyword arguments are passed, then the code will
+           automatically attempt to detect if this field is base or block
        base : str
            A representative filename or directory
        block : sdf.Block or sdf.BlockList
@@ -283,6 +293,15 @@ def get_job_id(file_list=None, base=None, block=None):
        job_id : str
            The job ID
     """
+
+    if file_list is not None and type(file_list) is not list:
+        if os.path.ispath(file_list):
+            base = file_list
+            file_list = None
+        elif isinstance(file_list, sdf.BlockList) \
+                or isinstance(file_list, sdf.Block) or type(file_list) is dict:
+            block = file_list
+            file_list = None
 
     if block is not None and base is None:
         if hasattr(block, 'blocklist'):
@@ -314,19 +333,21 @@ def get_job_id(file_list=None, base=None, block=None):
     return None
 
 
-def get_files(varname=None, wkd=None, base=None, block=None, fast=True):
+def get_files(wkd=None, base=None, block=None, varname=None, fast=True):
     """Get a list of SDF filenames belonging to the same run
 
        Parameters
        ----------
-       varname : str
-           A variable name that must be present in the file
        wkd : str
            The directory in which to search
+           If no other keyword arguments are passed, then the code will
+           automatically attempt to detect if this field is base or block
        base : str
            A representative filename or directory
        block : sdf.Block or sdf.BlockList
            A representative sdf dataset or block
+       varname : str
+           A variable name that must be present in the file
        fast : bool
            Assume that files follow strict datestamp ordering and exit once
            the first file that doesn't match the job ID
@@ -336,6 +357,15 @@ def get_files(varname=None, wkd=None, base=None, block=None, fast=True):
        file_list : str array
            An array of filenames
     """
+
+    if wkd is not None:
+        if os.path.isdir(wkd):
+            wkdir = wkd
+        elif os.path.ispath(wkd):
+            base = wkd
+        elif isinstance(wkd, sdf.BlockList) \
+                or isinstance(wkd, sdf.Block) or type(wkd) is dict:
+            block = wkd
 
     if block is not None and base is None:
         if hasattr(block, 'blocklist'):
@@ -556,6 +586,8 @@ def get_latest(wkd=None, base=None, block=None):
        ----------
        wkd : str
            The directory in which to search
+           If no other keyword arguments are passed, then the code will
+           automatically attempt to detect if this field is base or block
        base : str
            A representative filename or directory
        block : sdf.Block or sdf.BlockList
