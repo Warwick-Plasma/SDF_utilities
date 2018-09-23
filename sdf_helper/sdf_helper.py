@@ -225,8 +225,8 @@ def get_file_list(wkd=None, base=None, block=None):
            The directory in which to search
        base : str
            A representative filename or directory
-       block : sdf.BlockList
-           A representative sdf dataset
+       block : sdf.Block or sdf.BlockList
+           A representative sdf dataset or block
 
        Returns
        -------
@@ -241,7 +241,12 @@ def get_file_list(wkd=None, base=None, block=None):
         wkdir = wkd
 
     if base is None and block is not None:
-        base = block.Header['filename']
+        if hasattr(block, 'blocklist'):
+            bl = block.blocklist
+            if hasattr(bl, 'Header') and 'filename' in bl.Header:
+                base = bl.Header['filename']
+        elif hasattr(block, 'Header') and 'filename' in block.Header:
+            base = block.Header['filename']
 
     if base is not None:
         if os.path.isfile(base[0]):
@@ -272,8 +277,8 @@ def get_files(varname=None, wkd=None, base=None, block=None):
            The directory in which to search
        base : str
            A representative filename or directory
-       block : sdf.BlockList
-           A representative sdf dataset
+       block : sdf.Block or sdf.BlockList
+           A representative sdf dataset or block
 
        Returns
        -------
@@ -281,9 +286,15 @@ def get_files(varname=None, wkd=None, base=None, block=None):
            An array of filenames
     """
 
-    if block is not None:
-        base = block.Header['filename']
-        job_id = block.Header['jobid1']
+    if block is not None and base is None:
+        if hasattr(block, 'blocklist'):
+            bl = block.blocklist
+            if hasattr(bl, 'Header') and 'filename' in bl.Header:
+                base = bl.Header['filename']
+                job_id = bl.Header['jobid1']
+        elif hasattr(block, 'Header') and 'filename' in block.Header:
+            base = block.Header['filename']
+            job_id = block.Header['jobid1']
 
     flist = get_file_list(wkd=wkd, base=base)
 
@@ -337,8 +348,8 @@ def get_time(time=0, first=False, last=False, wkd=None, base=None, block=None):
            The directory in which to search
        base : str
            A representative filename or directory
-       block : sdf.BlockList
-           A representative sdf dataset
+       block : sdf.Block or sdf.BlockList
+           A representative sdf dataset or block
 
        Returns
        -------
@@ -411,8 +422,8 @@ def get_step(step=0, first=False, last=False, wkd=None, base=None, block=None):
            The directory in which to search
        base : str
            A representative filename or directory
-       block : sdf.BlockList
-           A representative sdf dataset
+       block : sdf.Block or sdf.BlockList
+           A representative sdf dataset or block
 
        Returns
        -------
@@ -476,8 +487,8 @@ def get_latest(wkd=None, base=None, block=None):
            The directory in which to search
        base : str
            A representative filename or directory
-       block : sdf.BlockList
-           A representative sdf dataset
+       block : sdf.Block or sdf.BlockList
+           A representative sdf dataset or block
 
        Returns
        -------
