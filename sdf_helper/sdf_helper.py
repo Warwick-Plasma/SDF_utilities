@@ -1033,9 +1033,9 @@ def plot2d(var, iso=None, fast=None, title=True, full=True, vrange=None,
     else:
         mult_y, sym_y = get_si_prefix(yscale)
 
-    xlabel = var.grid.labels[i0] + ' $('
+    xlabel = var.grid.labels[i0] + ' $(' \
              + escape_latex(sym_x + var.grid.units[i0]) + ')$'
-    ylabel = var.grid.labels[i1] + ' $('
+    ylabel = var.grid.labels[i1] + ' $(' \
              + escape_latex(sym_y + var.grid.units[i1]) + ')$'
 
     var_label = var.name + ' $(' + escape_latex(var.units) + ')$'
