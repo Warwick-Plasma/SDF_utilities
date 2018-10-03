@@ -550,6 +550,7 @@ def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
         e = ext[i1]
         ext[i1] = ext[i2]
         ext[i2] = e
+        ext = [ext[i0], ext[i1], ext[i2], ext[i3]]
         if vrange is None:
             im = subplot.imshow(var_data.T, interpolation='none',
                                 origin='lower', extent=ext, cmap=cmap)
