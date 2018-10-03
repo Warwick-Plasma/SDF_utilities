@@ -39,16 +39,6 @@ except ImportError:
     got_mpl = False
 
 
-def read_nameval_stub():
-    raise NameError('read_nameval not defined')
-
-
-try:
-    from read_nameval import read_nameval
-except:
-    print('Failed to import read_nameval')
-    read_nameval = read_nameval_stub
-
 # mpl.rcParams['interactive'] = True
 # hold()
 
@@ -397,10 +387,11 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, cgs=False,
     else:
         subplot.plot(X, Y, **kwargs)
 
-    subplot.set_xlabel(grid.labels[xdir] + ' $(' + sym_x +
-                       grid.units[xdir] + ')$')
+    subplot.set_xlabel(grid.labels[xdir] + ' $('
+                       + escape_latex(sym_x + grid.units[xdir]) + ')$')
     if set_ylabel:
-        subplot.set_ylabel(var.name + ' $(' + sym_y + var.units + ')$')
+        subplot.set_ylabel(var.name + ' $('
+                           + escape_latex(sym_y + var.units) + ')$')
 
     if title:
         subplot.set_title(get_title(), fontsize='large', y=1.03)
@@ -560,11 +551,12 @@ def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
         e = ext[i1]
         ext[i1] = ext[i2]
         ext[i2] = e
+        ext = [ext[i0], ext[i1], ext[i2], ext[i3]]
         if vrange is None:
             im = subplot.imshow(var_data.T, interpolation='none',
                                 origin='lower', extent=ext, cmap=cmap)
         else:
-            im = subplot.imshow(var_data, interpolation='none',
+            im = subplot.imshow(var_data.T, interpolation='none',
                                 origin='lower', extent=ext, cmap=cmap,
                                 vmin=vrange[0], vmax=vrange[1])
     else:
@@ -576,12 +568,12 @@ def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
             im = subplot.pcolormesh(X, Y, var_data, cmap=cmap,
                                     vmin=vrange[0], vmax=vrange[1])
 
-    subplot.set_xlabel(var.grid.labels[i0] + ' $(' + sym_x +
-                       var.grid.units[i0] + ')$')
-    subplot.set_ylabel(var.grid.labels[i1] + ' $(' + sym_y +
-                       var.grid.units[i1] + ')$')
+    subplot.set_xlabel(var.grid.labels[i0] + ' $('
+                       + escape_latex(sym_x + var.grid.units[i0]) + ')$')
+    subplot.set_ylabel(var.grid.labels[i1] + ' $('
+                       + escape_latex(sym_y + var.grid.units[i1]) + ')$')
 
-    var_label = var.name + ' $(' + var.units + ')$'
+    var_label = var.name + ' $(' + escape_latex(var.units) + ')$'
     title_text = None
     if full:
         if add_cbar and cbar_label:
@@ -700,8 +692,10 @@ def plot_levels(var, r0=None, r1=None, nl=10, iso=None, out=False,
 
         plt.clabel(cs, cs.levels, fmt=fmt, inline_spacing=2, fontsize=8)
 
-    ax.set_xlabel(var.grid.labels[0] + ' $(' + var.grid.units[0] + ')$')
-    ax.set_ylabel(var.grid.labels[1] + ' $(' + var.grid.units[1] + ')$')
+    ax.set_xlabel(var.grid.labels[0] + ' $('
+                  + escape_latex(var.grid.units[0]) + ')$')
+    ax.set_ylabel(var.grid.labels[1] + ' $('
+                  + escape_latex(var.grid.units[1]) + ')$')
 
     if title:
         if out:
@@ -950,8 +944,8 @@ def plotgrid(fname=None, iso=None, title=True):
 
     ax = plt.gca()
 
-    ax.set_xlabel(grid.labels[0] + ' $(' + grid.units[0] + ')$')
-    ax.set_ylabel(grid.labels[1] + ' $(' + grid.units[1] + ')$')
+    ax.set_xlabel(grid.labels[0] + ' $(' + escape_latex(grid.units[0]) + ')$')
+    ax.set_ylabel(grid.labels[1] + ' $(' + escape_latex(grid.units[1]) + ')$')
 
     if title:
         plt.title(get_title(), fontsize='large', y=1.03)
@@ -1047,6 +1041,10 @@ def list_variables(data):
                   np.array2string(np.array(val.dims), separator=', ')))
         except:
             pass
+
+
+def escape_latex(string):
+    return string.replace('%', '\%')
 
 
 pi = 3.141592653589793238462643383279503

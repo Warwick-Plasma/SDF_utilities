@@ -1245,7 +1245,7 @@ setup_namevalue(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
             for (i=0; i < b->ndims; i++) {
                 sub = PyFloat_FromDouble(*ff);
                 PyDict_SetItemString(dict2, b->material_names[i], sub);
-                attr = get_unique_attr(block, attr);
+                attr = get_unique_attr(block, b->material_names[i]);
                 PyDict_SetItemString(block->dict, attr, sub);
                 Py_DECREF(sub);
                 ff++;
