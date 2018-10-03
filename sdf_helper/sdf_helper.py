@@ -216,41 +216,272 @@ def get_default_iso(data):
     return iso
 
 
-def get_time(time=0, wkd=None):
-    global data, wkdir
+def get_file_list(wkd=None, base=None, block=None):
+    """Get a list of SDF filenames containing sequence numbers
+
+       Parameters
+       ----------
+       wkd : str
+           The directory in which to search
+           If no other keyword arguments are passed, then the code will
+           automatically attempt to detect if this field is base or block
+       base : str
+           A representative filename or directory
+       block : sdf.Block or sdf.BlockList
+           A representative sdf dataset or block
+
+       Returns
+       -------
+       file_list : str array
+           An array of filenames
+    """
+    import os.path
+    import glob
+    global wkdir
 
     if wkd is not None:
-        wkdir = wkd
+        if os.path.isdir(wkd):
+            wkdir = wkd
+        elif os.path.ispath(wkd):
+            base = wkd
+        elif isinstance(wkd, sdf.BlockList) \
+                or isinstance(wkd, sdf.Block) or type(wkd) is dict:
+            block = wkd
 
-    flist = glob.glob(wkdir + "/[0-9]*.sdf")
-    if len(flist) == 0:
-        flist = glob.glob("./[0-9]*.sdf")
+    if base is None and block is not None:
+        if hasattr(block, 'blocklist'):
+            bl = block.blocklist
+            if hasattr(bl, 'Header') and 'filename' in bl.Header:
+                base = bl.Header['filename']
+        elif hasattr(block, 'Header') and 'filename' in block.Header:
+            base = block.Header['filename']
+
+    if base is not None:
+        if os.path.isfile(base[0]):
+            apath = os.path.abspath(base[0])
+        else:
+            apath = os.path.abspath(base)
+        wkdir = os.path.dirname(apath)
+        flist = glob.glob(wkdir + "/*.sdf")
+        flist.remove(apath)
+        flist = [apath] + sorted(flist)
+    else:
+        flist = glob.glob(wkdir + "/*[0-9][0-9]*.sdf")
         if len(flist) == 0:
-            print("No SDF files found")
-            return
-        wkdir = '.'
+            flist = glob.glob("*[0-9][0-9]*.sdf")
+        flist = sorted(flist)
+
+    return flist
+
+
+def get_job_id(file_list=None, base=None, block=None):
+    """Get a representative job ID for a list of files
+
+       Parameters
+       ----------
+       file_list : str list
+           A list of filenames to search
+           If no other keyword arguments are passed, then the code will
+           automatically attempt to detect if this field is base or block
+       base : str
+           A representative filename or directory
+       block : sdf.Block or sdf.BlockList
+           A representative sdf dataset or block
+
+       Returns
+       -------
+       job_id : str
+           The job ID
+    """
+
+    if file_list is not None and type(file_list) is not list:
+        if os.path.ispath(file_list):
+            base = file_list
+            file_list = None
+        elif isinstance(file_list, sdf.BlockList) \
+                or isinstance(file_list, sdf.Block) or type(file_list) is dict:
+            block = file_list
+            file_list = None
+
+    if block is not None and base is None:
+        if hasattr(block, 'blocklist'):
+            bl = block.blocklist
+            if hasattr(bl, 'Header') and 'filename' in bl.Header:
+                base = bl.Header['filename']
+        elif hasattr(block, 'Header') and 'filename' in block.Header:
+            base = block.Header['filename']
+
+    if base is not None:
+        try:
+            data = sdf.read(base, mmap=0)
+            if len(data.__dict__) > 1:
+                return data.Header['jobid1']
+        except:
+            pass
+
+    # Find the job id
+    if file_list is not None:
+        for f in file_list:
+            try:
+                data = sdf.read(f, mmap=0)
+                if len(data.__dict__) < 2:
+                    continue
+                return data.Header['jobid1']
+            except:
+                pass
+
+    return None
+
+
+def get_files(wkd=None, base=None, block=None, varname=None, fast=True):
+    """Get a list of SDF filenames belonging to the same run
+
+       Parameters
+       ----------
+       wkd : str
+           The directory in which to search
+           If no other keyword arguments are passed, then the code will
+           automatically attempt to detect if this field is base or block
+       base : str
+           A representative filename or directory
+       block : sdf.Block or sdf.BlockList
+           A representative sdf dataset or block
+       varname : str
+           A variable name that must be present in the file
+       fast : bool
+           Assume that files follow strict datestamp ordering and exit once
+           the first file that doesn't match the job ID
+
+       Returns
+       -------
+       file_list : str array
+           An array of filenames
+    """
+
+    if wkd is not None:
+        if os.path.isdir(wkd):
+            wkdir = wkd
+        elif os.path.ispath(wkd):
+            base = wkd
+        elif isinstance(wkd, sdf.BlockList) \
+                or isinstance(wkd, sdf.Block) or type(wkd) is dict:
+            block = wkd
+
+    if block is not None and base is None:
+        if hasattr(block, 'blocklist'):
+            bl = block.blocklist
+            if hasattr(bl, 'Header') and 'filename' in bl.Header:
+                base = bl.Header['filename']
+        elif hasattr(block, 'Header') and 'filename' in block.Header:
+            base = block.Header['filename']
+
+    flist = get_file_list(wkd=wkd, base=base)
+    flist.sort(key=lambda x: os.path.getmtime(x))
+
+    job_id = get_job_id(flist, base=base, block=block)
+
+    # Add all files matching the job id
+    file_list = []
+    for f in reversed(flist):
+        try:
+            data = sdf.read(f, mmap=0, dict=True)
+            if len(data) < 2:
+                continue
+            file_job_id = data['Header']['jobid1']
+            if file_job_id == job_id:
+                if varname is None:
+                    file_list.append(f)
+                elif varname in data:
+                    file_list.append(f)
+            elif len(file_list) > 0:
+                break
+        except:
+            pass
+
+    return list(reversed(file_list))
+
+
+def get_time(time=0, first=False, last=False, wkd=None, base=None, block=None,
+             fast=True):
+    """Get an SDF dataset that matches a given time
+
+       Parameters
+       ----------
+       time : float
+           The time to search for. If specified then the dateset that is closest
+           to this time will be returned
+       first : bool
+           If set to True then the dataset with the earliest simulation time
+           will be returned
+       last : bool
+           If set to True then the dataset with the latest simulation time
+           will be returned
+       wkd : str
+           The directory in which to search
+       base : str
+           A representative filename or directory
+       block : sdf.Block or sdf.BlockList
+           A representative sdf dataset or block
+       fast : bool
+           Use a faster but less thorough method for returning first/last
+
+       Returns
+       -------
+       data : sdf.BlockList
+           An SDF dataset
+    """
+    global data, wkdir
+
+    flist = get_file_list(wkd=wkd, base=base, block=block)
+
+    if len(flist) == 0:
+        print("No SDF files found")
+        return
+
+    flist.sort(key=lambda x: os.path.getmtime(x))
+    job_id = get_job_id(flist, base=base, block=block)
+
+    if time is None and not first:
+        last = True
 
     t = None
-    t_old = -1
-    jobid = None
     fname = None
-    for f in sorted(flist):
+    if last:
+        flist = list(reversed(flist))
+        t_old = -1e90
+    else:
+        t_old = 1e90
+
+    for f in flist:
         dat_tmp = sdf.read(f)
-        jobid_tmp = dat_tmp.Header['jobid1']
-        if jobid is None:
-            jobid = jobid_tmp
-        elif jobid != jobid_tmp:
+        if len(dat_tmp.__dict__) < 2:
+            continue
+        if job_id != dat_tmp.Header['jobid1']:
             continue
 
         t = dat_tmp.Header['time']
-        if time is None:
+        if last:
+            if fast:
+                fname = f
+                break
             if t > t_old:
                 fname = f
                 t_old = t
-        else:
-            if t >= time - 1e-30:
+        elif first:
+            if fast:
                 fname = f
                 break
+            if t < t_old:
+                fname = f
+                t_old = t
+        else:
+            td = abs(t - time)
+            if td < t_old:
+                t_old = td
+                fname = f
+                if td < 1e-30:
+                    # Exact match found. No need to search further
+                    break
 
     if fname is None:
         raise Exception("No valid file found in directory: " + wkdir)
@@ -259,8 +490,167 @@ def get_time(time=0, wkd=None):
     return data
 
 
-def get_latest(wkd=None):
-    return get_time(time=None, wkd=wkd)
+def get_step(step=0, first=False, last=False, wkd=None, base=None, block=None,
+             fast=True):
+    """Get an SDF dataset that matches a given step
+
+       Parameters
+       ----------
+       step : int
+           The step to search for. If specified then the dateset that is closest
+           to this step will be returned
+       first : bool
+           If set to True then the dataset with the earliest simulation step
+           will be returned
+       last : bool
+           If set to True then the dataset with the latest simulation step
+           will be returned
+       wkd : str
+           The directory in which to search
+       base : str
+           A representative filename or directory
+       block : sdf.Block or sdf.BlockList
+           A representative sdf dataset or block
+       fast : bool
+           Use a faster but less thorough method for returning first/last
+
+       Returns
+       -------
+       data : sdf.BlockList
+           An SDF dataset
+    """
+    global data, wkdir
+
+    flist = get_file_list(wkd=wkd, base=base, block=block)
+
+    if len(flist) == 0:
+        print("No SDF files found")
+        return
+
+    flist.sort(key=lambda x: os.path.getmtime(x))
+    job_id = get_job_id(flist, base=base, block=block)
+
+    if step is None and not first:
+        last = True
+
+    t = None
+    fname = None
+    if last:
+        flist = list(reversed(flist))
+        t_old = -1e90
+    else:
+        t_old = 1e90
+
+    for f in flist:
+        dat_tmp = sdf.read(f)
+        if len(dat_tmp.__dict__) < 2:
+            continue
+        if job_id != dat_tmp.Header['jobid1']:
+            continue
+
+        t = dat_tmp.Header['step']
+        if last:
+            if fast:
+                fname = f
+                break
+            if t > t_old:
+                fname = f
+                t_old = t
+        elif first:
+            if fast:
+                fname = f
+                break
+            if t < t_old:
+                fname = f
+                t_old = t
+        else:
+            td = abs(t - step)
+            if td < t_old:
+                t_old = td
+                fname = f
+                if td == 0:
+                    # Exact match found. No need to search further
+                    break
+
+    if fname is None:
+        raise Exception("No valid file found in directory: " + wkdir)
+
+    data = getdata(fname, verbose=False)
+    return data
+
+
+def get_latest(wkd=None, base=None, block=None):
+    """Get the latest SDF dataset in a directory
+
+       Parameters
+       ----------
+       wkd : str
+           The directory in which to search
+           If no other keyword arguments are passed, then the code will
+           automatically attempt to detect if this field is base or block
+       base : str
+           A representative filename or directory
+       block : sdf.Block or sdf.BlockList
+           A representative sdf dataset or block
+
+       Returns
+       -------
+       data : sdf.BlockList
+           An SDF dataset
+    """
+    return get_step(last=True, wkd=wkd, base=base, block=base)
+
+
+def get_first(every=False, wkd=None, base=None, block=None):
+    if not every and not base:
+        base = get_newest_file(wkd=wkd, block=block)
+    return get_step(first=True, wkd=wkd, base=base, block=base)
+
+
+def get_last(every=False, wkd=None, base=None, block=None):
+    if not every and not base:
+        base = get_newest_file(wkd=wkd, block=block)
+    return get_step(last=True, wkd=wkd, base=base, block=base)
+
+
+def get_latest(**kwargs):
+    return get_last(**kwargs)
+
+
+def get_oldest_file(wkd=None, base=None, block=None):
+    import os.path
+
+    flist = get_file_list(wkd=wkd, base=base, block=block)
+    flist.sort(key=lambda x: os.path.getmtime(x))
+    for n in range(len(flist)):
+        f = flist[n]
+        data = sdf.read(f, mmap=0, dict=True)
+        if len(data) > 1:
+            return f
+
+    return None
+
+
+def get_newest_file(wkd=None, base=None, block=None):
+    import os.path
+
+    flist = get_file_list(wkd=wkd, base=base, block=block)
+    flist.sort(key=lambda x: os.path.getmtime(x))
+    for n in range(len(flist)):
+        f = flist[-n-1]
+        data = sdf.read(f, mmap=0, dict=True)
+        if len(data) > 1:
+            return f
+
+    return None
+
+
+def get_oldest(**kwargs):
+    return getdata(get_oldest_file(**kwargs), verbose=False)
+
+
+def get_newest(**kwargs):
+    return getdata(get_newest_file(**kwargs), verbose=False)
 
 
 def set_wkdir(wkd):
