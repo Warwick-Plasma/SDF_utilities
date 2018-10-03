@@ -795,10 +795,170 @@ def oplot2d(*args, **kwargs):
     plot2d(*args, **kwargs)
 
 
-def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
+def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
+                 iso=None, fast=None, title=True, full=True, vrange=None,
+                 reflect=0, norm=None, hold=False, xscale=0, yscale=0,
+                 figure=None, subplot=None, add_cbar=True, cbar_label=True,
+                 cbar_wd=5, **kwargs):
+    import matplotlib as mpl
+    global data, fig, im, cbar
+    global mult_x, mult_y
+
+    if idx is None:
+        i0 = 0
+        i1 = 1
+        i2 = 2
+        i3 = 3
+    else:
+        i0 = idx[0]
+        i1 = idx[1]
+        i2 = idx[2]
+        i3 = idx[3]
+
+    cmap = plt.get_cmap()
+
+    if norm is not None:
+        v0 = np.min(array) - norm
+        v1 = np.max(array) - norm
+
+        if abs(v0/v1) > 1:
+            low = 0
+            high = 0.5 * (1 - v1/v0)
+        else:
+            low = 0.5 * (1 + v0/v1)
+            high = 1.0
+
+        cmap = mpl.colors.LinearSegmentedColormap.from_list(
+            'tr', cmap(np.linspace(low, high, 256)))
+
+    if figure is None:
+        figure = plt.gcf()
+        if not hold:
+            try:
+                figure.clf()
+            except:
+                pass
+
+    if subplot is None:
+        subplot = figure.add_subplot(111)
+
+    if iso is None:
+        iso = get_default_iso(data)
+
+    ext = extents[:]
+    if xscale == 0:
+        length = max(abs(extents[i2]), abs(extents[i0]))
+        mult_x, sym_x = get_si_prefix(length)
+    else:
+        mult_x, sym_x = get_si_prefix(xscale)
+
+    if yscale == 0:
+        length = max(abs(extents[i3]), abs(extents[i1]))
+        mult_y, sym_y = get_si_prefix(length)
+    else:
+        mult_y, sym_y = get_si_prefix(yscale)
+
+    if vrange == 1:
+        v = np.max(abs(array))
+        vrange = [-v, v]
+
+    if fast:
+        if reflect == 1:
+            # about x=0
+            ext[i0] = 2 * extents[i0] - extents[i2]
+            array = np.vstack((np.flipud(array), array))
+        elif reflect == 2:
+            # about y=0
+            ext[i1] = 2 * extents[i1] - extents[i3]
+            array = np.hstack((np.fliplr(array), array))
+        elif reflect == 3:
+            # about x=0, y=0
+            ext[i0] = 2 * extents[i0] - extents[i2]
+            ext[i1] = 2 * extents[i1] - extents[i3]
+            array = np.vstack((np.flipud(array), array))
+            array = np.hstack((np.fliplr(array), array))
+
+    if np.ndim(x) == 1:
+        if fast is None:
+            fast = True
+
+        if not fast:
+            Y, X = np.meshgrid(y, x)
+    else:
+        if fast is None:
+            fast = False
+
+        if not fast:
+            X = x
+            Y = y
+
+    if fast:
+        ext[i0] = mult_x * ext[i0]
+        ext[i1] = mult_y * ext[i1]
+        ext[i2] = mult_x * ext[i2]
+        ext[i3] = mult_y * ext[i3]
+        e = ext[i1]
+        ext[i1] = ext[i2]
+        ext[i2] = e
+        ext = [ext[i0], ext[i1], ext[i2], ext[i3]]
+        k = 'interpolation'
+        if k not in kwargs:
+            kwargs[k] = 'none'
+        if vrange is None:
+            im = subplot.imshow(array.T, origin='lower', extent=ext, cmap=cmap,
+                                **kwargs)
+        else:
+            im = subplot.imshow(array.T, origin='lower', extent=ext, cmap=cmap,
+                                vmin=vrange[0], vmax=vrange[1], **kwargs)
+    else:
+        X = np.multiply(mult_x, X)
+        Y = np.multiply(mult_y, Y)
+        if vrange is None:
+            im = subplot.pcolormesh(X, Y, array, cmap=cmap, **kwargs)
+        else:
+            im = subplot.pcolormesh(X, Y, array, cmap=cmap,
+                                    vmin=vrange[0], vmax=vrange[1], **kwargs)
+
+    subplot.set_xlabel(xlabel)
+    subplot.set_ylabel(ylabel)
+
+    title_text = None
+    if full:
+        if add_cbar and cbar_label:
+            title_text = get_title()
+        else:
+            title_text = var_label + ', ' + get_title()
+    elif title:
+        if not (add_cbar and cbar_label):
+            title_text = var_label
+
+    if title and title_text:
+        subplot.set_title(title_text, fontsize='large', y=1.03)
+
+    subplot.axis('tight')
+    if iso:
+        subplot.axis('image')
+
+    if not hold and add_cbar:
+        ax = subplot.axes
+        ca = subplot
+        divider = make_axes_locatable(ca)
+        pad = int(0.6 * cbar_wd + 0.5)
+        cax = divider.append_axes("right", "%i%%"%cbar_wd, pad="%i%%"%pad)
+        cbar = figure.colorbar(im, cax=cax, ax=ax)
+        figure.sca(ax)
+        if (cbar_label and (full or title)):
+            cbar.set_label(var_label, fontsize='large', x=1.2)
+    figure.canvas.draw()
+
+    figure.set_tight_layout(True)
+    figure.canvas.draw()
+
+
+def plot2d(var, iso=None, fast=None, title=True, full=True, vrange=None,
            ix=None, iy=None, iz=None, reflect=0, norm=None, irange=None,
            jrange=None, hold=False, xscale=0, yscale=0, figure=None,
-           subplot=None, add_cbar=True, cbar_label=True):
+           subplot=None, add_cbar=True, cbar_label=True, **kwargs):
     global data, fig, im, cbar
     global x, y, mult_x, mult_y
 
@@ -850,7 +1010,7 @@ def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
         i3 = i1 + 2
         ss = [si, sj]
 
-    var_data = var.data[ss]
+    array = var.data[ss]
     if np.ndim(x) == 1:
         x = var.grid.data[i0][si]
         y = var.grid.data[i1][sj]
@@ -858,142 +1018,34 @@ def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
         x = var.grid.data[i0][ss]
         y = var.grid.data[i1][ss]
 
-    cmap = plt.get_cmap()
-    if norm is not None:
-        v0 = np.min(var_data) - norm
-        v1 = np.max(var_data) - norm
-        if abs(v0/v1) > 1:
-            low = 0
-            high = 0.5 * (1 - v1/v0)
-        else:
-            low = 0.5 * (1 + v0/v1)
-            high = 1.0
+    idx = [i0, i1, i2, i3]
 
-        cmap = plt.colors.LinearSegmentedColormap.from_list(
-            'tr', cmap(np.linspace(low, high, 256)))
-
-    if figure is None:
-        figure = plt.gcf()
-        if not hold:
-            try:
-                figure.clf()
-            except:
-                pass
-
-    if subplot is None:
-        subplot = figure.add_subplot(111)
-
-    if iso is None:
-        iso = get_default_iso(data)
-
-    ext = list(var.grid.extents)
+    extents = list(var.grid.extents)
     if xscale == 0:
-        length = max(abs(ext[i2]), abs(ext[i0]))
+        length = max(abs(extents[i2]), abs(extents[i0]))
         mult_x, sym_x = get_si_prefix(length)
     else:
         mult_x, sym_x = get_si_prefix(xscale)
 
     if yscale == 0:
-        length = max(abs(ext[i3]), abs(ext[i1]))
+        length = max(abs(extents[i3]), abs(extents[i1]))
         mult_y, sym_y = get_si_prefix(length)
     else:
         mult_y, sym_y = get_si_prefix(yscale)
 
-    if vrange == 1:
-        v = np.max(abs(var_data))
-        vrange = [-v, v]
-
-    if fast:
-        if reflect == 1:
-            # about x=0
-            ext[i0] = 2 * ext[i0] - ext[i2]
-            var_data = np.vstack((np.flipud(var_data), var_data))
-        elif reflect == 2:
-            # about y=0
-            ext[i1] = 2 * ext[i1] - ext[i3]
-            var_data = np.hstack((np.fliplr(var_data), var_data))
-        elif reflect == 3:
-            # about x=0, y=0
-            ext[i0] = 2 * ext[i0] - ext[i2]
-            ext[i1] = 2 * ext[i1] - ext[i3]
-            var_data = np.vstack((np.flipud(var_data), var_data))
-            var_data = np.hstack((np.fliplr(var_data), var_data))
-
-    if np.ndim(x) == 1:
-        if fast is None:
-            fast = True
-
-        if not fast:
-            Y, X = np.meshgrid(y, x)
-    else:
-        if fast is None:
-            fast = False
-
-        if not fast:
-            X = x
-            Y = y
-
-    if fast:
-        ext[i0] = mult_x * ext[i0]
-        ext[i1] = mult_y * ext[i1]
-        ext[i2] = mult_x * ext[i2]
-        ext[i3] = mult_y * ext[i3]
-        e = ext[i1]
-        ext[i1] = ext[i2]
-        ext[i2] = e
-        ext = [ext[i0], ext[i1], ext[i2], ext[i3]]
-        if vrange is None:
-            im = subplot.imshow(var_data.T, interpolation='none',
-                                origin='lower', extent=ext, cmap=cmap)
-        else:
-            im = subplot.imshow(var_data.T, interpolation='none',
-                                origin='lower', extent=ext, cmap=cmap,
-                                vmin=vrange[0], vmax=vrange[1])
-    else:
-        X = np.multiply(mult_x, X)
-        Y = np.multiply(mult_y, Y)
-        if vrange is None:
-            im = subplot.pcolormesh(X, Y, var_data, cmap=cmap)
-        else:
-            im = subplot.pcolormesh(X, Y, var_data, cmap=cmap,
-                                    vmin=vrange[0], vmax=vrange[1])
-
-    subplot.set_xlabel(var.grid.labels[i0] + ' $('
-                       + escape_latex(sym_x + var.grid.units[i0]) + ')$')
-    subplot.set_ylabel(var.grid.labels[i1] + ' $('
-                       + escape_latex(sym_y + var.grid.units[i1]) + ')$')
+    xlabel = var.grid.labels[i0] + ' $('
+             + escape_latex(sym_x + var.grid.units[i0]) + ')$'
+    ylabel = var.grid.labels[i1] + ' $('
+             + escape_latex(sym_y + var.grid.units[i1]) + ')$'
 
     var_label = var.name + ' $(' + escape_latex(var.units) + ')$'
-    title_text = None
-    if full:
-        if add_cbar and cbar_label:
-            title_text = get_title()
-        else:
-            title_text = var_label + ', ' + get_title()
-    elif title:
-        if not (add_cbar and cbar_label):
-            title_text = var_label
 
-    if title_text:
-        subplot.set_title(title_text, fontsize='large', y=1.03)
-
-    subplot.axis('tight')
-    if iso:
-        subplot.axis('image')
-
-    if not hold and add_cbar:
-        ax = subplot.axes
-        ca = subplot
-        divider = make_axes_locatable(ca)
-        cax = divider.append_axes("right", "5%", pad="3%")
-        cbar = figure.colorbar(im, cax=cax, ax=ax)
-        figure.sca(ax)
-        if (cbar_label and (full or title)):
-            cbar.set_label(var_label, fontsize='large', x=1.2)
-    figure.canvas.draw()
-
-    figure.set_tight_layout(True)
-    figure.canvas.draw()
+    plot2d_array(array=array, x=x, y=y, extents=extents, var_label=var_label,
+                 xlabel=xlabel, ylabel=ylabel, idx=idx, iso=iso, fast=fast,
+                 title=title, full=full, vrange=vrange, reflect=reflect,
+                 norm=norm, hold=hold, xscale=xscale, yscale=yscale,
+                 figure=figure, subplot=subplot, add_cbar=add_cbar,
+                 cbar_label=cbar_label, **kwargs)
 
 
 def plot2d_update(var):
@@ -1005,7 +1057,7 @@ def plot2d_update(var):
 
 
 def plot_levels(var, r0=None, r1=None, nl=10, iso=None, out=False,
-                title=True, levels=True):
+                title=True, levels=True, **kwargs):
     global data
 
     try:
@@ -1042,7 +1094,17 @@ def plot_levels(var, r0=None, r1=None, nl=10, iso=None, out=False,
     else:
         ax = plt.gca()
 
-    cs = ax.contour(X, Y, var.data, levels=rl, colors='k', linewidths=0.5)
+    k = 'colors'
+    if k not in kwargs:
+        kwargs[k] = 'k'
+    k = 'linewidths'
+    if k not in kwargs:
+        kwargs[k] = 0.5
+    k = 'levels'
+    if k not in kwargs:
+        kwargs[k] = rl
+
+    cs = ax.contour(X, Y, var.data, **kwargs)
 
     if levels:
         fmt = {}
@@ -1112,9 +1174,9 @@ def plot_levels(var, r0=None, r1=None, nl=10, iso=None, out=False,
     plt.draw()
 
 
-def plot_contour(var, r0=None, r1=None, nl=10, iso=None, title=True):
+def plot_contour(var, r0=None, r1=None, nl=10, iso=None, title=True, **kwargs):
     return plot_levels(var, r0=r0, r1=r1, nl=nl, iso=iso, out=False,
-                       title=title, levels=False)
+                       title=title, levels=False, **kwargs)
 
 
 def getdata(fname, wkd=None, verbose=True, squeeze=False):
