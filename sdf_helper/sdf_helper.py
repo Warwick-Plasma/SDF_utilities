@@ -555,7 +555,7 @@ def plot2d(var, iso=None, fast=None, title=False, full=True, vrange=None,
             im = subplot.imshow(var_data.T, interpolation='none',
                                 origin='lower', extent=ext, cmap=cmap)
         else:
-            im = subplot.imshow(var_data, interpolation='none',
+            im = subplot.imshow(var_data.T, interpolation='none',
                                 origin='lower', extent=ext, cmap=cmap,
                                 vmin=vrange[0], vmax=vrange[1])
     else:
