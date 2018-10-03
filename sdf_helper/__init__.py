@@ -50,3 +50,4 @@ _check_validity()
 
 from .sdf_helper import *
 from .read_nameval import *
+from .visit_cmap import *
