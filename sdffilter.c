@@ -2038,6 +2038,15 @@ int main(int argc, char **argv)
     list_destroy(&station_blocks);
     if (range_list) free(range_list);
     if (blocktype_mask) free(blocktype_mask);
+    if (variable_ids) {
+        variable_last_id = variable_ids;
+        while (variable_last_id) {
+            if (variable_last_id->id)
+                free(variable_last_id->id);
+            variable_last_id = variable_last_id->next;
+        }
+        free(variable_ids);
+    }
 
     err += close_files(h);
     return err;
