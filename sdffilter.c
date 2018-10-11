@@ -1190,8 +1190,11 @@ static void pretty_print(sdf_file_t *h, sdf_block_t *b, int idnum)
     for (i = 0; i < b->ndims; i++) {
         if (b->array_starts)
             left = b->array_ends[i] - b->array_starts[i];
-        else
+        else {
             left = b->local_dims[i];
+            if (left == 0)
+                left = b->dims[i];
+        }
         fac[i] = rem;
         rem *= left;
         digit = 0;
