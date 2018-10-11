@@ -1043,11 +1043,15 @@ static void pretty_print_mesh(sdf_file_t *h, sdf_block_t *b, int idnum)
         if (b->array_ends && idx[dim] >= b->array_ends[dim]) {
             idx[dim] = 0;
             dim++;
+            if (dim >= b->ndims)
+                break;
             ptr = b->grids[dim];
             ncount = element_count;
         } else if (idx[dim] >= b->local_dims[dim]) {
             idx[dim] = 0;
             dim++;
+            if (dim >= b->ndims)
+                break;
             ptr = b->grids[dim];
             ncount = element_count;
         }
