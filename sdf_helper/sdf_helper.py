@@ -613,10 +613,6 @@ def get_last(every=False, wkd=None, base=None, block=None):
     return get_step(last=True, wkd=wkd, base=base, block=base)
 
 
-def get_latest(**kwargs):
-    return get_last(**kwargs)
-
-
 def get_oldest_file(wkd=None, base=None, block=None):
     import os.path
 
