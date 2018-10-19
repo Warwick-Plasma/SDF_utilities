@@ -1007,7 +1007,7 @@ def plot2d(var, iso=None, fast=None, title=True, full=True, vrange=None,
         ss = [si, sj]
 
     array = var.data[ss]
-    if np.ndim(x) == 1:
+    if np.ndim(var.grid.data[0]) == 1:
         x = var.grid.data[i0][si]
         y = var.grid.data[i1][sj]
     else:
@@ -1036,6 +1036,9 @@ def plot2d(var, iso=None, fast=None, title=True, full=True, vrange=None,
 
     var_label = var.name + ' $(' + escape_latex(var.units) + ')$'
 
+    if hasattr(var, 'blocklist'):
+        data = var.blocklist
+
     plot2d_array(array=array, x=x, y=y, extents=extents, var_label=var_label,
                  xlabel=xlabel, ylabel=ylabel, idx=idx, iso=iso, fast=fast,
                  title=title, full=full, vrange=vrange, reflect=reflect,
@@ -1062,6 +1065,8 @@ def plot_levels(var, r0=None, r1=None, nl=10, iso=None, out=False,
         pass
 
     if iso is None:
+        if hasattr(var, 'blocklist'):
+            data = var.blocklist
         iso = get_default_iso(data)
 
     if np.ndim(var.grid.data[0]) == 1:

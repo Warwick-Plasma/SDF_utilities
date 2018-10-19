@@ -1043,11 +1043,15 @@ static void pretty_print_mesh(sdf_file_t *h, sdf_block_t *b, int idnum)
         if (b->array_ends && idx[dim] >= b->array_ends[dim]) {
             idx[dim] = 0;
             dim++;
+            if (dim >= b->ndims)
+                break;
             ptr = b->grids[dim];
             ncount = element_count;
         } else if (idx[dim] >= b->local_dims[dim]) {
             idx[dim] = 0;
             dim++;
+            if (dim >= b->ndims)
+                break;
             ptr = b->grids[dim];
             ncount = element_count;
         }
@@ -1186,8 +1190,11 @@ static void pretty_print(sdf_file_t *h, sdf_block_t *b, int idnum)
     for (i = 0; i < b->ndims; i++) {
         if (b->array_starts)
             left = b->array_ends[i] - b->array_starts[i];
-        else
+        else {
             left = b->local_dims[i];
+            if (left == 0)
+                left = b->dims[i];
+        }
         fac[i] = rem;
         rem *= left;
         digit = 0;
@@ -2038,6 +2045,15 @@ int main(int argc, char **argv)
     list_destroy(&station_blocks);
     if (range_list) free(range_list);
     if (blocktype_mask) free(blocktype_mask);
+    if (variable_ids) {
+        variable_last_id = variable_ids;
+        while (variable_last_id) {
+            if (variable_last_id->id)
+                free(variable_last_id->id);
+            variable_last_id = variable_last_id->next;
+        }
+        free(variable_ids);
+    }
 
     err += close_files(h);
     return err;
