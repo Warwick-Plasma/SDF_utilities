@@ -21,8 +21,8 @@ def add_visit_cmap():
                        (.75, 0, 0),
                        (1.0, 0, 0))}
 
-    cmap = matplotlib.colors.LinearSegmentedColormap('hot', cdict, 1024)
-    plt.register_cmap(name='hot', cmap=cmap)
+    cmap = matplotlib.colors.LinearSegmentedColormap('visit_hot', cdict, 1024)
+    plt.register_cmap(name='visit_hot', cmap=cmap)
     cm_hot = cmap
 
 
@@ -31,9 +31,9 @@ def set_visit_cmap():
     import matplotlib.pyplot as plt
 
     try:
-        cmv = plt.get_cmap('hot')
+        cmv = plt.get_cmap('visit_hot')
     except:
         add_visit_cmap()
-        cmv = plt.get_cmap('hot')
+        cmv = plt.get_cmap('visit_hot')
 
     plt.set_cmap(cmv)
