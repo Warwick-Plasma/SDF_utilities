@@ -242,7 +242,7 @@ def get_file_list(wkd=None, base=None, block=None):
     if wkd is not None:
         if os.path.isdir(wkd):
             wkdir = wkd
-        elif os.path.ispath(wkd):
+        elif os.path.exists(wkd):
             base = wkd
         elif isinstance(wkd, sdf.BlockList) \
                 or isinstance(wkd, sdf.Block) or type(wkd) is dict:
@@ -295,7 +295,7 @@ def get_job_id(file_list=None, base=None, block=None):
     """
 
     if file_list is not None and type(file_list) is not list:
-        if os.path.ispath(file_list):
+        if os.path.exists(file_list):
             base = file_list
             file_list = None
         elif isinstance(file_list, sdf.BlockList) \
@@ -361,7 +361,7 @@ def get_files(wkd=None, base=None, block=None, varname=None, fast=True):
     if wkd is not None:
         if os.path.isdir(wkd):
             wkdir = wkd
-        elif os.path.ispath(wkd):
+        elif os.path.exists(wkd):
             base = wkd
         elif isinstance(wkd, sdf.BlockList) \
                 or isinstance(wkd, sdf.Block) or type(wkd) is dict:
