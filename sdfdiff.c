@@ -1753,7 +1753,6 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
     case SDF_BLOCKTYPE_POINT_DERIVED:
     case SDF_BLOCKTYPE_POINT_VARIABLE:
     case SDF_BLOCKTYPE_ARRAY:
-    case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
         return diff_plain(handles, b1, b2, inum);
         break;
     case SDF_BLOCKTYPE_CONSTANT:
@@ -1764,6 +1763,7 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
         break;
     case SDF_BLOCKTYPE_PLAIN_MESH:
     case SDF_BLOCKTYPE_POINT_MESH:
+    case SDF_BLOCKTYPE_LAGRANGIAN_MESH:
         return diff_mesh(handles, b1, b2, inum);
         break;
     default:
