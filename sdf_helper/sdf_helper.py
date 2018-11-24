@@ -158,13 +158,16 @@ def get_si_prefix(scale, full_units=False):
     return mult, sym
 
 
-def get_title(geom=False):
+def get_title(geom=False, extra_info=True):
     global data
 
     t = data.Header['time']
     mult, sym = get_si_prefix(t)
 
     stitle = r'$t = {:.3}{}s$'.format(mult * t, sym)
+
+    if not extra_info:
+        return stitle
 
     if hasattr(data, 'Logical_flags'):
         if hasattr(data.Logical_flags, 'use_szp') \
@@ -670,7 +673,10 @@ def plot_auto(*args, **kwargs):
               + 'Use plot1d or plot2d')
         return
     if (len(dims) == 1):
-        plot1d(*args, **kwargs)
+        if (len(args[0].grid.dims) == 1):
+            plot1d(*args, **kwargs)
+        else:
+            plot_path(*args, **kwargs)
     elif (len(dims) == 2):
         k = 'set_ylabel'
         if k in kwargs:
@@ -774,6 +780,166 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, cgs=False,
 
     if title:
         subplot.set_title(get_title(), fontsize='large', y=1.03)
+
+    figure.set_tight_layout(True)
+    figure.canvas.draw()
+
+
+def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
+              hold=False, subplot=None, figure=None, iso=True, add_cbar=True,
+              cbar_label=True, cbar_wd=5, **kwargs):
+    """Plot an SDF path variable (eg. a laser ray)
+
+       Parameters
+       ----------
+       var : sdf.Block
+           The SDF block for the path to plot
+       xdir : integer
+           The dimension to use for the x-direction. If the path is 2D then
+           ydir will automatically be selected.
+       ydir : integer
+           The dimension to use for the y-direction. If the path is 2D then
+           xdir will automatically be selected.
+       xscale : real
+           Value to use for scaling the x-axis. If not set then the x-axis will
+           be scaled automatically. Set this to 1 to disable scaling.
+       yscale : real
+           Value to use for scaling the y-axis. If not set then the x-axis will
+           be scaled automatically. Set this to 1 to disable scaling.
+       title : logical or string
+           If set to False, don't add a title to the plot.
+           Otherwise, add the specified value if it is a string or
+           automatically generate one if it is just True.
+       hold : logical
+           If True, do not clear the figure before plotting.
+       subplot :
+           The subplot to use for plotting
+       figure :
+           The figure to use for plotting
+       iso : logical
+           If True, generate an isotropic plot (x/y axis equal).
+       add_cbar : logical
+           Add a colorbar if true
+       cbar_label : logical or string
+           If set to False, don't add a label to the colorbar.
+           Otherwise, add the specified value if it is a string or
+           automatically generate one if it is just True.
+       cbar_wd : integer
+           The width of the colorbar
+
+       **kwargs : dict
+           All other keyword arguments are passed to matplotlib plotting
+           routine
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.collections import LineCollection
+    global data
+    global x, y, mult_x, mult_y
+
+    if len(var.dims) != 1:
+        print("error: Not a 1d dataset")
+        return
+
+    if len(plt.get_fignums()) == 0:
+        hold = False
+
+    if figure is None:
+        figure = plt.gcf()
+        if len(figure.get_axes()) == 0:
+            hold = False
+        # Only clear the figure if one isn't supplied by the user
+        if not hold:
+            try:
+                figure.clf()
+                hold = False
+            except:
+                pass
+
+    # Have to add subplot after clearing figure
+    if subplot is None:
+        subplot = figure.add_subplot(111)
+
+    if var.dims[0] == var.grid.dims[0]:
+        grid = var.grid
+    else:
+        grid = var.grid_mid
+
+    test_dir = False
+    if xdir is None:
+        xdir = 0
+    else:
+        test_dir = True
+
+    if ydir is None:
+        ydir = 1
+    else:
+        test_dir = True
+
+    if test_dir:
+        dimensions = np.shape(grid.data)[0]
+        xdir = xdir % dimensions
+        ydir = ydir % dimensions
+        if xdir == ydir:
+            ydir = (xdir + 1) % dimensions
+
+    X = grid.data[xdir]
+    Y = grid.data[ydir]
+
+    if not hold:
+        if xscale == 0:
+            length = max(abs(X[0]), abs(X[-1]))
+            mult_x, sym_x = get_si_prefix(length)
+        else:
+            mult_x, sym_x = get_si_prefix(xscale)
+
+        if yscale == 0:
+            length = max(abs(Y[0]), abs(Y[-1]))
+            mult_y, sym_y = get_si_prefix(length)
+        else:
+            mult_y, sym_y = get_si_prefix(yscale)
+
+    X = mult_x * X
+    Y = mult_y * Y
+    c = var.data
+
+    points = np.array([X, Y]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+    norm = plt.Normalize(c.min(), c.max())
+    lc = LineCollection(segments, norm=norm)
+    lc.set_array(c)
+    im = subplot.add_collection(lc)
+
+    if not hold:
+        subplot.set_xlabel(grid.labels[xdir] + ' $('
+                           + escape_latex(sym_x + grid.units[xdir]) + ')$')
+        subplot.set_ylabel(grid.labels[ydir] + ' $('
+                           + escape_latex(sym_y + grid.units[ydir]) + ')$')
+
+        if title:
+            if type(title) is str:
+                title_label = title
+            else:
+                title_label = get_title(extra_info=False)
+            subplot.set_title(title_label, fontsize='large', y=1.03)
+
+        subplot.axis('tight')
+        if iso:
+            subplot.axis('image')
+
+    if not hold and add_cbar:
+        ax = subplot.axes
+        ca = subplot
+        divider = make_axes_locatable(ca)
+        pad = int(0.6 * cbar_wd + 0.5)
+        cax = divider.append_axes("right", "%i%%" % cbar_wd, pad="%i%%" % pad)
+        cbar = figure.colorbar(im, cax=cax, ax=ax)
+        figure.sca(ax)
+        if (cbar_label and title):
+            if type(cbar_label) is str:
+                var_label = cbar_label
+            else:
+                var_label = var.name + ' $(' + escape_latex(var.units) + ')$'
+            cbar.set_label(var_label, fontsize='large', x=1.2)
 
     figure.set_tight_layout(True)
     figure.canvas.draw()
