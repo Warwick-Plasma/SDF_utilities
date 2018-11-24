@@ -672,24 +672,18 @@ def plot_auto(*args, **kwargs):
     if (len(dims) == 1):
         plot1d(*args, **kwargs)
     elif (len(dims) == 2):
+        k = 'set_ylabel'
+        if k in kwargs:
+            del kwargs[k]
         plot2d(*args, **kwargs)
     else:
         print('error: Unable to plot variables of this dimensionality')
 
 
 def oplot_auto(*args, **kwargs):
-    try:
-        dims = args[0].dims
-    except:
-        print('error: Variable cannot be auto determined. '
-              + 'Use plot1d or plot2d')
-        return
-    if (len(dims) == 1):
-        oplot1d(*args, **kwargs)
-    elif (len(dims) == 2):
-        oplot2d(*args, **kwargs)
-    else:
-        print('error: Unable to plot variables of this dimensionality')
+    kwargs['set_ylabel'] = False
+    kwargs['hold'] = True
+    plot_auto(*args, **kwargs)
 
 
 def oplot1d(*args, **kwargs):
