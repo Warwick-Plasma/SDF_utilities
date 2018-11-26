@@ -1022,6 +1022,38 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
     figure.canvas.draw()
 
 
+def plot_rays(var, **kwargs):
+    """Plot all rays found in an SDF file
+
+       Parameters
+       ----------
+       var : sdf.Block
+           The SDF variable for the rays to plot
+    """
+    start = var.name.split('/')[0] + '_'
+    end = '_' + var.name.split('/')[-1]
+    data = var.blocklist.__dict__
+
+    k0 = 'vmin'
+    k1 = 'vmax'
+    k = 'vrange'
+    if k not in kwargs and not (k0 in kwargs and k1 in kwargs):
+        vmin = var.data.min()
+        vmax = var.data.max()
+        for k in data.keys():
+            if k.startswith(start) and k.endswith(end):
+                vmin = min(vmin, data[k].data.min())
+                vmax = max(vmax, data[k].data.max())
+        if k0 not in kwargs:
+            kwargs[k0] = vmin
+        if k1 not in kwargs:
+            kwargs[k1] = vmax
+
+    for k in data.keys():
+        if k.startswith(start) and k.endswith(end):
+            plot_auto(data[k], hold=True, **kwargs)
+
+
 def oplot2d(*args, **kwargs):
     kwargs['hold'] = True
     plot2d(*args, **kwargs)
