@@ -1022,13 +1022,15 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
     figure.canvas.draw()
 
 
-def plot_rays(var, **kwargs):
+def plot_rays(var, skip=1, **kwargs):
     """Plot all rays found in an SDF file
 
        Parameters
        ----------
        var : sdf.Block
            The SDF variable for the rays to plot
+       skip : integer
+           Number of rays to skip before selecting the next one to plot
     """
     start = var.name.split('/')[0] + '_'
     end = '_' + var.name.split('/')[-1]
@@ -1040,18 +1042,26 @@ def plot_rays(var, **kwargs):
     if k not in kwargs and not (k0 in kwargs and k1 in kwargs):
         vmin = var.data.min()
         vmax = var.data.max()
+        iskip = skip
         for k in data.keys():
             if k.startswith(start) and k.endswith(end):
-                vmin = min(vmin, data[k].data.min())
-                vmax = max(vmax, data[k].data.max())
+                iskip -= 1
+                if iskip <= 0:
+                    vmin = min(vmin, data[k].data.min())
+                    vmax = max(vmax, data[k].data.max())
+                    iskip = skip
         if k0 not in kwargs:
             kwargs[k0] = vmin
         if k1 not in kwargs:
             kwargs[k1] = vmax
 
+    iskip = skip
     for k in data.keys():
         if k.startswith(start) and k.endswith(end):
-            plot_auto(data[k], hold=True, **kwargs)
+            iskip -= 1
+            if iskip <= 0:
+                plot_auto(data[k], hold=True, **kwargs)
+                iskip = skip
 
 
 def oplot2d(*args, **kwargs):
