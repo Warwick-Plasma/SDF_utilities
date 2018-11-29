@@ -934,7 +934,14 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
 
         plot_path.norm_values = plt.Normalize(vmin, vmax)
 
-    lc = LineCollection(segments, norm=plot_path.norm_values)
+    kk = {}
+    k = 'lw'
+    if k in kwargs:
+        kk[k] = kwargs[k]
+    k = 'linewidth'
+    if k in kwargs:
+        kk[k] = kwargs[k]
+    lc = LineCollection(segments, norm=plot_path.norm_values, **kk)
     lc.set_array(c)
     im = subplot.add_collection(lc)
 
