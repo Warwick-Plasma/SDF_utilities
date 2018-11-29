@@ -787,7 +787,7 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, cgs=False,
 
 def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
               hold=False, subplot=None, figure=None, iso=True, add_cbar=True,
-              cbar_label=True, cbar_wd=5, svar=None, **kwargs):
+              cbar_label=True, cbar_wd=5, cbar_top=False, svar=None, **kwargs):
     """Plot an SDF path variable (eg. a laser ray)
 
        Parameters
@@ -826,6 +826,9 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
            automatically generate one if it is just True.
        cbar_wd : integer
            The width of the colorbar
+       cbar_top : logical
+           If set to true, the colorbar is plotted along the top of the figure
+           instead of the right-hand side
        svar : sdf.Block
            If set, use the extents of this variable to set the axis range for
            this plot
@@ -969,15 +972,27 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
         ca = subplot
         divider = make_axes_locatable(ca)
         pad = int(0.6 * cbar_wd + 0.5)
-        cax = divider.append_axes("right", "%i%%" % cbar_wd, pad="%i%%" % pad)
-        cbar = figure.colorbar(im, cax=cax, ax=ax)
+        if cbar_top:
+            cax = divider.append_axes("top", "%i%%" % cbar_wd,
+                                      pad="%i%%" % pad)
+            cbar = figure.colorbar(im, orientation='horizontal',
+                                   cax=cax, ax=ax)
+            cax.xaxis.set_ticks_position('top')
+        else:
+            cax = divider.append_axes("right", "%i%%" % cbar_wd,
+                                      pad="%i%%" % pad)
+            cbar = figure.colorbar(im, cax=cax, ax=ax)
         figure.sca(ax)
-        if (cbar_label and title):
+        if cbar_label and title:
             if type(cbar_label) is str:
                 var_label = cbar_label
             else:
                 var_label = var.name + ' $(' + escape_latex(var.units) + ')$'
-            cbar.set_label(var_label, fontsize='large', x=1.2)
+            if cbar_top:
+                cbar.set_label(var_label, fontsize='large')
+                cax.xaxis.set_label_position('top')
+            else:
+                cbar.set_label(var_label, fontsize='large', x=1.2)
 
     if not hold and svar is not None:
         lim = np.array(svar.grid.extents)
@@ -1016,7 +1031,7 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
                  iso=None, fast=None, title=True, full=True, vrange=None,
                  reflect=0, norm=None, hold=False, xscale=0, yscale=0,
                  figure=None, subplot=None, add_cbar=True, cbar_label=True,
-                 cbar_wd=5, **kwargs):
+                 cbar_wd=5, cbar_top=False, **kwargs):
     import matplotlib as mpl
     global data, fig, im, cbar
     global mult_x, mult_y
@@ -1161,13 +1176,25 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
         ca = subplot
         divider = make_axes_locatable(ca)
         pad = int(0.6 * cbar_wd + 0.5)
-        cax = divider.append_axes("right", "%i%%" % cbar_wd, pad="%i%%" % pad)
-        cbar = figure.colorbar(im, cax=cax, ax=ax)
+        if cbar_top:
+            cax = divider.append_axes("top", "%i%%" % cbar_wd,
+                                      pad="%i%%" % pad)
+            cbar = figure.colorbar(im, orientation='horizontal',
+                                   cax=cax, ax=ax)
+            cax.xaxis.set_ticks_position('top')
+        else:
+            cax = divider.append_axes("right", "%i%%" % cbar_wd,
+                                      pad="%i%%" % pad)
+            cbar = figure.colorbar(im, cax=cax, ax=ax)
         figure.sca(ax)
         if (cbar_label and (full or title)):
             if type(cbar_label) is str:
                 var_label = cbar_label
-            cbar.set_label(var_label, fontsize='large', x=1.2)
+            if cbar_top:
+                cbar.set_label(var_label, fontsize='large')
+                cax.xaxis.set_label_position('top')
+            else:
+                cbar.set_label(var_label, fontsize='large', x=1.2)
     figure.canvas.draw()
 
     figure.set_tight_layout(True)
@@ -1177,7 +1204,8 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
 def plot2d(var, iso=None, fast=None, title=True, full=True, vrange=None,
            ix=None, iy=None, iz=None, reflect=0, norm=None, irange=None,
            jrange=None, hold=False, xscale=0, yscale=0, figure=None,
-           subplot=None, add_cbar=True, cbar_label=True, **kwargs):
+           subplot=None, add_cbar=True, cbar_label=True, cbar_top=False,
+           **kwargs):
     global data, fig, im, cbar
     global x, y, mult_x, mult_y
 
@@ -1267,7 +1295,7 @@ def plot2d(var, iso=None, fast=None, title=True, full=True, vrange=None,
                  title=title, full=full, vrange=vrange, reflect=reflect,
                  norm=norm, hold=hold, xscale=xscale, yscale=yscale,
                  figure=figure, subplot=subplot, add_cbar=add_cbar,
-                 cbar_label=cbar_label, **kwargs)
+                 cbar_label=cbar_label, cbar_top=cbar_top, **kwargs)
 
 
 def plot2d_update(var):
