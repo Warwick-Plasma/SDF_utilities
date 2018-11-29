@@ -98,8 +98,8 @@ int sdf_free_block_data(sdf_file_t *h, sdf_block_t *b);
 
 static const int typemap[] = {
     0,
-    NPY_UINT32,
-    NPY_UINT64,
+    NPY_INT32,
+    NPY_INT64,
     NPY_FLOAT,
     NPY_DOUBLE,
 #ifdef NPY_FLOAT128

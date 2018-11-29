@@ -1,6 +1,5 @@
 import os
 import re
-import glob
 try:
     import numpy as np
     import matplotlib.pyplot as plt
@@ -360,7 +359,7 @@ def get_files(wkd=None, base=None, block=None, varname=None, fast=True):
 
     if wkd is not None:
         if os.path.isdir(wkd):
-            wkdir = wkd
+            pass
         elif os.path.exists(wkd):
             base = wkd
         elif isinstance(wkd, sdf.BlockList) \
@@ -408,8 +407,8 @@ def get_time(time=0, first=False, last=False, wkd=None, base=None, block=None,
        Parameters
        ----------
        time : float
-           The time to search for. If specified then the dateset that is closest
-           to this time will be returned
+           The time to search for. If specified then the dateset that is
+           closest to this time will be returned
        first : bool
            If set to True then the dataset with the earliest simulation time
            will be returned
@@ -497,8 +496,8 @@ def get_step(step=0, first=False, last=False, wkd=None, base=None, block=None,
        Parameters
        ----------
        step : int
-           The step to search for. If specified then the dateset that is closest
-           to this step will be returned
+           The time to search for. If specified then the dateset that is
+           closest to this time will be returned
        first : bool
            If set to True then the dataset with the earliest simulation step
            will be returned
@@ -673,24 +672,18 @@ def plot_auto(*args, **kwargs):
     if (len(dims) == 1):
         plot1d(*args, **kwargs)
     elif (len(dims) == 2):
+        k = 'set_ylabel'
+        if k in kwargs:
+            del kwargs[k]
         plot2d(*args, **kwargs)
     else:
         print('error: Unable to plot variables of this dimensionality')
 
 
 def oplot_auto(*args, **kwargs):
-    try:
-        dims = args[0].dims
-    except:
-        print('error: Variable cannot be auto determined. '
-              + 'Use plot1d or plot2d')
-        return
-    if (len(dims) == 1):
-        oplot1d(*args, **kwargs)
-    elif (len(dims) == 2):
-        oplot2d(*args, **kwargs)
-    else:
-        print('error: Unable to plot variables of this dimensionality')
+    kwargs['set_ylabel'] = False
+    kwargs['hold'] = True
+    plot_auto(*args, **kwargs)
 
 
 def oplot1d(*args, **kwargs):
@@ -940,7 +933,7 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
         ca = subplot
         divider = make_axes_locatable(ca)
         pad = int(0.6 * cbar_wd + 0.5)
-        cax = divider.append_axes("right", "%i%%"%cbar_wd, pad="%i%%"%pad)
+        cax = divider.append_axes("right", "%i%%" % cbar_wd, pad="%i%%" % pad)
         cbar = figure.colorbar(im, cax=cax, ax=ax)
         figure.sca(ax)
         if (cbar_label and (full or title)):
@@ -1029,10 +1022,10 @@ def plot2d(var, iso=None, fast=None, title=True, full=True, vrange=None,
     else:
         mult_y, sym_y = get_si_prefix(yscale)
 
-    xlabel = var.grid.labels[i0] + ' $(' \
-             + escape_latex(sym_x + var.grid.units[i0]) + ')$'
-    ylabel = var.grid.labels[i1] + ' $(' \
-             + escape_latex(sym_y + var.grid.units[i1]) + ')$'
+    xlabel = var.grid.labels[i0] \
+        + ' $(' + escape_latex(sym_x + var.grid.units[i0]) + ')$'
+    ylabel = var.grid.labels[i1] \
+        + ' $(' + escape_latex(sym_y + var.grid.units[i1]) + ')$'
 
     var_label = var.name + ' $(' + escape_latex(var.units) + ')$'
 
