@@ -59,8 +59,10 @@ static char indent[64];
 static list_t *slice_list;
 
 struct id_list {
+    sdf_block_t *b;
     char *id;
-    struct id_list *next;
+    int idx;
+    struct id_list *prev, *next;
 } *variable_ids, *variable_last_id;
 
 struct range_type {
@@ -717,7 +719,8 @@ char *parse_args(int *argc, char ***argv)
         usage(1);
     }
 
-    sort_range(&range_list, &nrange);
+    if (exclude_variables)
+        sort_range(&range_list, &nrange);
     sort_range(&blocktype_list, &nblist);
     setup_blocklist_mask();
 
@@ -1809,6 +1812,35 @@ static void print_data(sdf_block_t *b)
 }
 
 
+void move_id_entry(struct id_list *id_entry,
+                   struct id_list **id_entry_head,
+                   struct id_list **id_entry_tail,
+                   struct id_list **id_entry_head2,
+                   struct id_list **id_entry_tail2)
+{
+    /* First remove from main list */
+    if (id_entry->prev)
+        id_entry->prev->next = id_entry->next;
+    else
+        *id_entry_head = id_entry->next;
+
+    if (id_entry->next)
+        id_entry->next->prev = id_entry->prev;
+    else
+        *id_entry_tail = id_entry->prev;
+
+    id_entry->prev = id_entry->next = NULL;
+
+    if (*id_entry_tail2) {
+        (*id_entry_tail2)->next = id_entry;
+        id_entry->prev = *id_entry_tail2;
+        *id_entry_tail2 = id_entry;
+    } else {
+        *id_entry_head2 = *id_entry_tail2 = id_entry;
+    }
+}
+
+
 int main(int argc, char **argv)
 {
     char *file = NULL;
@@ -1820,6 +1852,9 @@ int main(int argc, char **argv)
     list_t *station_blocks, *station_blocks_sorted;
     comm_t comm;
     char zero[16] = {0};
+    struct id_list *id_entry;
+    struct id_list *id_entry_head = NULL, *id_entry_tail = NULL;
+    struct id_list *id_entry_head2 = NULL, *id_entry_tail2 = NULL;
 
     file = parse_args(&argc, &argv);
 
@@ -1887,48 +1922,151 @@ int main(int argc, char **argv)
 
     list_init(&station_blocks);
 
+    /* If restricted by variable id or range then first build a block to
+     * index mapping, then create an ordered list */
+    if (!exclude_variables && (nrange > 0 || variable_ids)) {
+        range_start = 0;
+        next = h->blocklist;
+        for (i = 0, idx = 1; next; i++, idx++) {
+            h->current_block = b = next;
+            next = b->next;
+
+            found = 0;
+
+            for (n = 0; n < nrange; n++) {
+                if (idx >= range_list[n].start && idx <= range_list[n].end) {
+                    found = 1;
+                    break;
+                }
+            }
+
+            if (found == 0 && variable_ids) {
+                variable_last_id = variable_ids;
+                while (variable_last_id) {
+                    if (!memcmp(b->id, variable_last_id->id,
+                            strlen(variable_last_id->id)+1)) {
+                        variable_last_id->idx = idx;
+                        variable_last_id->b = b;
+                        found = 1;
+                        break;
+                    }
+                    variable_last_id = variable_last_id->next;
+                }
+            }
+
+            if (!found) continue;
+
+            /* Only consider blocks in the blocktype mask */
+            if (blocktype_mask && blocktype_mask[b->blocktype] == 0)
+                continue;
+
+            id_entry = calloc(sizeof(*id_entry), 1);
+
+            id_entry->b = b;
+            id_entry->idx = idx;
+            id_entry->prev = id_entry_tail;
+
+            if (id_entry_tail) {
+                id_entry_tail->next = id_entry;
+                id_entry_tail = id_entry;
+            } else {
+                id_entry_head = id_entry_tail = id_entry;
+            }
+        }
+
+        /* Now sort the range list */
+        for (n = 0; n < nrange; n++) {
+            for (idx=range_list[n].start; idx <= range_list[n].end; idx++) {
+                for (id_entry=id_entry_head; id_entry; id_entry=id_entry->next)
+                {
+                    if (id_entry->idx != idx)
+                        continue;
+
+                    move_id_entry(id_entry, &id_entry_head, &id_entry_tail,
+                                  &id_entry_head2, &id_entry_tail2);
+
+                    if (!id_entry_tail)
+                        break;
+                }
+            }
+        }
+
+        /* Finally, sort the variable_id list */
+
+        if (id_entry_tail && variable_ids) {
+            for (variable_last_id = variable_ids; variable_last_id;
+                 variable_last_id = variable_last_id->next) {
+                for (id_entry=id_entry_head; id_entry; id_entry=id_entry->next)
+                {
+                    if (id_entry->idx != variable_last_id->idx)
+                        continue;
+
+                    move_id_entry(id_entry, &id_entry_head, &id_entry_tail,
+                                  &id_entry_head2, &id_entry_tail2);
+
+                    if (!id_entry_tail)
+                        break;
+                }
+            }
+        }
+
+        id_entry_head = id_entry_head2;
+        id_entry_tail = id_entry_tail2;
+        for (id_entry=id_entry_head; id_entry; id_entry=id_entry->next) {
+            printf("%d\n", id_entry->idx);
+        }
+    }
+
     nelements_max = 0;
     range_start = 0;
     mesh0 = NULL;
     found = 1;
     next = h->blocklist;
+    id_entry = id_entry_head;
     for (i = 0, idx = 1; next; i++, idx++) {
-        h->current_block = b = next;
-        next = b->next;
+        if (id_entry_head) {
+            h->current_block = b = id_entry->b;
+            idx = id_entry->idx;
+            id_entry = id_entry->next;
+            if (!id_entry) next = NULL;
+        } else {
+            h->current_block = b = next;
+            next = b->next;
 
-        if (nrange > 0 || variable_ids) found = 0;
+            if (nrange > 0 || variable_ids) found = 0;
 
-        for (n = range_start; n < nrange; n++) {
-            if (idx < range_list[n].start)
-                break;
-            if (idx <= range_list[n].end) {
-                found = 1;
-                break;
-            }
-            range_start++;
-        }
-
-        if (found == 0 && variable_ids) {
-            variable_last_id = variable_ids;
-            while (variable_last_id) {
-                if (!memcmp(b->id, variable_last_id->id,
-                        strlen(variable_last_id->id)+1)) {
+            for (n = range_start; n < nrange; n++) {
+                if (idx < range_list[n].start)
+                    break;
+                if (idx <= range_list[n].end) {
                     found = 1;
                     break;
                 }
-                variable_last_id = variable_last_id->next;
+                range_start++;
             }
-        }
 
-        if (exclude_variables) {
-            if (found) continue;
-        } else {
-            if (!found) continue;
-        }
+            if (found == 0 && variable_ids) {
+                variable_last_id = variable_ids;
+                while (variable_last_id) {
+                    if (!memcmp(b->id, variable_last_id->id,
+                            strlen(variable_last_id->id)+1)) {
+                        found = 1;
+                        break;
+                    }
+                    variable_last_id = variable_last_id->next;
+                }
+            }
 
-        /* Only consider blocks in the blocktype mask */
-        if (blocktype_mask && blocktype_mask[b->blocktype] == 0)
-            continue;
+            if (exclude_variables) {
+                if (found) continue;
+            } else {
+                if (!found) continue;
+            }
+
+            /* Only consider blocks in the blocktype mask */
+            if (blocktype_mask && blocktype_mask[b->blocktype] == 0)
+                continue;
+        }
 
         if (metadata && slice_direction == -1)
             print_metadata(b, idx, h->nblocks);
