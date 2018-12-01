@@ -926,6 +926,8 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
         if iso:
             subplot.axis('image')
 
+        subplot.axis([X.min(), X.max(), Y.min(), Y.max()])
+
     if not hold and add_cbar:
         ax = subplot.axes
         ca = subplot
@@ -940,6 +942,23 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
             else:
                 var_label = var.name + ' $(' + escape_latex(var.units) + ')$'
             cbar.set_label(var_label, fontsize='large', x=1.2)
+
+    if hold:
+        lims = subplot.axis()
+        lim = list(lims)
+        v = X.min()
+        if v < lim[0]:
+            lim[0] = v
+        v = X.max()
+        if v > lim[1]:
+            lim[1] = v
+        v = Y.min()
+        if v < lim[2]:
+            lim[2] = v
+        v = Y.max()
+        if v > lim[3]:
+            lim[3] = v
+        subplot.axis(lim)
 
     figure.set_tight_layout(True)
     figure.canvas.draw()
