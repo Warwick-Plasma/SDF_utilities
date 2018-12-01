@@ -787,7 +787,7 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, cgs=False,
 
 def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
               hold=False, subplot=None, figure=None, iso=True, add_cbar=True,
-              cbar_label=True, cbar_wd=5, **kwargs):
+              cbar_label=True, cbar_wd=5, svar=None, **kwargs):
     """Plot an SDF path variable (eg. a laser ray)
 
        Parameters
@@ -826,6 +826,9 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
            automatically generate one if it is just True.
        cbar_wd : integer
            The width of the colorbar
+       svar : sdf.Block
+           If set, use the extents of this variable to set the axis range for
+           this plot
 
        **kwargs : dict
            All other keyword arguments are passed to matplotlib plotting
@@ -943,7 +946,14 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
                 var_label = var.name + ' $(' + escape_latex(var.units) + ')$'
             cbar.set_label(var_label, fontsize='large', x=1.2)
 
-    if hold:
+    if not hold and svar is not None:
+        lim = np.array(svar.grid.extents)
+        lim[0] *= mult_x
+        lim[1] *= mult_x
+        lim[2] *= mult_y
+        lim[3] *= mult_y
+        subplot.axis([lim[0], lim[2], lim[1], lim[3]])
+    elif hold:
         lims = subplot.axis()
         lim = list(lims)
         v = X.min()
