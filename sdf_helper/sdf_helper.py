@@ -1103,6 +1103,8 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
         cbar = figure.colorbar(im, cax=cax, ax=ax)
         figure.sca(ax)
         if (cbar_label and (full or title)):
+            if type(cbar_label) is str:
+                var_label = cbar_label
             cbar.set_label(var_label, fontsize='large', x=1.2)
     figure.canvas.draw()
 
