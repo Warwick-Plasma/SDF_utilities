@@ -843,6 +843,9 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
         print("error: Not a 1d dataset")
         return
 
+    if 'norm_values' not in plot_path.__dict__:
+        plot_path.norm_values = None
+
     if len(plt.get_fignums()) == 0:
         hold = False
 
@@ -857,6 +860,9 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
                 hold = False
             except:
                 pass
+
+    if not hold:
+        plot_path.norm_values = None
 
     # Have to add subplot after clearing figure
     if subplot is None:
@@ -907,8 +913,28 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
 
     points = np.array([X, Y]).T.reshape(-1, 1, 2)
     segments = np.concatenate([points[:-1], points[1:]], axis=1)
-    norm = plt.Normalize(c.min(), c.max())
-    lc = LineCollection(segments, norm=norm)
+
+    if not hold or plot_path.norm_values is None:
+        k = 'vmin'
+        k1 = 'vrange'
+        if k in kwargs:
+            vmin = kwargs[k]
+        elif k1 in kwargs:
+            vmin = kwargs[k1][0]
+        else:
+            vmin = c.min()
+
+        k = 'vmax'
+        if k in kwargs:
+            vmax = kwargs[k]
+        elif k1 in kwargs:
+            vmax = kwargs[k1][1]
+        else:
+            vmax = c.max()
+
+        plot_path.norm_values = plt.Normalize(vmin, vmax)
+
+    lc = LineCollection(segments, norm=plot_path.norm_values)
     lc.set_array(c)
     im = subplot.add_collection(lc)
 
