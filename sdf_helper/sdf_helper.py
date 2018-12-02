@@ -787,7 +787,8 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, cgs=False,
 
 def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
               hold=False, subplot=None, figure=None, iso=True, add_cbar=True,
-              cbar_label=True, cbar_wd=5, cbar_top=False, svar=None, **kwargs):
+              cbar_label=True, cbar_wd=5, cbar_top=False, svar=None,
+              update=True, **kwargs):
     """Plot an SDF path variable (eg. a laser ray)
 
        Parameters
@@ -829,6 +830,8 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
        cbar_top : logical
            If set to true, the colorbar is plotted along the top of the figure
            instead of the right-hand side
+       update : logical
+           If set to true then update the axis limits for this path
        svar : sdf.Block
            If set, use the extents of this variable to set the axis range for
            this plot
@@ -848,6 +851,7 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
 
     if 'norm_values' not in plot_path.__dict__:
         plot_path.norm_values = None
+        plot_path.axis = None
 
     if len(plt.get_fignums()) == 0:
         hold = False
@@ -866,6 +870,7 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
 
     if not hold:
         plot_path.norm_values = None
+        plot_path.axis = None
 
     # Have to add subplot after clearing figure
     if subplot is None:
@@ -965,7 +970,9 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
         if iso:
             subplot.axis('image')
 
-        subplot.axis([X.min(), X.max(), Y.min(), Y.max()])
+        plot_path.axis = subplot.axis()
+        if update:
+            subplot.axis([X.min(), X.max(), Y.min(), Y.max()])
 
     if not hold and add_cbar:
         ax = subplot.axes
@@ -1002,7 +1009,7 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
         lim[3] *= mult_y
         subplot.axis([lim[0], lim[2], lim[1], lim[3]])
     elif hold:
-        lims = subplot.axis()
+        lims = plot_path.axis
         lim = list(lims)
         v = X.min()
         if v < lim[0]:
@@ -1016,10 +1023,13 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
         v = Y.max()
         if v > lim[3]:
             lim[3] = v
-        subplot.axis(lim)
+        plot_path.axis = lim
+        if update:
+            subplot.axis(lim)
 
-    figure.set_tight_layout(True)
-    figure.canvas.draw()
+    if update:
+        figure.set_tight_layout(True)
+        figure.canvas.draw()
 
 
 def plot_rays(var, skip=1, **kwargs):
@@ -1060,7 +1070,7 @@ def plot_rays(var, skip=1, **kwargs):
         if k.startswith(start) and k.endswith(end):
             iskip -= 1
             if iskip <= 0:
-                plot_auto(data[k], hold=True, **kwargs)
+                plot_auto(data[k], hold=True, update=False, **kwargs)
                 iskip = skip
 
 
