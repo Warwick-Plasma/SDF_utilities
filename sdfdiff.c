@@ -1274,8 +1274,6 @@ static inline void print_header(void)
             relerr_val = 1; \
     } else \
         relerr_val = abserr_val / denom; \
-    if (relerr_val > relerr_max) relerr_max = relerr_val; \
-    if (abserr_val > abserr_max) abserr_max = abserr_val; \
     if (relerr_val >= relerr || abserr_val >= abserr) { \
         /* If we got here then the numbers differ */ \
         print_header(); \
@@ -1290,6 +1288,8 @@ static inline void print_header(void)
                 PRINT_DIFF(pv1, pv2, format); \
             } \
         } \
+        if (relerr_val > relerr_max) relerr_max = relerr_val; \
+        if (abserr_val > abserr_max) abserr_max = abserr_val; \
     } \
 } while(0)
 
@@ -1490,6 +1490,7 @@ int diff_mesh(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
     prestr_dim = malloc(b->ndims * sizeof(*prestr_dim));
 
     for (i = 0; i < b->ndims; i++) {
+        fac[i] = 1;
         left = b->local_dims[i] + index_offset - 1;
         digit = 0;
         while (left) {
