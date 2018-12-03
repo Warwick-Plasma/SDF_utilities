@@ -1741,7 +1741,7 @@ int diff_block(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
         break;
     }
 
-    if (gotdiff) {
+    if (gotdiff && !quiet) {
         print_header();
         print_metadata_id(b1, inum, handles[0]->nblocks);
         printf(" - mismatched\n");
@@ -1876,9 +1876,9 @@ int main(int argc, char **argv)
 
         b2 = sdf_find_block_by_id(h2, b->id);
         if (!b2) {
-            if (metadata)
+            if (metadata && !quiet)
                 print_metadata(b, idx, h->nblocks);
-            else {
+            else if (!quiet) {
                 print_header();
                 print_metadata_id(b, idx, handles[0]->nblocks);
                 printf(" - not in second file\n");
