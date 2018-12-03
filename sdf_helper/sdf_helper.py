@@ -788,7 +788,7 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, cgs=False,
 def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
               hold=False, subplot=None, figure=None, iso=True, add_cbar=True,
               cbar_label=True, cbar_wd=5, cbar_top=False, svar=None,
-              update=True, **kwargs):
+              update=True, axis_only=False, **kwargs):
     """Plot an SDF path variable (eg. a laser ray)
 
        Parameters
@@ -832,6 +832,8 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
            instead of the right-hand side
        update : logical
            If set to true then update the axis limits for this path
+       axis_only : logical
+           If set to true then only update the axis limits for this path
        svar : sdf.Block
            If set, use the extents of this variable to set the axis range for
            this plot
@@ -845,13 +847,26 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
     global data
     global x, y, mult_x, mult_y
 
-    if len(var.dims) != 1:
-        print("error: Not a 1d dataset")
-        return
-
     if 'norm_values' not in plot_path.__dict__:
         plot_path.norm_values = None
         plot_path.axis = None
+
+    if axis_only:
+        if plot_path.axis is None:
+            return
+        if figure is None:
+            figure = plt.gcf()
+        if subplot is None:
+            subplot = figure.add_subplot(111)
+        print(plot_path.axis)
+        subplot.axis(plot_path.axis)
+        figure.set_tight_layout(True)
+        figure.canvas.draw()
+        return
+
+    if len(var.dims) != 1:
+        print("error: Not a 1d dataset")
+        return
 
     if len(plt.get_fignums()) == 0:
         hold = False
@@ -1079,6 +1094,8 @@ def plot_rays(var, skip=1, **kwargs):
             if iskip <= 0:
                 plot_auto(data[k], hold=True, update=False, **kwargs)
                 iskip = skip
+
+    plot_auto(var, axis_only=True, **kwargs)
 
 
 def oplot2d(*args, **kwargs):
