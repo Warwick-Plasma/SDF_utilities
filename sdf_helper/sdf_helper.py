@@ -1042,8 +1042,9 @@ def plot_rays(var, skip=1, **kwargs):
        skip : integer
            Number of rays to skip before selecting the next one to plot
     """
-    start = var.name.split('/')[0] + '_'
-    end = '_' + var.name.split('/')[-1]
+    split_name = var.name.split('/')
+    start = split_name[0] + '_'
+    end = '_' + split_name[-1]
     data = var.blocklist.__dict__
 
     k0 = 'vmin'
@@ -1064,6 +1065,12 @@ def plot_rays(var, skip=1, **kwargs):
             kwargs[k0] = vmin
         if k1 not in kwargs:
             kwargs[k1] = vmax
+
+    k = 'cbar_label'
+    if k not in kwargs:
+        # Remove /Ray[1-9]+ from the name
+        kwargs[k] = '/'.join([split_name[0]] + split_name[2:]) \
+                     + ' $(' + escape_latex(var.units) + ')$'
 
     iskip = skip
     for k in data.keys():
