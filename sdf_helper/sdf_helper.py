@@ -158,13 +158,16 @@ def get_si_prefix(scale, full_units=False):
     return mult, sym
 
 
-def get_title(geom=False):
+def get_title(geom=False, extra_info=True):
     global data
 
     t = data.Header['time']
     mult, sym = get_si_prefix(t)
 
     stitle = r'$t = {:.3}{}s$'.format(mult * t, sym)
+
+    if not extra_info:
+        return stitle
 
     if hasattr(data, 'Logical_flags'):
         if hasattr(data.Logical_flags, 'use_szp') \
@@ -670,7 +673,10 @@ def plot_auto(*args, **kwargs):
               + 'Use plot1d or plot2d')
         return
     if (len(dims) == 1):
-        plot1d(*args, **kwargs)
+        if (len(args[0].grid.dims) == 1):
+            plot1d(*args, **kwargs)
+        else:
+            plot_path(*args, **kwargs)
     elif (len(dims) == 2):
         k = 'set_ylabel'
         if k in kwargs:
@@ -779,6 +785,319 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, cgs=False,
     figure.canvas.draw()
 
 
+def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
+              hold=False, subplot=None, figure=None, iso=True, add_cbar=True,
+              cbar_label=True, cbar_wd=5, cbar_top=False, svar=None,
+              update=True, axis_only=False, **kwargs):
+    """Plot an SDF path variable (eg. a laser ray)
+
+       Parameters
+       ----------
+       var : sdf.Block
+           The SDF block for the path to plot
+       xdir : integer
+           The dimension to use for the x-direction. If the path is 2D then
+           ydir will automatically be selected.
+       ydir : integer
+           The dimension to use for the y-direction. If the path is 2D then
+           xdir will automatically be selected.
+       xscale : real
+           Value to use for scaling the x-axis. If not set then the x-axis will
+           be scaled automatically. Set this to 1 to disable scaling.
+       yscale : real
+           Value to use for scaling the y-axis. If not set then the x-axis will
+           be scaled automatically. Set this to 1 to disable scaling.
+       title : logical or string
+           If set to False, don't add a title to the plot.
+           Otherwise, add the specified value if it is a string or
+           automatically generate one if it is just True.
+       hold : logical
+           If True, do not clear the figure before plotting.
+       subplot :
+           The subplot to use for plotting
+       figure :
+           The figure to use for plotting
+       iso : logical
+           If True, generate an isotropic plot (x/y axis equal).
+       add_cbar : logical
+           Add a colorbar if true
+       cbar_label : logical or string
+           If set to False, don't add a label to the colorbar.
+           Otherwise, add the specified value if it is a string or
+           automatically generate one if it is just True.
+       cbar_wd : integer
+           The width of the colorbar
+       cbar_top : logical
+           If set to true, the colorbar is plotted along the top of the figure
+           instead of the right-hand side
+       update : logical
+           If set to true then update the axis limits for this path
+       axis_only : logical
+           If set to true then only update the axis limits for this path
+       svar : sdf.Block
+           If set, use the extents of this variable to set the axis range for
+           this plot
+
+       **kwargs : dict
+           All other keyword arguments are passed to matplotlib plotting
+           routine
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.collections import LineCollection
+    global data
+    global x, y, mult_x, mult_y
+
+    if 'norm_values' not in plot_path.__dict__:
+        plot_path.norm_values = None
+        plot_path.axis = None
+
+    if axis_only:
+        if plot_path.axis is None:
+            return
+        if figure is None:
+            figure = plt.gcf()
+        if subplot is None:
+            subplot = figure.add_subplot(111)
+        print(plot_path.axis)
+        subplot.axis(plot_path.axis)
+        figure.set_tight_layout(True)
+        figure.canvas.draw()
+        return
+
+    if len(var.dims) != 1:
+        print("error: Not a 1d dataset")
+        return
+
+    if len(plt.get_fignums()) == 0:
+        hold = False
+
+    if figure is None:
+        figure = plt.gcf()
+        if len(figure.get_axes()) == 0:
+            hold = False
+        # Only clear the figure if one isn't supplied by the user
+        if not hold:
+            try:
+                figure.clf()
+                hold = False
+            except:
+                pass
+
+    if not hold:
+        plot_path.norm_values = None
+        plot_path.axis = None
+
+    # Have to add subplot after clearing figure
+    if subplot is None:
+        subplot = figure.add_subplot(111)
+
+    if var.dims[0] == var.grid.dims[0]:
+        grid = var.grid
+    else:
+        grid = var.grid_mid
+
+    test_dir = False
+    if xdir is None:
+        xdir = 0
+    else:
+        test_dir = True
+
+    if ydir is None:
+        ydir = 1
+    else:
+        test_dir = True
+
+    if test_dir:
+        dimensions = np.shape(grid.data)[0]
+        xdir = xdir % dimensions
+        ydir = ydir % dimensions
+        if xdir == ydir:
+            ydir = (xdir + 1) % dimensions
+
+    X = grid.data[xdir]
+    Y = grid.data[ydir]
+
+    if not hold:
+        if xscale == 0:
+            length = max(abs(X[0]), abs(X[-1]))
+            mult_x, sym_x = get_si_prefix(length)
+        else:
+            mult_x, sym_x = get_si_prefix(xscale)
+
+        if yscale == 0:
+            length = max(abs(Y[0]), abs(Y[-1]))
+            mult_y, sym_y = get_si_prefix(length)
+        else:
+            mult_y, sym_y = get_si_prefix(yscale)
+
+    X = mult_x * X
+    Y = mult_y * Y
+    c = var.data
+
+    points = np.array([X, Y]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+
+    if not hold or plot_path.norm_values is None:
+        k = 'vmin'
+        k1 = 'vrange'
+        if k in kwargs:
+            vmin = kwargs[k]
+        elif k1 in kwargs:
+            vmin = kwargs[k1][0]
+        else:
+            vmin = c.min()
+
+        k = 'vmax'
+        if k in kwargs:
+            vmax = kwargs[k]
+        elif k1 in kwargs:
+            vmax = kwargs[k1][1]
+        else:
+            vmax = c.max()
+
+        plot_path.norm_values = plt.Normalize(vmin, vmax)
+
+    kk = {}
+    k = 'lw'
+    if k in kwargs:
+        kk[k] = kwargs[k]
+    k = 'linewidth'
+    if k in kwargs:
+        kk[k] = kwargs[k]
+    lc = LineCollection(segments, norm=plot_path.norm_values, **kk)
+    lc.set_array(c)
+    im = subplot.add_collection(lc)
+
+    if not hold:
+        subplot.set_xlabel(grid.labels[xdir] + ' $('
+                           + escape_latex(sym_x + grid.units[xdir]) + ')$')
+        subplot.set_ylabel(grid.labels[ydir] + ' $('
+                           + escape_latex(sym_y + grid.units[ydir]) + ')$')
+
+        if title:
+            if type(title) is str:
+                title_label = title
+            else:
+                title_label = get_title(extra_info=False)
+            subplot.set_title(title_label, fontsize='large', y=1.03)
+
+        subplot.axis('tight')
+        if iso:
+            subplot.axis('image')
+
+        plot_path.axis = subplot.axis()
+        if update:
+            subplot.axis([X.min(), X.max(), Y.min(), Y.max()])
+
+    if not hold and add_cbar:
+        ax = subplot.axes
+        ca = subplot
+        divider = make_axes_locatable(ca)
+        pad = int(0.6 * cbar_wd + 0.5)
+        if cbar_top:
+            cax = divider.append_axes("top", "%i%%" % cbar_wd,
+                                      pad="%i%%" % pad)
+            cbar = figure.colorbar(im, orientation='horizontal',
+                                   cax=cax, ax=ax)
+            cax.xaxis.set_ticks_position('top')
+        else:
+            cax = divider.append_axes("right", "%i%%" % cbar_wd,
+                                      pad="%i%%" % pad)
+            cbar = figure.colorbar(im, cax=cax, ax=ax)
+        figure.sca(ax)
+        if cbar_label and title:
+            if type(cbar_label) is str:
+                var_label = cbar_label
+            else:
+                var_label = var.name + ' $(' + escape_latex(var.units) + ')$'
+            if cbar_top:
+                cbar.set_label(var_label, fontsize='large')
+                cax.xaxis.set_label_position('top')
+            else:
+                cbar.set_label(var_label, fontsize='large', x=1.2)
+
+    if not hold and svar is not None:
+        lim = np.array(svar.grid.extents)
+        lim[0] *= mult_x
+        lim[1] *= mult_x
+        lim[2] *= mult_y
+        lim[3] *= mult_y
+        subplot.axis([lim[0], lim[2], lim[1], lim[3]])
+    elif hold:
+        lims = plot_path.axis
+        lim = list(lims)
+        v = X.min()
+        if v < lim[0]:
+            lim[0] = v
+        v = X.max()
+        if v > lim[1]:
+            lim[1] = v
+        v = Y.min()
+        if v < lim[2]:
+            lim[2] = v
+        v = Y.max()
+        if v > lim[3]:
+            lim[3] = v
+        plot_path.axis = lim
+        if update:
+            subplot.axis(lim)
+
+    if update:
+        figure.set_tight_layout(True)
+        figure.canvas.draw()
+
+
+def plot_rays(var, skip=1, **kwargs):
+    """Plot all rays found in an SDF file
+
+       Parameters
+       ----------
+       var : sdf.Block
+           The SDF variable for the rays to plot
+       skip : integer
+           Number of rays to skip before selecting the next one to plot
+    """
+    split_name = var.name.split('/')
+    start = split_name[0] + '_'
+    end = '_' + split_name[-1]
+    data = var.blocklist.__dict__
+
+    k0 = 'vmin'
+    k1 = 'vmax'
+    k = 'vrange'
+    if k not in kwargs and not (k0 in kwargs and k1 in kwargs):
+        vmin = var.data.min()
+        vmax = var.data.max()
+        iskip = skip
+        for k in data.keys():
+            if k.startswith(start) and k.endswith(end):
+                iskip -= 1
+                if iskip <= 0:
+                    vmin = min(vmin, data[k].data.min())
+                    vmax = max(vmax, data[k].data.max())
+                    iskip = skip
+        if k0 not in kwargs:
+            kwargs[k0] = vmin
+        if k1 not in kwargs:
+            kwargs[k1] = vmax
+
+    k = 'cbar_label'
+    if k not in kwargs:
+        # Remove /Ray[1-9]+ from the name
+        kwargs[k] = '/'.join([split_name[0]] + split_name[2:]) \
+                     + ' $(' + escape_latex(var.units) + ')$'
+
+    iskip = skip
+    for k in data.keys():
+        if k.startswith(start) and k.endswith(end):
+            iskip -= 1
+            if iskip <= 0:
+                plot_auto(data[k], hold=True, update=False, **kwargs)
+                iskip = skip
+
+    plot_auto(var, axis_only=True, **kwargs)
+
+
 def oplot2d(*args, **kwargs):
     kwargs['hold'] = True
     plot2d(*args, **kwargs)
@@ -788,7 +1107,7 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
                  iso=None, fast=None, title=True, full=True, vrange=None,
                  reflect=0, norm=None, hold=False, xscale=0, yscale=0,
                  figure=None, subplot=None, add_cbar=True, cbar_label=True,
-                 cbar_wd=5, **kwargs):
+                 cbar_wd=5, cbar_top=False, **kwargs):
     import matplotlib as mpl
     global data, fig, im, cbar
     global mult_x, mult_y
@@ -933,11 +1252,25 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
         ca = subplot
         divider = make_axes_locatable(ca)
         pad = int(0.6 * cbar_wd + 0.5)
-        cax = divider.append_axes("right", "%i%%" % cbar_wd, pad="%i%%" % pad)
-        cbar = figure.colorbar(im, cax=cax, ax=ax)
+        if cbar_top:
+            cax = divider.append_axes("top", "%i%%" % cbar_wd,
+                                      pad="%i%%" % pad)
+            cbar = figure.colorbar(im, orientation='horizontal',
+                                   cax=cax, ax=ax)
+            cax.xaxis.set_ticks_position('top')
+        else:
+            cax = divider.append_axes("right", "%i%%" % cbar_wd,
+                                      pad="%i%%" % pad)
+            cbar = figure.colorbar(im, cax=cax, ax=ax)
         figure.sca(ax)
         if (cbar_label and (full or title)):
-            cbar.set_label(var_label, fontsize='large', x=1.2)
+            if type(cbar_label) is str:
+                var_label = cbar_label
+            if cbar_top:
+                cbar.set_label(var_label, fontsize='large')
+                cax.xaxis.set_label_position('top')
+            else:
+                cbar.set_label(var_label, fontsize='large', x=1.2)
     figure.canvas.draw()
 
     figure.set_tight_layout(True)
@@ -947,7 +1280,8 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
 def plot2d(var, iso=None, fast=None, title=True, full=True, vrange=None,
            ix=None, iy=None, iz=None, reflect=0, norm=None, irange=None,
            jrange=None, hold=False, xscale=0, yscale=0, figure=None,
-           subplot=None, add_cbar=True, cbar_label=True, **kwargs):
+           subplot=None, add_cbar=True, cbar_label=True, cbar_top=False,
+           **kwargs):
     global data, fig, im, cbar
     global x, y, mult_x, mult_y
 
@@ -1037,7 +1371,7 @@ def plot2d(var, iso=None, fast=None, title=True, full=True, vrange=None,
                  title=title, full=full, vrange=vrange, reflect=reflect,
                  norm=norm, hold=hold, xscale=xscale, yscale=yscale,
                  figure=figure, subplot=subplot, add_cbar=add_cbar,
-                 cbar_label=cbar_label, **kwargs)
+                 cbar_label=cbar_label, cbar_top=cbar_top, **kwargs)
 
 
 def plot2d_update(var):
