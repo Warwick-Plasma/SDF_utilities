@@ -1103,6 +1103,53 @@ def plot_rays(var, skip=1, rays=None, **kwargs):
        skip : integer
            Number of rays to skip before selecting the next one to plot
     """
+
+    if type(var) is sdf.BlockStitchedPath:
+        v = var.data[0]
+        l = '_label'
+        if l not in kwargs:
+            kwargs[l] = var.name
+
+        if type(v) is sdf.BlockStitchedPath:
+            for v in var.data:
+                plot_rays(v, skip=skip, **kwargs)
+            return
+
+        k = 'cbar_label'
+        if k not in kwargs or (kwargs[k] and type(kwargs[k]) != str):
+            kwargs[k] = kwargs[l] + ' $(' + escape_latex(v.units) + ')$'
+            del kwargs[l]
+
+        k0 = 'vmin'
+        k1 = 'vmax'
+        k = 'vrange'
+        if k not in kwargs and not (k0 in kwargs and k1 in kwargs):
+            v = var.data[0]
+            vmin = v.data.min()
+            vmax = v.data.max()
+            iskip = skip
+            for v in var.data:
+                iskip -= 1
+                if iskip <= 0:
+                    vmin = min(vmin, v.data.min())
+                    vmax = max(vmax, v.data.max())
+                    iskip = skip
+            if k0 not in kwargs:
+                kwargs[k0] = vmin
+            if k1 not in kwargs:
+                kwargs[k1] = vmax
+
+        iskip = skip
+        for v in var.data:
+            iskip -= 1
+            if iskip <= 0:
+                plot_auto(v, hold=True, update=False, **kwargs)
+                iskip = skip
+
+        plot_auto(var.data[0], axis_only=True, **kwargs)
+
+        return
+
     split_name = var.name.split('/')
     start = split_name[0] + '_'
     end = '_' + split_name[-1]
