@@ -158,8 +158,12 @@ def get_si_prefix(scale, full_units=False):
     return mult, sym
 
 
-def get_title(geom=False, extra_info=True):
+def get_title(var=None, geom=False, extra_info=True):
     global data
+
+    if var is not None:
+        if hasattr(var, 'blocklist'):
+            data = var.blocklist
 
     t = data.Header['time']
     mult, sym = get_si_prefix(t)
@@ -779,7 +783,7 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, cgs=False,
                            + escape_latex(sym_y + var.units) + ')$')
 
     if title:
-        subplot.set_title(get_title(), fontsize='large', y=1.03)
+        subplot.set_title(get_title(var), fontsize='large', y=1.03)
 
     figure.set_tight_layout(True)
     figure.canvas.draw()
@@ -858,7 +862,6 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
             figure = plt.gcf()
         if subplot is None:
             subplot = figure.add_subplot(111)
-        print(plot_path.axis)
         subplot.axis(plot_path.axis)
         figure.set_tight_layout(True)
         figure.canvas.draw()
@@ -978,7 +981,7 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
             if type(title) is str:
                 title_label = title
             else:
-                title_label = get_title(extra_info=False)
+                title_label = get_title(var, extra_info=False)
             subplot.set_title(title_label, fontsize='large', y=1.03)
 
         subplot.axis('tight')
@@ -1480,9 +1483,9 @@ def plot_levels(var, r0=None, r1=None, nl=10, iso=None, out=False,
     if title:
         if out:
             # suptitle(get_title(), fontsize='large')
-            plt.suptitle(get_title(), fontsize='large', y=0.92)
+            plt.suptitle(get_title(var), fontsize='large', y=0.92)
         else:
-            plt.title(get_title(), fontsize='large', y=1.03)
+            plt.title(get_title(var), fontsize='large', y=1.03)
 
     plt.axis('tight')
     if iso:
