@@ -202,6 +202,8 @@ static PyTypeObject BlockPointVariableType;
 static PyTypeObject BlockArrayType;
 static PyTypeObject BlockConstantType;
 static PyTypeObject BlockStationType;
+static PyTypeObject BlockStitchedType;
+static PyTypeObject BlockStitchedPathType;
 static PyTypeObject BlockStitchedMaterialType;
 static PyTypeObject BlockNameValueType;
 
@@ -377,7 +379,8 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
     PyTypeObject *type;
     Py_ssize_t i;
 
-    if (!b->datatype_out) return NULL;
+    if (!b->datatype_out && b->blocktype != SDF_BLOCKTYPE_STITCHED)
+        return NULL;
 
     switch(b->blocktype) {
         case SDF_BLOCKTYPE_PLAIN_MESH:
@@ -405,6 +408,12 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
             break;
         case SDF_BLOCKTYPE_STATION:
             type = &BlockStationType;
+            break;
+        case SDF_BLOCKTYPE_STITCHED:
+            if (b->stagger == 10 || b->stagger == 12)
+                type = &BlockStitchedPathType;
+            else
+                type = &BlockStitchedType;
             break;
         case SDF_BLOCKTYPE_STITCHED_MATERIAL:
         case SDF_BLOCKTYPE_CONTIGUOUS_MATERIAL:
@@ -451,7 +460,10 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
     if (b->ndims) {
         if (b->blocktype == SDF_BLOCKTYPE_NAMEVALUE)
             ob->dims = PyTuple_New(1);
-        else
+        else if (b->blocktype == SDF_BLOCKTYPE_STITCHED) {
+            ob->dims = PyTuple_New(1);
+            ob->data = PyTuple_New(b->ndims);
+        } else
             ob->dims = PyTuple_New(b->ndims);
         if (!ob->dims) goto error;
     }
@@ -482,6 +494,7 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
                 PyTuple_SetItem(ob->dims, i, PyLong_FromLong(b->dims[i]));
             }
             break;
+        case SDF_BLOCKTYPE_STITCHED:
         case SDF_BLOCKTYPE_NAMEVALUE:
             PyTuple_SetItem(ob->dims, 0, PyLong_FromLong(b->ndims));
             break;
@@ -1084,7 +1097,8 @@ static PyObject *fill_header(sdf_file_t *h)
 
 
 static void
-setup_materials(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
+setup_materials(SDFObject *sdf, PyObject *dict, sdf_block_t *b,
+                PyObject *dict_id)
 {
     char *block_name = NULL;
     Block *block = NULL;
@@ -1118,6 +1132,44 @@ setup_materials(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
         }
     }
 
+    PyDict_SetItemString(dict_id, b->id, (PyObject*)block);
+    PyDict_SetItemString(dict, block_name, (PyObject*)block);
+    Py_DECREF(block);
+
+    return;
+
+free_mem:
+    if (block) Py_DECREF(block);
+    return;
+}
+
+
+static PyObject *dict_find_id(PyObject *dict, char *id);
+
+static void
+setup_stitched(SDFObject *sdf, PyObject *dict, sdf_block_t *b,
+               PyObject *dict_id)
+{
+    int i;
+    char *block_name = NULL;
+    Block *block = NULL;
+    PyObject *val;
+
+    if (!sdf->h || !b) return;
+
+    block_name = b->name;
+
+    block = (Block*)Block_alloc(sdf, b);
+    if (!block) goto free_mem;
+
+    for (i=0; i < b->ndims; i++) {
+        val = dict_find_id(dict_id, b->variable_ids[i]);
+        if (!val) continue;
+        PyTuple_SetItem(block->data, i, val);
+        Py_INCREF(val);
+    }
+
+    PyDict_SetItemString(dict_id, b->id, (PyObject*)block);
     PyDict_SetItemString(dict, block_name, (PyObject*)block);
     Py_DECREF(block);
 
@@ -1130,7 +1182,7 @@ free_mem:
 
 
 static void
-setup_array(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
+setup_array(SDFObject *sdf, PyObject *dict, sdf_block_t *b, PyObject *dict_id)
 {
     char *block_name = NULL;
     Block *block = NULL;
@@ -1147,6 +1199,7 @@ setup_array(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
         if (!block->units) goto free_mem;
     }
 
+    PyDict_SetItemString(dict_id, b->id, (PyObject*)block);
     PyDict_SetItemString(dict, block_name, (PyObject*)block);
     Py_DECREF(block);
 
@@ -1159,7 +1212,8 @@ free_mem:
 
 
 static void
-setup_constant(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
+setup_constant(SDFObject *sdf, PyObject *dict, sdf_block_t *b,
+               PyObject *dict_id)
 {
     Block *block = NULL;
     double dd;
@@ -1196,6 +1250,7 @@ setup_constant(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
             break;
     }
 
+    PyDict_SetItemString(dict_id, b->id, (PyObject*)block);
     PyDict_SetItemString(dict, b->name, (PyObject*)block);
 
     Py_DECREF(block);
@@ -1225,7 +1280,8 @@ get_unique_attr(Block *block, char *attr_in)
 
 
 static void
-setup_namevalue(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
+setup_namevalue(SDFObject *sdf, PyObject *dict, sdf_block_t *b,
+                PyObject *dict_id)
 {
     Block *block = NULL;
     PyObject *sub, *dict2 = NULL;
@@ -1317,6 +1373,7 @@ setup_namevalue(SDFObject *sdf, PyObject *dict, sdf_block_t *b)
     }
 
     block->data = dict2;
+    PyDict_SetItemString(dict_id, b->id, (PyObject*)block);
     PyDict_SetItemString(dict, b->name, (PyObject*)block);
 
     Py_DECREF(block);
@@ -1352,6 +1409,21 @@ static Block *dict_find_mesh_id(PyObject *dict, char *id)
     }
 
     return NULL;
+}
+
+
+static PyObject *dict_find_id(PyObject *dict, char *id)
+{
+    PyObject *value;
+
+    value = PyDict_GetItemString(dict, id);
+    if ( !value )
+        return NULL;
+
+    if ( !PyObject_TypeCheck(value, &BlockType) )
+        return NULL;
+
+    return value;
 }
 
 
@@ -1508,13 +1580,13 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
             case SDF_BLOCKTYPE_POINT_VARIABLE:
             case SDF_BLOCKTYPE_POINT_DERIVED:
             case SDF_BLOCKTYPE_ARRAY:
-                setup_array(sdf, dict, b);
+                setup_array(sdf, dict, b, dict_id);
                 break;
             case SDF_BLOCKTYPE_CONSTANT:
-                setup_constant(sdf, dict, b);
+                setup_constant(sdf, dict, b, dict_id);
                 break;
             case SDF_BLOCKTYPE_NAMEVALUE:
-                setup_namevalue(sdf, dict, b);
+                setup_namevalue(sdf, dict, b, dict_id);
                 break;
             case SDF_BLOCKTYPE_STATION:
                 sub = PyDict_GetItemString(dict, "StationBlocks");
@@ -1529,7 +1601,17 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
                 break;
             case SDF_BLOCKTYPE_STITCHED_MATERIAL:
             case SDF_BLOCKTYPE_CONTIGUOUS_MATERIAL:
-                setup_materials(sdf, dict, b);
+                setup_materials(sdf, dict, b, dict_id);
+                break;
+        }
+        b = h->current_block = b->next;
+    }
+
+    b = h->current_block = h->blocklist;
+    for (i = 0; i < h->nblocks; i++) {
+        switch(b->blocktype) {
+            case SDF_BLOCKTYPE_STITCHED:
+                setup_stitched(sdf, dict, b, dict_id);
                 break;
         }
         b = h->current_block = b->next;
@@ -1713,6 +1795,8 @@ MOD_INIT(sdf)
 
     ADD_TYPE(BlockConstant, BlockBase);
     ADD_TYPE(BlockStation, BlockBase);
+    ADD_TYPE(BlockStitched, BlockBase);
+    ADD_TYPE(BlockStitchedPath, BlockBase);
 
     BlockBase.tp_getset = Block_getset;
     ADD_TYPE(BlockArray, BlockBase);
