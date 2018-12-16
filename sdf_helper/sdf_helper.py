@@ -813,7 +813,8 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, scale=0,
 def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, scale=0,
               title=True, hold=False, subplot=None, figure=None, iso=True,
               add_cbar=True, cbar_label=True, cbar_wd=5, cbar_top=False,
-              svar=None, update=True, axis_only=False, **kwargs):
+              svar=None, update=True, axis_only=False, clip_reflect=False,
+              **kwargs):
     """Plot an SDF path variable (eg. a laser ray)
 
        Parameters
@@ -865,6 +866,9 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, scale=0,
        svar : sdf.Block
            If set, use the extents of this variable to set the axis range for
            this plot
+       clip_reflect : logical
+           If set to true, then rays are clipped at the point where the path
+           gradient is either zero or huge
 
        **kwargs : dict
            All other keyword arguments are passed to matplotlib plotting
@@ -972,6 +976,21 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, scale=0,
     X = mult_x * X
     Y = mult_y * Y
     c = var.data
+
+    if clip_reflect:
+        g = (X[0] - X[1]) / (Y[0] - Y[1])
+        for i in range(len(c) - 1):
+            ddx = X[i] - X[i+1]
+            ddy = Y[i] - Y[i+1]
+            if abs(ddy) < 1e-16:
+                grad = 100
+            else:
+                grad = ddx / ddy / g
+            if abs(grad) > 10 or grad < 0:
+                X = np.copy(X[:i+1])
+                Y = np.copy(Y[:i+1])
+                c = np.copy(c[:i+1])
+                break
 
     points = np.array([X, Y]).T.reshape(-1, 1, 2)
     segments = np.concatenate([points[:-1], points[1:]], axis=1)
