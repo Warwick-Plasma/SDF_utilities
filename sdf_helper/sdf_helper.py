@@ -1296,8 +1296,15 @@ def plot2d(var, iso=None, fast=None, title=True, full=True, vrange=None,
     global data, fig, im, cbar
     global x, y, mult_x, mult_y
 
-    si = slice(None, irange)
-    sj = slice(None, jrange)
+    if type(irange) is list or type(irange) is tuple:
+        si = slice(*irange)
+    else:
+        si = slice(None, irange)
+
+    if type(jrange) is list or type(jrange) is tuple:
+        sj = slice(*jrange)
+    else:
+        sj = slice(None, jrange)
 
     i0 = 0
     i1 = 1
