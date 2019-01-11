@@ -763,10 +763,11 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, scale=0,
             s = [idx, slice(None)]
         Y = var.data[s]
     else:
+        xdir = 0
         Y = var.data
 
     if np.ndim(var.grid.data[0]) == 1:
-        X = grid.data[0]
+        X = grid.data[xdir]
     else:
         X = grid.data[xdir][s]
 
