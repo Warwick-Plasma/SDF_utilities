@@ -1112,7 +1112,7 @@ def plot_rays(var, skip=1, rays=None, **kwargs):
 
         if type(v) is sdf.BlockStitchedPath:
             for v in var.data:
-                plot_rays(v, skip=skip, **kwargs)
+                plot_rays(v, skip=skip, rays=rays, **kwargs)
             return
 
         k = 'cbar_label'
@@ -1143,7 +1143,8 @@ def plot_rays(var, skip=1, rays=None, **kwargs):
         for v in var.data:
             iskip -= 1
             if iskip <= 0:
-                plot_auto(v, hold=True, update=False, **kwargs)
+                kwargs['hold'] = True
+                plot_auto(v, update=False, **kwargs)
                 iskip = skip
 
         plot_auto(var.data[0], axis_only=True, **kwargs)
