@@ -677,7 +677,9 @@ def plot_auto(*args, **kwargs):
               + 'Use plot1d or plot2d')
         return
     if (len(dims) == 1):
-        if (len(args[0].grid.dims) == 1):
+        if type(args[0]) is sdf.BlockStitchedPath:
+            plot_rays(*args, **kwargs)
+        elif (len(args[0].grid.dims) == 1):
             plot1d(*args, **kwargs)
         else:
             plot_path(*args, **kwargs)
@@ -991,6 +993,7 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
         plot_path.axis = subplot.axis()
         if update:
             subplot.axis([X.min(), X.max(), Y.min(), Y.max()])
+            plot_path.axis = [X.min(), X.max(), Y.min(), Y.max()]
 
     if not hold and add_cbar:
         ax = subplot.axes
@@ -1027,20 +1030,25 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
         lim[3] *= mult_y
         subplot.axis([lim[0], lim[2], lim[1], lim[3]])
     elif hold:
+        if plot_path.axis is None:
+            plot_path.axis = [X.min(), X.max(), Y.min(), Y.max()]
         lims = plot_path.axis
-        lim = list(lims)
-        v = X.min()
-        if v < lim[0]:
-            lim[0] = v
-        v = X.max()
-        if v > lim[1]:
-            lim[1] = v
-        v = Y.min()
-        if v < lim[2]:
-            lim[2] = v
-        v = Y.max()
-        if v > lim[3]:
-            lim[3] = v
+        if lims is None:
+            lim = [X.min(), X.max(), Y.min(), Y.max()]
+        else:
+            lim = list(lims)
+            v = X.min()
+            if v < lim[0]:
+                lim[0] = v
+            v = X.max()
+            if v > lim[1]:
+                lim[1] = v
+            v = Y.min()
+            if v < lim[2]:
+                lim[2] = v
+            v = Y.max()
+            if v > lim[3]:
+                lim[3] = v
         plot_path.axis = lim
         if update:
             subplot.axis(lim)
@@ -1050,7 +1058,7 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
         figure.canvas.draw()
 
 
-def plot_rays(var, skip=1, **kwargs):
+def plot_rays(var, skip=1, rays=None, **kwargs):
     """Plot all rays found in an SDF file
 
        Parameters
