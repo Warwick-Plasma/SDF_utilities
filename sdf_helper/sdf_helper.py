@@ -1019,7 +1019,7 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
             cax = divider.append_axes("right", "%i%%" % cbar_wd,
                                       pad="%i%%" % pad)
             cbar = figure.colorbar(im, cax=cax, ax=ax)
-        figure.sca(ax)
+        plt.sca(ax)
         if cbar_label and title:
             if type(cbar_label) is str:
                 var_label = cbar_label
@@ -1289,7 +1289,7 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
             cax = divider.append_axes("right", "%i%%" % cbar_wd,
                                       pad="%i%%" % pad)
             cbar = figure.colorbar(im, cax=cax, ax=ax)
-        figure.sca(ax)
+        plt.sca(ax)
         if (cbar_label and (full or title)):
             if type(cbar_label) is str:
                 var_label = cbar_label
