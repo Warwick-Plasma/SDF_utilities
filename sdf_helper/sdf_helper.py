@@ -731,12 +731,16 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, scale=0,
                     figure.clf()
                 except:
                     pass
+        elif not hold:
+            figure.clf()
         # Have to add subplot after clearing figure
         subplot = figure.add_subplot(111)
     elif figure is None:
         figure = subplot.figure
         if not hold:
             subplot.clear()
+            if hasattr(subplot, 'colorbar'):
+                subplot.colorbar.remove()
 
     if var.dims[0] == var.grid.dims[0]:
         grid = var.grid
@@ -907,12 +911,16 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, scale=0,
                     figure.clf()
                 except:
                     pass
+        elif not hold:
+            figure.clf()
         # Have to add subplot after clearing figure
         subplot = figure.add_subplot(111)
     elif figure is None:
         figure = subplot.figure
         if not hold:
             subplot.clear()
+            if hasattr(subplot, 'colorbar'):
+                subplot.colorbar.remove()
 
     if not hold:
         plot_path.norm_values = None
@@ -1036,6 +1044,7 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, scale=0,
             cax = divider.append_axes("right", "%i%%" % cbar_wd,
                                       pad="%i%%" % pad)
             cbar = figure.colorbar(im, cax=cax, ax=ax)
+        subplot.colorbar = cax
         plt.sca(ax)
         if cbar_label and title:
             if type(cbar_label) is str:
@@ -1187,12 +1196,16 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
                     figure.clf()
                 except:
                     pass
+        elif not hold:
+            figure.clf()
         # Have to add subplot after clearing figure
         subplot = figure.add_subplot(111)
     elif figure is None:
         figure = subplot.figure
         if not hold:
             subplot.clear()
+            if hasattr(subplot, 'colorbar'):
+                subplot.colorbar.remove()
 
     if iso is None:
         iso = get_default_iso(data)
@@ -1310,6 +1323,7 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
             cax = divider.append_axes("right", "%i%%" % cbar_wd,
                                       pad="%i%%" % pad)
             cbar = figure.colorbar(im, cax=cax, ax=ax)
+        subplot.colorbar = cax
         plt.sca(ax)
         if (cbar_label and (full or title)):
             if type(cbar_label) is str:
