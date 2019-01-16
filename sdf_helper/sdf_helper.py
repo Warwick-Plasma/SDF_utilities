@@ -714,18 +714,23 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, cgs=False,
         print("error: Not a 1d dataset")
         return
 
-    if figure is None:
-        figure = plt.gcf()
-        # Only clear the figure if one isn't supplied by the user
-        if not hold:
-            try:
-                figure.clf()
-            except:
-                pass
-
-    # Have to add subplot after clearing figure
     if subplot is None:
+        if figure is None:
+            figure = plt.gcf()
+            if len(figure.get_axes()) == 0:
+                hold = False
+            # Only clear the figure if one isn't supplied by the user
+            if not hold:
+                try:
+                    figure.clf()
+                except:
+                    pass
+        # Have to add subplot after clearing figure
         subplot = figure.add_subplot(111)
+    elif figure is None:
+        figure = subplot.figure
+        if not hold:
+            subplot.clear()
 
     if var.dims[0] == var.grid.dims[0]:
         grid = var.grid
@@ -860,10 +865,12 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
     if axis_only:
         if plot_path.axis is None:
             return
-        if figure is None:
-            figure = plt.gcf()
         if subplot is None:
+            if figure is None:
+                figure = plt.gcf()
             subplot = figure.add_subplot(111)
+        elif figure is None:
+            figure = subplot.figure
         subplot.axis(plot_path.axis)
         figure.set_tight_layout(True)
         figure.canvas.draw()
@@ -876,25 +883,27 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
     if len(plt.get_fignums()) == 0:
         hold = False
 
-    if figure is None:
-        figure = plt.gcf()
-        if len(figure.get_axes()) == 0:
-            hold = False
-        # Only clear the figure if one isn't supplied by the user
-        if not hold:
-            try:
-                figure.clf()
+    if subplot is None:
+        if figure is None:
+            figure = plt.gcf()
+            if len(figure.get_axes()) == 0:
                 hold = False
-            except:
-                pass
+            # Only clear the figure if one isn't supplied by the user
+            if not hold:
+                try:
+                    figure.clf()
+                except:
+                    pass
+        # Have to add subplot after clearing figure
+        subplot = figure.add_subplot(111)
+    elif figure is None:
+        figure = subplot.figure
+        if not hold:
+            subplot.clear()
 
     if not hold:
         plot_path.norm_values = None
         plot_path.axis = None
-
-    # Have to add subplot after clearing figure
-    if subplot is None:
-        subplot = figure.add_subplot(111)
 
     if var.dims[0] == var.grid.dims[0]:
         grid = var.grid
@@ -1150,16 +1159,23 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
         cmap = mpl.colors.LinearSegmentedColormap.from_list(
             'tr', cmap(np.linspace(low, high, 256)))
 
-    if figure is None:
-        figure = plt.gcf()
-        if not hold:
-            try:
-                figure.clf()
-            except:
-                pass
-
     if subplot is None:
+        if figure is None:
+            figure = plt.gcf()
+            if len(figure.get_axes()) == 0:
+                hold = False
+            # Only clear the figure if one isn't supplied by the user
+            if not hold:
+                try:
+                    figure.clf()
+                except:
+                    pass
+        # Have to add subplot after clearing figure
         subplot = figure.add_subplot(111)
+    elif figure is None:
+        figure = subplot.figure
+        if not hold:
+            subplot.clear()
 
     if iso is None:
         iso = get_default_iso(data)
