@@ -1132,6 +1132,7 @@ def plot_rays(var, skip=1, rays=None, **kwargs):
         if type(v) is sdf.BlockStitchedPath:
             for v in var.data:
                 plot_rays(v, skip=skip, rays=rays, **kwargs)
+                kwargs['hold'] = True
             return
 
         k = 'cbar_label'
@@ -1162,11 +1163,12 @@ def plot_rays(var, skip=1, rays=None, **kwargs):
         for v in var.data:
             iskip -= 1
             if iskip <= 0:
-                kwargs['hold'] = True
                 plot_auto(v, update=False, **kwargs)
+                kwargs['hold'] = True
                 iskip = skip
 
         plot_auto(var.data[0], axis_only=True, **kwargs)
+        kwargs['hold'] = True
 
         return
 
@@ -1206,9 +1208,11 @@ def plot_rays(var, skip=1, rays=None, **kwargs):
             iskip -= 1
             if iskip <= 0:
                 plot_auto(data[k], hold=True, update=False, **kwargs)
+                kwargs['hold'] = True
                 iskip = skip
 
     plot_auto(var, axis_only=True, **kwargs)
+    kwargs['hold'] = True
 
 
 def oplot2d(*args, **kwargs):
