@@ -1128,7 +1128,7 @@ def plot_rays(var, skip=1, rays=None, **kwargs):
             kwargs[k1] = vmax
 
     k = 'cbar_label'
-    if k not in kwargs:
+    if k not in kwargs or (kwargs[k] and type(kwargs[k]) != str):
         # Remove /Ray[1-9]+ from the name
         kwargs[k] = '/'.join([split_name[0]] + split_name[2:]) \
                      + ' $(' + escape_latex(var.units) + ')$'
