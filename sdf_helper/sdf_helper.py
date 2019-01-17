@@ -1046,7 +1046,7 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, scale=0,
             cbar = figure.colorbar(im, cax=cax, ax=ax)
         subplot.colorbar = cax
         plt.sca(ax)
-        if cbar_label and title:
+        if cbar_label:
             if type(cbar_label) is str:
                 var_label = cbar_label
             else:
@@ -1325,7 +1325,7 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
             cbar = figure.colorbar(im, cax=cax, ax=ax)
         subplot.colorbar = cax
         plt.sca(ax)
-        if (cbar_label and (full or title)):
+        if cbar_label:
             if type(cbar_label) is str:
                 var_label = cbar_label
             if cbar_top:
