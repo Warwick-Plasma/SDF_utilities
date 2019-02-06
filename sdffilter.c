@@ -2012,9 +2012,6 @@ int main(int argc, char **argv)
 
         id_entry_head = id_entry_head2;
         id_entry_tail = id_entry_tail2;
-        for (id_entry=id_entry_head; id_entry; id_entry=id_entry->next) {
-            printf("%d\n", id_entry->idx);
-        }
     }
 
     nelements_max = 0;
