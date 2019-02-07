@@ -688,6 +688,12 @@ def plot_auto(*args, **kwargs):
         if k in kwargs:
             del kwargs[k]
         plot2d(*args, **kwargs)
+    elif len(dims) == 3 and \
+            ('ix' in kwargs or 'iy' in kwargs or 'iz' in kwargs):
+        k = 'set_ylabel'
+        if k in kwargs:
+            del kwargs[k]
+        plot2d(*args, **kwargs)
     else:
         print('error: Unable to plot variables of this dimensionality')
 
