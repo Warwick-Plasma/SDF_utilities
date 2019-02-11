@@ -1805,7 +1805,7 @@ def axis_offset(boxed=False):
     ax.spines['left'].set_linewidth(w)
     ax.spines['bottom'].set_position(('outward', gap))
     ax.spines['bottom'].set_linewidth(w)
-    ax.tick_params(direction='outwards', width=w, length=4.5, top='off',
+    ax.tick_params(direction='out', width=w, length=4.5, top='off',
                    right='off')
     ax.set_xlabel(xlab)
     ax.set_ylabel(ylab)
