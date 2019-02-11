@@ -688,6 +688,12 @@ def plot_auto(*args, **kwargs):
         if k in kwargs:
             del kwargs[k]
         plot2d(*args, **kwargs)
+    elif len(dims) == 3 and \
+            ('ix' in kwargs or 'iy' in kwargs or 'iz' in kwargs):
+        k = 'set_ylabel'
+        if k in kwargs:
+            del kwargs[k]
+        plot2d(*args, **kwargs)
     else:
         print('error: Unable to plot variables of this dimensionality')
 
@@ -704,9 +710,9 @@ def oplot1d(*args, **kwargs):
     plot1d(*args, **kwargs)
 
 
-def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, cgs=False,
-           title=True, sym=True, set_ylabel=True, hold=False, subplot=None,
-           figure=None, **kwargs):
+def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, scale=0,
+           cgs=False, title=True, sym=True, set_ylabel=True, hold=False,
+           subplot=None, figure=None, **kwargs):
     global data
     global x, y, mult_x, mult_y
 
@@ -725,12 +731,16 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, cgs=False,
                     figure.clf()
                 except:
                     pass
+        elif not hold:
+            figure.clf()
         # Have to add subplot after clearing figure
         subplot = figure.add_subplot(111)
     elif figure is None:
         figure = subplot.figure
         if not hold:
             subplot.clear()
+            if hasattr(subplot, 'colorbar'):
+                subplot.colorbar.remove()
 
     if var.dims[0] == var.grid.dims[0]:
         grid = var.grid
@@ -762,6 +772,10 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, cgs=False,
 
     if xdir is None:
         xdir = 0
+
+    if scale > 0:
+        xscale = scale
+        yscale = scale
 
     if xscale == 0:
         length = max(abs(X[0]), abs(X[-1]))
@@ -796,10 +810,10 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, cgs=False,
     figure.canvas.draw()
 
 
-def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
-              hold=False, subplot=None, figure=None, iso=True, add_cbar=True,
-              cbar_label=True, cbar_wd=5, cbar_top=False, svar=None,
-              update=True, axis_only=False, **kwargs):
+def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, scale=0,
+              title=True, hold=False, subplot=None, figure=None, iso=True,
+              add_cbar=True, cbar_label=True, cbar_wd=5, cbar_top=False,
+              svar=None, update=True, axis_only=False, **kwargs):
     """Plot an SDF path variable (eg. a laser ray)
 
        Parameters
@@ -817,6 +831,9 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
            be scaled automatically. Set this to 1 to disable scaling.
        yscale : real
            Value to use for scaling the y-axis. If not set then the x-axis will
+           be scaled automatically. Set this to 1 to disable scaling.
+       scale : real
+           Value to use for scaling both axes. If not set then the axes will
            be scaled automatically. Set this to 1 to disable scaling.
        title : logical or string
            If set to False, don't add a title to the plot.
@@ -894,12 +911,16 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
                     figure.clf()
                 except:
                     pass
+        elif not hold:
+            figure.clf()
         # Have to add subplot after clearing figure
         subplot = figure.add_subplot(111)
     elif figure is None:
         figure = subplot.figure
         if not hold:
             subplot.clear()
+            if hasattr(subplot, 'colorbar'):
+                subplot.colorbar.remove()
 
     if not hold:
         plot_path.norm_values = None
@@ -932,6 +953,10 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
     Y = grid.data[ydir]
 
     if not hold:
+        if scale > 0:
+            xscale = scale
+            yscale = scale
+
         if xscale == 0:
             length = max(abs(X[0]), abs(X[-1]))
             mult_x, sym_x = get_si_prefix(length)
@@ -1019,8 +1044,9 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, title=True,
             cax = divider.append_axes("right", "%i%%" % cbar_wd,
                                       pad="%i%%" % pad)
             cbar = figure.colorbar(im, cax=cax, ax=ax)
+        subplot.colorbar = cax
         plt.sca(ax)
-        if cbar_label and title:
+        if cbar_label:
             if type(cbar_label) is str:
                 var_label = cbar_label
             else:
@@ -1102,7 +1128,7 @@ def plot_rays(var, skip=1, rays=None, **kwargs):
             kwargs[k1] = vmax
 
     k = 'cbar_label'
-    if k not in kwargs:
+    if k not in kwargs or (kwargs[k] and type(kwargs[k]) != str):
         # Remove /Ray[1-9]+ from the name
         kwargs[k] = '/'.join([split_name[0]] + split_name[2:]) \
                      + ' $(' + escape_latex(var.units) + ')$'
@@ -1125,7 +1151,7 @@ def oplot2d(*args, **kwargs):
 
 def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
                  iso=None, fast=None, title=True, full=True, vrange=None,
-                 reflect=0, norm=None, hold=False, xscale=0, yscale=0,
+                 reflect=0, norm=None, hold=False, xscale=0, yscale=0, scale=0,
                  figure=None, subplot=None, add_cbar=True, cbar_label=True,
                  cbar_wd=5, cbar_top=False, **kwargs):
     import matplotlib as mpl
@@ -1170,15 +1196,23 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
                     figure.clf()
                 except:
                     pass
+        elif not hold:
+            figure.clf()
         # Have to add subplot after clearing figure
         subplot = figure.add_subplot(111)
     elif figure is None:
         figure = subplot.figure
         if not hold:
             subplot.clear()
+            if hasattr(subplot, 'colorbar'):
+                subplot.colorbar.remove()
 
     if iso is None:
         iso = get_default_iso(data)
+
+    if scale > 0:
+        xscale = scale
+        yscale = scale
 
     ext = extents[:]
     if xscale == 0:
@@ -1289,8 +1323,9 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
             cax = divider.append_axes("right", "%i%%" % cbar_wd,
                                       pad="%i%%" % pad)
             cbar = figure.colorbar(im, cax=cax, ax=ax)
+        subplot.colorbar = cax
         plt.sca(ax)
-        if (cbar_label and (full or title)):
+        if cbar_label:
             if type(cbar_label) is str:
                 var_label = cbar_label
             if cbar_top:
@@ -1306,7 +1341,7 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
 
 def plot2d(var, iso=None, fast=None, title=True, full=True, vrange=None,
            ix=None, iy=None, iz=None, reflect=0, norm=None, irange=None,
-           jrange=None, hold=False, xscale=0, yscale=0, figure=None,
+           jrange=None, hold=False, xscale=0, yscale=0, scale=0, figure=None,
            subplot=None, add_cbar=True, cbar_label=True, cbar_top=False,
            **kwargs):
     global data, fig, im, cbar
@@ -1377,6 +1412,10 @@ def plot2d(var, iso=None, fast=None, title=True, full=True, vrange=None,
 
     idx = [i0, i1, i2, i3]
 
+    if scale > 0:
+        xscale = scale
+        yscale = scale
+
     extents = list(var.grid.extents)
     if xscale == 0:
         length = max(abs(extents[i2]), abs(extents[i0]))
@@ -1404,8 +1443,9 @@ def plot2d(var, iso=None, fast=None, title=True, full=True, vrange=None,
                  xlabel=xlabel, ylabel=ylabel, idx=idx, iso=iso, fast=fast,
                  title=title, full=full, vrange=vrange, reflect=reflect,
                  norm=norm, hold=hold, xscale=xscale, yscale=yscale,
-                 figure=figure, subplot=subplot, add_cbar=add_cbar,
-                 cbar_label=cbar_label, cbar_top=cbar_top, **kwargs)
+                 scale=scale, figure=figure, subplot=subplot,
+                 add_cbar=add_cbar, cbar_label=cbar_label, cbar_top=cbar_top,
+                 **kwargs)
 
 
 def plot2d_update(var):
