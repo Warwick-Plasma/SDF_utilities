@@ -813,7 +813,8 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, scale=0,
 def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, scale=0,
               title=True, hold=False, subplot=None, figure=None, iso=True,
               add_cbar=True, cbar_label=True, cbar_wd=5, cbar_top=False,
-              svar=None, update=True, axis_only=False, **kwargs):
+              svar=None, update=True, axis_only=False, clip_reflect=False,
+              **kwargs):
     """Plot an SDF path variable (eg. a laser ray)
 
        Parameters
@@ -865,6 +866,9 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, scale=0,
        svar : sdf.Block
            If set, use the extents of this variable to set the axis range for
            this plot
+       clip_reflect : logical
+           If set to true, then rays are clipped at the point where the path
+           gradient is either zero or huge
 
        **kwargs : dict
            All other keyword arguments are passed to matplotlib plotting
@@ -972,6 +976,21 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, scale=0,
     X = mult_x * X
     Y = mult_y * Y
     c = var.data
+
+    if clip_reflect:
+        g = (X[0] - X[1]) / (Y[0] - Y[1])
+        for i in range(len(c) - 1):
+            ddx = X[i] - X[i+1]
+            ddy = Y[i] - Y[i+1]
+            if abs(ddy) < 1e-16:
+                grad = 100
+            else:
+                grad = ddx / ddy / g
+            if abs(grad) > 10 or grad < 0:
+                X = np.copy(X[:i+1])
+                Y = np.copy(Y[:i+1])
+                c = np.copy(c[:i+1])
+                break
 
     points = np.array([X, Y]).T.reshape(-1, 1, 2)
     segments = np.concatenate([points[:-1], points[1:]], axis=1)
@@ -1103,6 +1122,56 @@ def plot_rays(var, skip=1, rays=None, **kwargs):
        skip : integer
            Number of rays to skip before selecting the next one to plot
     """
+
+    if type(var) is sdf.BlockStitchedPath:
+        v = var.data[0]
+        l = '_label'
+        if l not in kwargs:
+            kwargs[l] = var.name
+
+        if type(v) is sdf.BlockStitchedPath:
+            for v in var.data:
+                plot_rays(v, skip=skip, rays=rays, **kwargs)
+                kwargs['hold'] = True
+            return
+
+        k = 'cbar_label'
+        if k not in kwargs or (kwargs[k] and type(kwargs[k]) != str):
+            kwargs[k] = kwargs[l] + ' $(' + escape_latex(v.units) + ')$'
+            del kwargs[l]
+
+        k0 = 'vmin'
+        k1 = 'vmax'
+        k = 'vrange'
+        if k not in kwargs and not (k0 in kwargs and k1 in kwargs):
+            v = var.data[0]
+            vmin = v.data.min()
+            vmax = v.data.max()
+            iskip = skip
+            for v in var.data:
+                iskip -= 1
+                if iskip <= 0:
+                    vmin = min(vmin, v.data.min())
+                    vmax = max(vmax, v.data.max())
+                    iskip = skip
+            if k0 not in kwargs:
+                kwargs[k0] = vmin
+            if k1 not in kwargs:
+                kwargs[k1] = vmax
+
+        iskip = skip
+        for v in var.data:
+            iskip -= 1
+            if iskip <= 0:
+                plot_auto(v, update=False, **kwargs)
+                kwargs['hold'] = True
+                iskip = skip
+
+        plot_auto(var.data[0], axis_only=True, **kwargs)
+        kwargs['hold'] = True
+
+        return
+
     split_name = var.name.split('/')
     start = split_name[0] + '_'
     end = '_' + split_name[-1]
@@ -1139,9 +1208,11 @@ def plot_rays(var, skip=1, rays=None, **kwargs):
             iskip -= 1
             if iskip <= 0:
                 plot_auto(data[k], hold=True, update=False, **kwargs)
+                kwargs['hold'] = True
                 iskip = skip
 
     plot_auto(var, axis_only=True, **kwargs)
+    kwargs['hold'] = True
 
 
 def oplot2d(*args, **kwargs):
