@@ -720,22 +720,46 @@ static PyObject *Block_getdata(Block *block, void *closure)
                 ptr_in = data;
                 ptr_out = data = mem = malloc(ntot * sizeof(*ptr_out));
                 if (!mem) goto free_mem;
-                for (j = 0; j < block->adims[1]; j++) {
-                for (i = 0; i < block->adims[0]; i++) {
-                    *ptr_out++ = 0.25 * (ptr_in[IJ(i,j)] + ptr_in[IJ(i+1,j)]
-                            + ptr_in[IJ(i,j+1)] + ptr_in[IJ(i+1,j+1)]);
-                }}
+                if (block->adims[0] == 1) {
+                    for (j = 0; j < block->adims[1]; j++) {
+                        *ptr_out++ = 0.5 * (ptr_in[IJ(0,j)]
+                                + ptr_in[IJ(0,j+1)]);
+                    }
+                } else if (block->adims[1] == 1) {
+                    for (i = 0; i < block->adims[0]; i++) {
+                        *ptr_out++ = 0.5 * (ptr_in[IJ(i,0)]
+                                + ptr_in[IJ(i+1,0)]);
+                    }
+                } else {
+                    for (j = 0; j < block->adims[1]; j++) {
+                    for (i = 0; i < block->adims[0]; i++) {
+                        *ptr_out++ = 0.25 * (ptr_in[IJ(i,j)] + ptr_in[IJ(i+1,j)]
+                                + ptr_in[IJ(i,j+1)] + ptr_in[IJ(i+1,j+1)]);
+                    }}
+                }
             } else if (double2d) {
                 double *ptr_in, *ptr_out;
                 Py_ssize_t ntot = block->adims[0] * block->adims[1];
                 ptr_in = data;
                 ptr_out = data = mem = malloc(ntot * sizeof(*ptr_out));
                 if (!mem) goto free_mem;
-                for (j = 0; j < block->adims[1]; j++) {
-                for (i = 0; i < block->adims[0]; i++) {
-                    *ptr_out++ = 0.25 * (ptr_in[IJ(i,j)] + ptr_in[IJ(i+1,j)]
-                            + ptr_in[IJ(i,j+1)] + ptr_in[IJ(i+1,j+1)]);
-                }}
+                if (block->adims[0] == 1) {
+                    for (j = 0; j < block->adims[1]; j++) {
+                        *ptr_out++ = 0.5 * (ptr_in[IJ(0,j)]
+                                + ptr_in[IJ(0,j+1)]);
+                    }
+                } else if (block->adims[1] == 1) {
+                    for (i = 0; i < block->adims[0]; i++) {
+                        *ptr_out++ = 0.5 * (ptr_in[IJ(i,0)]
+                                + ptr_in[IJ(i+1,0)]);
+                    }
+                } else {
+                    for (j = 0; j < block->adims[1]; j++) {
+                    for (i = 0; i < block->adims[0]; i++) {
+                        *ptr_out++ = 0.25 * (ptr_in[IJ(i,j)] + ptr_in[IJ(i+1,j)]
+                                + ptr_in[IJ(i,j+1)] + ptr_in[IJ(i+1,j+1)]);
+                    }}
+                }
             }
 
             if (mem)
@@ -873,7 +897,8 @@ setup_mesh(SDFObject *sdf, PyObject *dict, sdf_block_t *b, PyObject *dict_id)
     if (!block->units) goto free_mem;
 
     for (n = 0; n < b->ndims; n++) {
-        block->adims[n]--;
+        if (block->adims[n] > 1)
+            block->adims[n]--;
         PyTuple_SetItem(block->dims, n, PyLong_FromLong(block->adims[n]));
 
         ob = PyASCII_FromString(b->dim_labels[n]);
