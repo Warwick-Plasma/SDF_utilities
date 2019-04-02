@@ -1663,14 +1663,20 @@ def getdata(fname, wkd=None, verbose=True, squeeze=False):
         wkdir = wkd
 
     if isinstance(fname, int):
-        filename = wkdir + "/%0.4i.sdf" % fname
+        try:
+            filename = wkdir + "/%0.4i.sdf" % fname
+        except:
+            filename = wkdir + "/" + fname
     else:
         filename = fname
 
     try:
         st = os.stat(filename)
     except OSError as e:
-        filename = "./%0.4i.sdf" % fname
+        try:
+            filename = "./%0.4i.sdf" % fname
+        except:
+            filename = "./" + fname
         try:
             st = os.stat(filename)
             wkdir = '.'
