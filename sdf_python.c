@@ -1812,6 +1812,7 @@ MOD_INIT(sdf)
     BlockType.tp_name = "sdf.Block";
     BlockType.tp_dealloc = Block_dealloc;
     BlockType.tp_members = Block_members;
+    BlockType.tp_dictoffset = offsetof(Block, dict);
     if (PyType_Ready(&BlockType) < 0)
         return MOD_ERROR_VAL;
     Py_INCREF(&BlockType);
