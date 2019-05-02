@@ -838,13 +838,15 @@ static int pretty_print_slice(sdf_file_t *h, sdf_block_t *b)
     float r4;
     double r8;
     struct slice_block *sb;
+    static int need_init = 1;
 
     if (b->blocktype != SDF_BLOCKTYPE_PLAIN_VARIABLE &&
+            b->blocktype != SDF_BLOCKTYPE_ARRAY &&
             b->blocktype != SDF_BLOCKTYPE_PLAIN_DERIVED) return 0;
 
     if (slice_direction >= b->ndims) return 0;
 
-    if (!mesh) {
+    if (!mesh && b->blocktype != SDF_BLOCKTYPE_ARRAY) {
         mesh = sdf_find_block_by_id(h, b->mesh_id);
         if (!mesh) {
             fprintf(stderr, "ERROR: unable to find mesh.\n");
@@ -868,6 +870,7 @@ static int pretty_print_slice(sdf_file_t *h, sdf_block_t *b)
 
         list_init(&slice_list);
         list_append(slice_list, sb);
+        need_init = 0;
 
         // Create a new cell-centered grid array
         ptr = mesh->grids[slice_direction];
@@ -905,6 +908,20 @@ static int pretty_print_slice(sdf_file_t *h, sdf_block_t *b)
         }
     }
 
+    if (need_init) {
+        list_init(&slice_list);
+        need_init = 0;
+
+        printf("# 1D array slice through (");
+        for (n = 0; n < b->ndims; n++) {
+            if (n != 0) printf(",");
+            if (n == slice_direction)
+                printf(":");
+            else
+                printf("%i", slice_dim[n]+index_offset);
+        }
+        printf(")\n#\n");
+    }
     sb = calloc(1, sizeof(*sb));
     sb->datatype = b->datatype_out;
     sb->nelements = b->nelements_local;
@@ -912,8 +929,12 @@ static int pretty_print_slice(sdf_file_t *h, sdf_block_t *b)
 
     list_append(slice_list, sb);
 
-    if (ascii_header)
-        printf("# %s\t%s\t(%s)\n", b->id, b->name, b->units);
+    if (ascii_header) {
+        printf("# %s\t%s", b->id, b->name);
+        if (b->blocktype != SDF_BLOCKTYPE_ARRAY)
+            printf("\t(%s)", b->units);
+        printf("\n");
+    }
 
     return 0;
 }
