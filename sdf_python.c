@@ -107,7 +107,7 @@ static const int typemap[] = {
 #else
     0,
 #endif
-    NPY_CHAR,
+    NPY_STRING,
     NPY_BOOL,
     NPY_VOID,
 };
