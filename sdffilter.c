@@ -1865,7 +1865,7 @@ void move_id_entry(struct id_list *id_entry,
 int main(int argc, char **argv)
 {
     char *file = NULL;
-    int i, n, block, found, idx, len, range_start;
+    int i, n, block, found, idx, len, len2, range_start;
     int nelements_max;
     int err = 0;
     sdf_file_t *h;
@@ -1964,8 +1964,10 @@ int main(int argc, char **argv)
             if (found == 0 && variable_ids) {
                 variable_last_id = variable_ids;
                 while (variable_last_id) {
-                    if (!memcmp(b->id, variable_last_id->id,
-                            strlen(variable_last_id->id)+1)) {
+                    len  = strlen(b->id);
+                    len2 = strlen(variable_last_id->id);
+                    if (len == len2
+                            && !memcmp(b->id, variable_last_id->id, len)) {
                         variable_last_id->idx = idx;
                         variable_last_id->b = b;
                         found = 1;
