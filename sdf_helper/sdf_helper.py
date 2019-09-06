@@ -1849,7 +1849,7 @@ def getdata(fname, wkd=None, verbose=True, squeeze=False):
     return data
 
 
-def ogrid(skip=None):
+def ogrid(skip=None, **kwargs):
     global x, y, mult_x, mult_y
     if np.ndim(x) == 1:
         X, Y = np.meshgrid(x, y)
@@ -1859,8 +1859,14 @@ def ogrid(skip=None):
         Y = y[s, s]
     X = np.multiply(mult_x, X)
     Y = np.multiply(mult_y, Y)
-    plt.plot(X, Y, color='k', lw=0.5)
-    plt.plot(X.transpose(), Y.transpose(), color='k', lw=0.5)
+    k = 'lw'
+    if k not in kwargs and 'linewidth' not in kwargs:
+        kwargs[k] = 0.5
+    k = 'color'
+    if k not in kwargs:
+        kwargs[k] = 'k'
+    plt.plot(X, Y, **kwargs)
+    plt.plot(X.transpose(), Y.transpose(), **kwargs)
 
 
 def plotgrid(fname=None, iso=None, title=True):
