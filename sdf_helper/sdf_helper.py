@@ -711,7 +711,7 @@ def oplot1d(*args, **kwargs):
 
 
 def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, scale=0,
-           cgs=False, title=True, sym=True, set_ylabel=True, hold=False,
+           cgs=False, title=True, sym=True, set_ylabel=True, hold=True,
            subplot=None, figure=None, **kwargs):
     global data
     global x, y, mult_x, mult_y
@@ -812,7 +812,7 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, scale=0,
 
 
 def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, scale=0,
-              title=True, hold=False, subplot=None, figure=None, iso=True,
+              title=True, hold=True, subplot=None, figure=None, iso=True,
               add_cbar=True, cbar_label=True, cbar_wd=5, cbar_top=False,
               svar=None, update=True, axis_only=False, clip_reflect=False,
               **kwargs):
@@ -1223,7 +1223,7 @@ def oplot2d(*args, **kwargs):
 
 def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
                  iso=None, fast=None, title=True, full=True, vrange=None,
-                 reflect=0, norm=None, hold=False, xscale=0, yscale=0, scale=0,
+                 reflect=0, norm=None, hold=True, xscale=0, yscale=0, scale=0,
                  figure=None, subplot=None, add_cbar=True, cbar_label=True,
                  cbar_wd=5, cbar_top=False, **kwargs):
     import matplotlib as mpl
@@ -1413,7 +1413,7 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
 
 def plot2d(var, iso=None, fast=None, title=True, full=True, vrange=None,
            ix=None, iy=None, iz=None, reflect=0, norm=None, irange=None,
-           jrange=None, hold=False, xscale=0, yscale=0, scale=0, figure=None,
+           jrange=None, hold=True, xscale=0, yscale=0, scale=0, figure=None,
            subplot=None, add_cbar=True, cbar_label=True, cbar_top=False,
            **kwargs):
     global data, fig, im, cbar
