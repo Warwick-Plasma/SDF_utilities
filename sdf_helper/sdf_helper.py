@@ -934,10 +934,11 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, scale=0,
         plot_path.norm_values = None
         plot_path.axis = None
 
-    if var.dims[0] == var.grid.dims[0]:
-        grid = var.grid
-    else:
-        grid = var.grid_mid
+    #if var.dims[0] == var.grid.dims[0]:
+    #    grid = var.grid
+    #else:
+    #    grid = var.grid_mid
+    grid = var.grid
 
     test_dir = False
     if xdir is None:
