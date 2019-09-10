@@ -815,7 +815,7 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, scale=0,
               title=True, hold=True, subplot=None, figure=None, iso=True,
               add_cbar=True, cbar_label=True, cbar_wd=5, cbar_top=False,
               svar=None, update=True, axis_only=False, clip_reflect=False,
-              **kwargs):
+              power=(-3,3), **kwargs):
     """Plot an SDF path variable (eg. a laser ray)
 
        Parameters
@@ -870,6 +870,9 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, scale=0,
        clip_reflect : logical
            If set to true, then rays are clipped at the point where the path
            gradient is either zero or huge
+       power : sequence
+           Sets size thresholds for scientific notation.
+           Two-element sequence passed throuth to set_powerlimits()
 
        **kwargs : dict
            All other keyword arguments are passed to matplotlib plotting
@@ -1064,6 +1067,11 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, scale=0,
             cax = divider.append_axes("right", "%i%%" % cbar_wd,
                                       pad="%i%%" % pad)
             cbar = figure.colorbar(im, cax=cax, ax=ax)
+        try:
+            cbar.formatter.set_powerlimits(power)
+            cbar.update_ticks()
+        except:
+            pass
         subplot.colorbar = cax
         plt.sca(ax)
         if cbar_label:
@@ -1225,7 +1233,7 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
                  iso=None, fast=None, title=True, full=True, vrange=None,
                  reflect=0, norm=None, hold=True, xscale=0, yscale=0, scale=0,
                  figure=None, subplot=None, add_cbar=True, cbar_label=True,
-                 cbar_wd=5, cbar_top=False, **kwargs):
+                 cbar_wd=5, cbar_top=False, power=(-3,3), **kwargs):
     import matplotlib as mpl
     global data, fig, im, cbar
     global mult_x, mult_y
@@ -1395,6 +1403,11 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
             cax = divider.append_axes("right", "%i%%" % cbar_wd,
                                       pad="%i%%" % pad)
             cbar = figure.colorbar(im, cax=cax, ax=ax)
+        try:
+            cbar.formatter.set_powerlimits(power)
+            cbar.update_ticks()
+        except:
+            pass
         subplot.colorbar = cax
         plt.sca(ax)
         if cbar_label:
