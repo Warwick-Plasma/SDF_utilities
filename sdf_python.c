@@ -1206,6 +1206,57 @@ free_mem:
 }
 
 
+#define SET_ENTRY2(value) do { \
+        PyObject *sub; \
+        sub = Py_BuildValue("s", str); \
+        PyDict_SetItemString(dict, #value, sub); \
+        Py_DECREF(sub); \
+    } while (0)
+
+#define SET_ENTRY3(value) do { \
+        PyObject *sub; \
+        sub = Py_BuildValue("s", run->value); \
+        PyDict_SetItemString(dict, #value, sub); \
+        Py_DECREF(sub); \
+    } while (0)
+
+static PyObject *fill_runinfo(sdf_block_t *b)
+{
+    PyObject *dict;
+    struct run_info *run = b->data;
+    time_t time;
+    char *str;
+    char cstring[32];
+
+    dict = PyDict_New();
+
+    str = cstring;
+    snprintf(str, 32, "%i.%i.%i",
+             run->version, run->revision, run->minor_rev);
+    SET_ENTRY2(version);
+
+    SET_ENTRY3(commit_id);
+    SET_ENTRY3(sha1sum);
+    SET_ENTRY3(compile_machine);
+    SET_ENTRY3(compile_flags);
+
+    str = cstring;
+    snprintf(str, 32, "%" PRIi64, run->defines);
+    SET_ENTRY2(defines);
+
+    time = run->compile_date; str = ctime(&time); str[strlen(str)-1]='\0';
+    SET_ENTRY2(compile_date);
+
+    time = run->run_date; str = ctime(&time); str[strlen(str)-1] = '\0';
+    SET_ENTRY2(run_date);
+
+    time = run->io_date; str = ctime(&time); str[strlen(str)-1] = '\0';
+    SET_ENTRY2(io_date);
+
+    return dict;
+}
+
+
 static void
 setup_array(SDFObject *sdf, PyObject *dict, sdf_block_t *b, PyObject *dict_id)
 {
@@ -1627,6 +1678,11 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
             case SDF_BLOCKTYPE_STITCHED_MATERIAL:
             case SDF_BLOCKTYPE_CONTIGUOUS_MATERIAL:
                 setup_materials(sdf, dict, b, dict_id);
+                break;
+            case SDF_BLOCKTYPE_RUN_INFO:
+                sub = fill_runinfo(b);
+                PyDict_SetItemString(dict, "Run_info", sub);
+                Py_DECREF(sub);
                 break;
         }
         b = h->current_block = b->next;
