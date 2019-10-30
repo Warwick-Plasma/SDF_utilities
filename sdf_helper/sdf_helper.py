@@ -711,7 +711,7 @@ def oplot1d(*args, **kwargs):
 
 
 def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, scale=0,
-           cgs=False, title=True, sym=True, set_ylabel=True, hold=False,
+           cgs=False, title=True, sym=True, set_ylabel=True, hold=True,
            subplot=None, figure=None, **kwargs):
     global data
     global x, y, mult_x, mult_y
@@ -812,10 +812,10 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, scale=0,
 
 
 def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, scale=0,
-              title=True, hold=False, subplot=None, figure=None, iso=True,
+              title=True, hold=True, subplot=None, figure=None, iso=True,
               add_cbar=True, cbar_label=True, cbar_wd=5, cbar_top=False,
               svar=None, update=True, axis_only=False, clip_reflect=False,
-              **kwargs):
+              power=(-3,3), **kwargs):
     """Plot an SDF path variable (eg. a laser ray)
 
        Parameters
@@ -870,6 +870,9 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, scale=0,
        clip_reflect : logical
            If set to true, then rays are clipped at the point where the path
            gradient is either zero or huge
+       power : sequence
+           Sets size thresholds for scientific notation.
+           Two-element sequence passed throuth to set_powerlimits()
 
        **kwargs : dict
            All other keyword arguments are passed to matplotlib plotting
@@ -931,10 +934,11 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, scale=0,
         plot_path.norm_values = None
         plot_path.axis = None
 
-    if var.dims[0] == var.grid.dims[0]:
-        grid = var.grid
-    else:
-        grid = var.grid_mid
+    #if var.dims[0] == var.grid.dims[0]:
+    #    grid = var.grid
+    #else:
+    #    grid = var.grid_mid
+    grid = var.grid
 
     test_dir = False
     if xdir is None:
@@ -1064,6 +1068,11 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, scale=0,
             cax = divider.append_axes("right", "%i%%" % cbar_wd,
                                       pad="%i%%" % pad)
             cbar = figure.colorbar(im, cax=cax, ax=ax)
+        try:
+            cbar.formatter.set_powerlimits(power)
+            cbar.update_ticks()
+        except:
+            pass
         subplot.colorbar = cax
         plt.sca(ax)
         if cbar_label:
@@ -1223,9 +1232,9 @@ def oplot2d(*args, **kwargs):
 
 def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
                  iso=None, fast=None, title=True, full=True, vrange=None,
-                 reflect=0, norm=None, hold=False, xscale=0, yscale=0, scale=0,
+                 reflect=0, norm=None, hold=True, xscale=0, yscale=0, scale=0,
                  figure=None, subplot=None, add_cbar=True, cbar_label=True,
-                 cbar_wd=5, cbar_top=False, **kwargs):
+                 cbar_wd=5, cbar_top=False, power=(-3,3), **kwargs):
     import matplotlib as mpl
     global data, fig, im, cbar
     global mult_x, mult_y
@@ -1395,6 +1404,11 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
             cax = divider.append_axes("right", "%i%%" % cbar_wd,
                                       pad="%i%%" % pad)
             cbar = figure.colorbar(im, cax=cax, ax=ax)
+        try:
+            cbar.formatter.set_powerlimits(power)
+            cbar.update_ticks()
+        except:
+            pass
         subplot.colorbar = cax
         plt.sca(ax)
         if cbar_label:
@@ -1413,7 +1427,7 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
 
 def plot2d(var, iso=None, fast=None, title=True, full=True, vrange=None,
            ix=None, iy=None, iz=None, reflect=0, norm=None, irange=None,
-           jrange=None, hold=False, xscale=0, yscale=0, scale=0, figure=None,
+           jrange=None, hold=True, xscale=0, yscale=0, scale=0, figure=None,
            subplot=None, add_cbar=True, cbar_label=True, cbar_top=False,
            **kwargs):
     global data, fig, im, cbar
@@ -1849,7 +1863,7 @@ def getdata(fname, wkd=None, verbose=True, squeeze=False):
     return data
 
 
-def ogrid(skip=None):
+def ogrid(skip=None, **kwargs):
     global x, y, mult_x, mult_y
     if np.ndim(x) == 1:
         X, Y = np.meshgrid(x, y)
@@ -1859,8 +1873,14 @@ def ogrid(skip=None):
         Y = y[s, s]
     X = np.multiply(mult_x, X)
     Y = np.multiply(mult_y, Y)
-    plt.plot(X, Y, color='k', lw=0.5)
-    plt.plot(X.transpose(), Y.transpose(), color='k', lw=0.5)
+    k = 'lw'
+    if k not in kwargs and 'linewidth' not in kwargs:
+        kwargs[k] = 0.5
+    k = 'color'
+    if k not in kwargs:
+        kwargs[k] = 'k'
+    plt.plot(X, Y, **kwargs)
+    plt.plot(X.transpose(), Y.transpose(), **kwargs)
 
 
 def plotgrid(fname=None, iso=None, title=True):
