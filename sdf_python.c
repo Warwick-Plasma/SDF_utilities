@@ -1051,9 +1051,25 @@ static void extract_station_time_histories(sdf_file_t *h, PyObject *stations,
 }
 
 
+#define SET_BENTRY(type, value, dict) do { \
+        sub = Py_BuildValue(#type, b->value); \
+        PyDict_SetItemString(dict, #value, sub); \
+        Py_DECREF(sub); \
+    } while (0)
+
+#define SET_IENTRY(i, type, value, dict) do { \
+        sub = Py_BuildValue(#type, b->value[i]); \
+        PyDict_SetItemString(dict, #value, sub); \
+        Py_DECREF(sub); \
+    } while (0)
+
+#define SET_IBOOL(i, value, dict) \
+    if (b->value[i]) PyDict_SetItemString(dict, #value, Py_True); \
+    else PyDict_SetItemString(dict, #value, Py_False)
+
 int append_station_metadata(sdf_block_t *b, PyObject *dict)
 {
-    PyObject *block, *station, *variable;
+    PyObject *block, *station, *variable, *statdict, *sdict, *sub;
     int i;
     Py_ssize_t j;
 
@@ -1062,20 +1078,41 @@ int append_station_metadata(sdf_block_t *b, PyObject *dict)
         return -1;
 
     block = PyDict_New();
+    statdict = PyDict_New();
     PyDict_SetItemString(dict, b->name, block);
+    PyDict_SetItemString(block, "stations", statdict);
+
+    SET_BENTRY(i, step, block);
+    SET_BENTRY(i, step_increment, block);
+    SET_BENTRY(d, time, block);
+    SET_BENTRY(d, time_increment, block);
 
     for ( i=0; i<b->nstations; i++ ) {
+        sdict = PyDict_New();
+        PyDict_SetItemString(statdict, b->station_names[i], sdict);
+
         station = PyList_New(b->station_nvars[i]);
 
         for ( j=0; j<b->station_nvars[i]; j++ ) {
             variable = PyASCII_FromString(b->material_names[i+j+1]);
             PyList_SET_ITEM(station, j, variable);
         }
+        PyDict_SetItemString(sdict, "variables", station);
 
-        PyDict_SetItemString(block, b->station_names[i], station);
+        SET_IBOOL(i, station_move, sdict);
+
+        if (b->ndims > 0)
+            SET_IENTRY(i, d, station_x, sdict);
+        if (b->ndims > 1)
+            SET_IENTRY(i, d, station_y, sdict);
+        if (b->ndims > 2)
+            SET_IENTRY(i, d, station_z, sdict);
+
+        Py_DECREF(sdict);
         Py_DECREF(station);
     }
 
+    Py_DECREF(statdict);
     Py_DECREF(block);
 
     return 0;
