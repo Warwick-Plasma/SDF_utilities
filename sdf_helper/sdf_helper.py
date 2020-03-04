@@ -778,6 +778,20 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, scale=0,
         xscale = scale
         yscale = scale
 
+    # This is an attempt to get both axes to use the same scale
+    # I'm not at all confident that it always does the right thing
+    if xscale == 0 and yscale == 0:
+        xlen = max(abs(X[0]), abs(X[-1]))
+        ylen = max(abs(Y[0]), abs(Y[-1]))
+        ratio1 = ylen / xlen
+        ratio2 = xlen / ylen
+        if ratio1 >= 1 and ratio1 < 1e3:
+            xscale = xlen
+            yscale = xlen
+        elif ratio2 >= 1 and ratio2 < 1e3:
+            xscale = ylen
+            yscale = ylen
+
     if xscale == 0:
         length = max(abs(X[0]), abs(X[-1]))
         mult_x, sym_x = get_si_prefix(length)
@@ -965,6 +979,20 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, scale=0,
         if scale > 0:
             xscale = scale
             yscale = scale
+
+        # This is an attempt to get both axes to use the same scale
+        # I'm not at all confident that it always does the right thing
+        if xscale == 0 and yscale == 0:
+            xlen = max(abs(X[0]), abs(X[-1]))
+            ylen = max(abs(Y[0]), abs(Y[-1]))
+            ratio1 = ylen / xlen
+            ratio2 = xlen / ylen
+            if ratio1 >= 1 and ratio1 < 1e3:
+                xscale = xlen
+                yscale = xlen
+            elif ratio2 >= 1 and ratio2 < 1e3:
+                xscale = ylen
+                yscale = ylen
 
         if xscale == 0:
             length = max(abs(X[0]), abs(X[-1]))
@@ -1296,6 +1324,20 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
         yscale = scale
 
     ext = extents[:]
+    # This is an attempt to get both axes to use the same scale
+    # I'm not at all confident that it always does the right thing
+    if xscale == 0 and yscale == 0:
+        xlen = max(abs(extents[i2]), abs(extents[i0]))
+        ylen = max(abs(extents[i3]), abs(extents[i1]))
+        ratio1 = ylen / xlen
+        ratio2 = xlen / ylen
+        if ratio1 >= 1 and ratio1 < 1e3:
+            xscale = xlen
+            yscale = xlen
+        elif ratio2 >= 1 and ratio2 < 1e3:
+            xscale = ylen
+            yscale = ylen
+
     if xscale == 0:
         length = max(abs(extents[i2]), abs(extents[i0]))
         mult_x, sym_x = get_si_prefix(length)
@@ -1503,6 +1545,20 @@ def plot2d(var, iso=None, fast=None, title=True, full=True, vrange=None,
         yscale = scale
 
     extents = list(var.grid.extents)
+    # This is an attempt to get both axes to use the same scale
+    # I'm not at all confident that it always does the right thing
+    if xscale == 0 and yscale == 0:
+        xlen = max(abs(extents[i2]), abs(extents[i0]))
+        ylen = max(abs(extents[i3]), abs(extents[i1]))
+        ratio1 = ylen / xlen
+        ratio2 = xlen / ylen
+        if ratio1 >= 1 and ratio1 < 1e3:
+            xscale = xlen
+            yscale = xlen
+        elif ratio2 >= 1 and ratio2 < 1e3:
+            xscale = ylen
+            yscale = ylen
+
     if xscale == 0:
         length = max(abs(extents[i2]), abs(extents[i0]))
         mult_x, sym_x = get_si_prefix(length)
