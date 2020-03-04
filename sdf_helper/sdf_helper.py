@@ -1452,29 +1452,29 @@ def plot2d(var, iso=None, fast=None, title=True, full=True, vrange=None,
                     ix = int(var.dims[0] / 2)
                 i0 = 1
                 i1 = 2
-                ss = [ix, si, sj]
+                ss = ix, si, sj
             else:
                 if ix < 0:
                     ix = int(var.dims[2] / 2)
                 i0 = 0
                 i1 = 2
-                ss = [si, sj, ix]
+                ss = si, sj, ix
         elif iy is not None:
             if iy < 0:
                 iy = int(var.dims[1] / 2)
             i0 = 0
             i1 = 2
-            ss = [si, iy, sj]
+            ss = si, iy, sj
             if iz is not None:
                 i0 = 0
                 i1 = 1
-                ss = [si, iy, sj]
+                ss = si, iy, sj
         elif iz is not None:
             if iz < 0:
                 iz = int(var.dims[2] / 2)
             i0 = 0
             i1 = 1
-            ss = [si, sj, iz]
+            ss = si, sj, iz
         else:
             print("error: Not a 2d dataset")
             return
@@ -1486,7 +1486,7 @@ def plot2d(var, iso=None, fast=None, title=True, full=True, vrange=None,
     else:
         i2 = i0 + 2
         i3 = i1 + 2
-        ss = [si, sj]
+        ss = si, sj
 
     array = var.data[ss]
     if np.ndim(var.grid.data[0]) == 1:
