@@ -1849,7 +1849,6 @@ static PyMethodDef SDF_methods[] = {
 MOD_INIT(sdf)
 {
     PyObject *m;
-    char *s;
     long i;
 
     MOD_DEF(m, "sdf", "SDF file reading library", SDF_methods)
@@ -1860,14 +1859,10 @@ MOD_INIT(sdf)
     PyModule_AddStringConstant(m, "__version__", "2.6.7");
     PyModule_AddStringConstant(m, "__commit_id__", SDF_COMMIT_ID);
     PyModule_AddStringConstant(m, "__commit_date__", SDF_COMMIT_DATE);
-    s = sdf_get_library_commit_id();
-    PyModule_AddStringConstant(m, "__library_commit_id__", s);
-    if (s)
-        free(s);
-    s = sdf_get_library_commit_date();
-    PyModule_AddStringConstant(m, "__library_commit_date__", s);
-    if (s)
-        free(s);
+    PyModule_AddStringConstant(m, "__library_commit_id__",
+                               sdf_get_library_commit_id());
+    PyModule_AddStringConstant(m, "__library_commit_date__",
+                               sdf_get_library_commit_date());
     for (i=0; i < sdf_stagger_len; i++)
         PyModule_AddIntConstant(m, sdf_stagger_c[i], i);
 
