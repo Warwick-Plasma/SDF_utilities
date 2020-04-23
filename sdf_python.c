@@ -219,10 +219,10 @@ static PyTypeObject SDFType = {
 static inline char *PyBytes_As_C(PyObject *ob)
 {
 #if PY_MAJOR_VERSION < 3
-    return PyString_AsString(ob);
+    return strdup(PyString_AsString(ob));
 #else
     PyObject *ascii = PyUnicode_AsASCIIString(ob);
-    char *str = PyBytes_AsString(ascii);
+    char *str = strdup(PyBytes_AsString(ascii));
     Py_DECREF(ascii);
     return str;
 #endif
@@ -1781,7 +1781,7 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
         char *ckey, *ptr;
 
         mangled = 0;
-        ckey = strdup(PyBytes_As_C(key));
+        ckey = PyBytes_As_C(key);
 
         for (ptr = ckey; *ptr != '\0'; ptr++) {
             if (*ptr >= '0' && *ptr <= '9')
