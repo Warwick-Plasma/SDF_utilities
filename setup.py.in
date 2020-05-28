@@ -26,7 +26,7 @@ setup(
             library_dirs=['${SDFC_LIB_DIR}'], libraries=['${SDFC}'],
             extra_compile_args=['-O${OPT_LEVEL}', '-D_XOPEN_SOURCE=600']
             + '@EXTRA_COMPILE_ARGS@'.replace(';', '\n').split(),
-            extra_link_args=['-Wl,-rpath=@CMAKE_INSTALL_PREFIX@/lib']
+            extra_link_args=['@EXTRA_LINK_ARGS@']
         )
     ],
     package_dir={'': '${CMAKE_CURRENT_SOURCE_DIR}'}

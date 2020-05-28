@@ -49,7 +49,7 @@ if [ $clean -le 1 ] ; then
     echo "Switch to the C directory and type make"
     exit 1
   fi
-  sh gen_commit_string.sh
+  sh gen_commit_string.sh .
   if [ $ascii -ne 0 ]; then
     gcc $OPT -o sdf2ascii sdf2ascii.c -lsdfc -ldl -lm || errcode=1
     ./sdf2ascii -V > /dev/null || rm -f sdf2ascii
