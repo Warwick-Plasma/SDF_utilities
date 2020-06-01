@@ -756,11 +756,11 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, scale=0,
         if xdir == 0:
             if idx == -1:
                 idx = int(var.dims[1] / 2)
-            s = [slice(None), idx]
+            s = (slice(None), idx)
         else:
             if idx == -1:
                 idx = int(var.dims[0] / 2)
-            s = [idx, slice(None)]
+            s = (idx, slice(None))
         Y = var.data[s]
     else:
         xdir = 0
