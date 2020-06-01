@@ -1623,7 +1623,7 @@ static PyObject* SDF_read(PyObject *self, PyObject *args, PyObject *kw)
         "stations", "variables", "t0", "t1", NULL};
     PyObject *stations = NULL, *variables = NULL;
     double t0 = -DBL_MAX, t1 = DBL_MAX;
-    BlockList *blocklist;
+    BlockList *blocklist = NULL;
 
     convert = 0; use_mmap = 0; use_dict = 0; use_derived = 1;
     mode = SDF_READ; comm = 0;
