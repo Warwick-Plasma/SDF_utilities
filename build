@@ -9,6 +9,7 @@ errcode=0
 ascii=0
 system=0
 CFLAGS="-DSDF_DEBUG_ALL -D_XOPEN_SOURCE=600 -I$SDFDIR/include -L$SDFDIR/lib"
+LDFLAGS=""
 OPT="$CFLAGS -O3 -g"
 
 while getopts crdpash23 name
