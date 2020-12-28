@@ -79,3 +79,5 @@ if(BUILD_SDFPY)
    configure_file(sdfpy_install.cmake.in sdfpy_install.cmake @ONLY)
    install(SCRIPT ${PROJECT_BINARY_DIR}/sdfpy_install.cmake COMPONENT sdfpy)
 endif()
+
+install(FILES LICENSE DESTINATION share/licenses/SDF_utilities)
