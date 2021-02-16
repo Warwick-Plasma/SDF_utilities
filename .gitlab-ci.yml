@@ -11,7 +11,7 @@ variables:
     - web
     - hook
   except:
-    - master
+    - main
     - wip/*
     - tag
 
