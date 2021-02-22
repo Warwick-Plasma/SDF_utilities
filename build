@@ -2,7 +2,7 @@
 
 SDFDIR=../C
 EXTDIR=../extension
-PYTHONCMD=`which python`
+PYTHONCMD=$(which python3)
 
 clean=0
 errcode=0
@@ -21,8 +21,8 @@ do
          PYDBG="-g" ;;
       a) ascii=1 ;;
       s) system=1 ;;
-      2) PYTHONCMD=`which python2` ;;
-      3) PYTHONCMD=`which python3` ;;
+      2) PYTHONCMD=$(which python2) ;;
+      3) PYTHONCMD=$(which python3) ;;
       h) cat <<EOF
 build script options:
   -c: Clean up files. Do not build anything.
@@ -36,6 +36,10 @@ EOF
          exit ;;
    esac
 done
+
+if [ "$PYTHONCMD"x = x ]; then
+  PYTHONCMD=$(which python)
+fi
 
 cd `dirname $0`/.
 
@@ -57,9 +61,10 @@ if [ $clean -le 1 ] ; then
   fi
   gcc $OPT -o sdffilter sdffilter.c sdf_vtk_writer.c -lsdfc -ldl -lm || errcode=1
   gcc $OPT -o sdfdiff sdfdiff.c -lsdfc -ldl -lm || errcode=1
-  # Test if python is new enough for the --user flag
-  if [ $system -eq 0 ]; then
-    user=$($PYTHONCMD -c 'import sys, os
+  if [ "$PYTHONCMD"x != x ]; then
+    # Test if python is new enough for the --user flag
+    if [ $system -eq 0 ]; then
+      user=$($PYTHONCMD -c 'import sys, os
 newenough = sys.hexversion > 0x02060000
 if newenough: sys.exit(newenough)
 for p in sys.path:
@@ -67,16 +72,17 @@ for p in sys.path:
     print("/".join(p.split("/")[:-3]))
     break
 sys.exit(newenough)')
-    if [ $? -eq 0 ]; then
-      uflags="--prefix=$user"
+      if [ $? -eq 0 ]; then
+        uflags="--prefix=$user"
+      else
+        uflags="--prefix= --user"
+      fi
     else
-      uflags="--prefix= --user"
+      uflags=
     fi
-  else
-    uflags=
+    CFLAGS="$OPT" $PYTHONCMD setup.py build $PYDBG -b pybuild install \
+        $uflags --record pybuild/files.txt || errcode=1
   fi
-  CFLAGS="$OPT" $PYTHONCMD setup.py build $PYDBG -b pybuild install \
-      $uflags --record pybuild/files.txt || errcode=1
   which a2x > /dev/null 2>&1
   if [ $? -eq 0 ]; then
     for n in sdffilter sdf2ascii; do
