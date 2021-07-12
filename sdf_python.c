@@ -1366,6 +1366,7 @@ setup_constant(SDFObject *sdf, PyObject *dict, sdf_block_t *b,
     PyDict_SetItemString(dict_id, b->id, (PyObject*)block);
     PyDict_SetItemString(dict, b->name, (PyObject*)block);
 
+    Py_INCREF(block->data);
     Py_DECREF(block);
 
     return;
