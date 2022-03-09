@@ -44,22 +44,29 @@ add_custom_target(
 
 add_executable(sdf2ascii sdf2ascii.c)
 add_dependencies(sdf2ascii commit_info.h)
-target_link_libraries(sdf2ascii ${SDFC} dl m)
 
 add_executable(sdffilter sdffilter.c sdf_vtk_writer.c)
 add_dependencies(sdffilter commit_info.h)
-target_link_libraries(sdffilter ${SDFC} dl m)
 
 add_executable(sdfdiff sdfdiff.c)
 add_dependencies(sdfdiff commit_info.h)
-target_link_libraries(sdfdiff ${SDFC} dl m)
+
+if (WIN32)
+   target_link_libraries(sdf2ascii ${SDFC} m)
+   target_link_libraries(sdffilter ${SDFC} m)
+   target_link_libraries(sdfdiff ${SDFC} m)
+else()
+   target_link_libraries(sdf2ascii ${SDFC} dl m)
+   target_link_libraries(sdffilter ${SDFC} dl m)
+   target_link_libraries(sdfdiff ${SDFC} dl m)
+endif()
 
 if(PARALLEL)
-    add_definitions(-DPARALLEL)
-    include_directories(${MPI_C_INCLUDE_PATH})
-    target_link_libraries(sdf2ascii ${MPI_C_LIBRARIES})
-    target_link_libraries(sdffilter ${MPI_C_LIBRARIES})
-    target_link_libraries(sdfdiff ${MPI_C_LIBRARIES})
+   add_definitions(-DPARALLEL)
+   include_directories(${MPI_C_INCLUDE_PATH})
+   target_link_libraries(sdf2ascii ${MPI_C_LIBRARIES})
+   target_link_libraries(sdffilter ${MPI_C_LIBRARIES})
+   target_link_libraries(sdfdiff ${MPI_C_LIBRARIES})
 endif()
 
 add_custom_target(sdf-utilities DEPENDS sdf2ascii sdffilter sdfdiff)
