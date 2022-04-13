@@ -734,7 +734,7 @@ def plot1d(var, fmt=None, xdir=None, idx=-1, xscale=0, yscale=0, scale=0,
         elif not hold:
             figure.clf()
         # Have to add subplot after clearing figure
-        subplot = figure.add_subplot(111)
+        subplot = plt.subplot(111)
     elif figure is None:
         figure = subplot.figure
         if not hold:
@@ -907,7 +907,7 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, scale=0,
         if subplot is None:
             if figure is None:
                 figure = plt.gcf()
-            subplot = figure.add_subplot(111)
+            subplot = plt.subplot(111)
         elif figure is None:
             figure = subplot.figure
         subplot.axis(plot_path.axis)
@@ -936,7 +936,7 @@ def plot_path(var, xdir=None, ydir=None, xscale=0, yscale=0, scale=0,
         elif not hold:
             figure.clf()
         # Have to add subplot after clearing figure
-        subplot = figure.add_subplot(111)
+        subplot = plt.subplot(111)
     elif figure is None:
         figure = subplot.figure
         if not hold:
@@ -1308,7 +1308,7 @@ def plot2d_array(array, x, y, extents, var_label, xlabel, ylabel, idx=None,
         elif not hold:
             figure.clf()
         # Have to add subplot after clearing figure
-        subplot = figure.add_subplot(111)
+        subplot = plt.subplot(111)
     elif figure is None:
         figure = subplot.figure
         if not hold:
