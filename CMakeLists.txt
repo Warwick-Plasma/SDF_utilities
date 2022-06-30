@@ -1,5 +1,5 @@
-project(SDF_UTILITIES)
-cmake_minimum_required(VERSION 2.8.11)
+cmake_minimum_required(VERSION 3.0)
+project(SDF_UTILITIES VERSION 2.6.9)
 
 if(TARGET sdfc)
     set(SDFC sdfc)
