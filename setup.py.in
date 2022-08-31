@@ -1,6 +1,5 @@
 import os
 from distutils.core import setup, Extension
-import numpy
 
 # Remove environment variables that can break the build, if set incorrectly.
 # FIXME: The variable 'EXTRA_COMPILE_ARGS' may still break the installation in some cases,
@@ -22,12 +21,13 @@ setup(
         Extension(
             'sdf',
             [os.path.join("${CMAKE_CURRENT_SOURCE_DIR}", 'sdf_python.c')],
-            include_dirs=[numpy.get_include(), '.', '${SDFC_INCLUDE_DIR}'],
-            library_dirs=['${SDFC_LIB_DIR}'], libraries=['${SDFC}'],
+            include_dirs=['${Python3_NumPy_INCLUDE_DIRS}', '.', '${SDFC_INCLUDE_DIR}'],
+            library_dirs=['$<IF:$<TARGET_EXISTS:sdfc>,$<TARGET_FILE_DIR:sdfc>,${SDFC_LIB_DIR}>'], libraries=['${SDFC}'],
             extra_compile_args=['-O${OPT_LEVEL}', '-D_XOPEN_SOURCE=600']
             + '@EXTRA_COMPILE_ARGS@'.replace(';', '\n').split(),
             extra_link_args=['@EXTRA_LINK_ARGS@']
         )
     ],
-    package_dir={'': '${CMAKE_CURRENT_SOURCE_DIR}'}
+    package_dir={'': '${SDFPY_DIR}'},
+    install_requires=['numpy']
 )

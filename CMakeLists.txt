@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.10)
 project(SDF_UTILITIES VERSION 2.6.9)
 
 if(TARGET sdfc)
@@ -6,8 +6,8 @@ if(TARGET sdfc)
 else()
     find_library(SDFC sdfc)
     if(SDFC)
-        get_filename_component(LIBDIR ${SDFC} DIRECTORY)
-        find_path(SDFC_INCLUDE_DIR sdf.h HINTS ${LIBDIR}/../include)
+        get_filename_component(SDFC_LIB_DIR ${SDFC} DIRECTORY)
+        find_path(SDFC_INCLUDE_DIR sdf.h HINTS ${SDFC_LIB_DIR}/../include)
     else()
         add_subdirectory(../C C EXCLUDE_FROM_ALL)
         set(SDFC sdfc)
@@ -91,10 +91,17 @@ install(TARGETS sdf2ascii sdffilter sdfdiff DESTINATION bin COMPONENT
 
 set(BUILD_SDFPY ON CACHE BOOL "Build the Python interface")
 if(BUILD_SDFPY)
-   find_package(PythonInterp REQUIRED)
-   configure_file(setup.py.in setup.py)
+   find_package(Python3 REQUIRED COMPONENTS Interpreter NumPy)
+
+   file(RELATIVE_PATH SDFPY_DIR "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}")
+   configure_file(setup.py.in setup.py.in)
+   file(GENERATE OUTPUT setup_$<CONFIG>.py INPUT ${CMAKE_CURRENT_BINARY_DIR}/setup.py.in)
+   add_custom_command(OUTPUT setup.py
+       COMMAND ${CMAKE_COMMAND} -E copy setup_$<CONFIG>.py setup.py
+       DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/setup_$<CONFIG>.py)
+
    add_custom_command(OUTPUT build/timestamp
-      COMMAND ${PYTHON_EXECUTABLE} setup.py build ${DEBUG_OPT}
+      COMMAND ${Python3_EXECUTABLE} setup.py build ${DEBUG_OPT}
       COMMAND ${CMAKE_COMMAND} -E touch build/timestamp
       DEPENDS setup.py sdf_python.c ${SDFC} SDF_UTILITIES_GENERATED_SOURCE)
    add_custom_target(sdfpy ALL DEPENDS build/timestamp)
