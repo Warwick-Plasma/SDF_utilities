@@ -92,6 +92,9 @@ install(TARGETS sdf2ascii sdffilter sdfdiff DESTINATION bin COMPONENT
 set(BUILD_SDFPY ON CACHE BOOL "Build the Python interface")
 if(BUILD_SDFPY)
    find_package(Python3 REQUIRED COMPONENTS Interpreter NumPy)
+   execute_process(COMMAND ${Python3_EXECUTABLE} -m pip --disable-pip-version-check download numpy
+       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+   file(GLOB NUMPY_WHEEL ${CMAKE_CURRENT_BINARY_DIR}/numpy*.whl)
 
    file(RELATIVE_PATH SDFPY_DIR "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}")
    configure_file(setup.py.in setup.py.in)
@@ -108,6 +111,17 @@ if(BUILD_SDFPY)
 
    configure_file(sdfpy_install.cmake.in sdfpy_install.cmake @ONLY)
    install(SCRIPT ${PROJECT_BINARY_DIR}/sdfpy_install.cmake COMPONENT sdfpy)
+
+   execute_process(COMMAND ${Python3_EXECUTABLE} wheel_name.py
+       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+       OUTPUT_STRIP_TRAILING_WHITESPACE
+       OUTPUT_VARIABLE SDFPY_WHEEL)
+   add_custom_command(OUTPUT ${SDFPY_WHEEL}
+      COMMAND ${Python3_EXECUTABLE} -m pip --disable-pip-version-check wheel .
+      DEPENDS setup.py sdf_python.c commit_info.h ${SDFC} SDF_UTILITIES_GENERATED_SOURCE)
+   add_custom_target(sdfpy_wheel ALL DEPENDS ${SDFPY_WHEEL})
+   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${SDFPY_WHEEL} ${NUMPY_WHEEL}
+       DESTINATION python COMPONENT pywheel)
 endif()
 
 install(FILES LICENSE DESTINATION share/licenses/SDF_utilities)
