@@ -1717,7 +1717,8 @@ static void print_metadata(sdf_block_t *b, int inum, int nblocks)
 {
     int digit = 0;
     static const int fmtlen = 32;
-    char fmt[fmtlen];
+    // char fmt[fmtlen]; doesn't work with Microsoft Visual C, so:
+    char fmt[32];
 
     while (nblocks) {
         nblocks /= 10;
