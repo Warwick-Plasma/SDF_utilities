@@ -37,19 +37,23 @@ add_definitions(-D_XOPEN_SOURCE=600)
 
 include_directories(${SDFC_INCLUDE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
-add_custom_target(
-    commit_info.h
-    COMMAND ${CMAKE_COMMAND} -DSRC_DIR:PATH=${CMAKE_CURRENT_SOURCE_DIR} -P
-        ${CMAKE_CURRENT_SOURCE_DIR}/gen_commit_string.cmake)
+find_package(Git)
+add_custom_target(SDF_UTILITIES_GENERATED_SOURCE)
+add_custom_command(
+    TARGET SDF_UTILITIES_GENERATED_SOURCE PRE_BUILD
+    COMMAND ${CMAKE_COMMAND} -DGIT_EXECUTABLE=${GIT_EXECUTABLE} -DOUTDIR=${CMAKE_CURRENT_BINARY_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/CommitInfo.cmake
+    BYPRODUCTS commit_info.h
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_executable(sdf2ascii sdf2ascii.c)
-add_dependencies(sdf2ascii commit_info.h)
+add_dependencies(sdf2ascii SDF_UTILITIES_GENERATED_SOURCE)
 
 add_executable(sdffilter sdffilter.c sdf_vtk_writer.c)
-add_dependencies(sdffilter commit_info.h)
+add_dependencies(sdffilter SDF_UTILITIES_GENERATED_SOURCE)
 
 add_executable(sdfdiff sdfdiff.c)
-add_dependencies(sdfdiff commit_info.h)
+add_dependencies(sdfdiff SDF_UTILITIES_GENERATED_SOURCE)
 
 if (WIN32)
    target_link_libraries(sdf2ascii ${SDFC} m)
@@ -80,7 +84,7 @@ if(BUILD_SDFPY)
    add_custom_command(OUTPUT build/timestamp
       COMMAND ${PYTHON_EXECUTABLE} setup.py build ${DEBUG_OPT}
       COMMAND ${CMAKE_COMMAND} -E touch build/timestamp
-      DEPENDS setup.py sdf_python.c ${SDFC} commit_info.h)
+      DEPENDS setup.py sdf_python.c ${SDFC} SDF_UTILITIES_GENERATED_SOURCE)
    add_custom_target(sdfpy ALL DEPENDS build/timestamp)
 
    configure_file(sdfpy_install.cmake.in sdfpy_install.cmake @ONLY)
