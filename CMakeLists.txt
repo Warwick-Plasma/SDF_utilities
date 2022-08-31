@@ -112,6 +112,7 @@ if(BUILD_SDFPY)
    configure_file(sdfpy_install.cmake.in sdfpy_install.cmake @ONLY)
    install(SCRIPT ${PROJECT_BINARY_DIR}/sdfpy_install.cmake COMPONENT sdfpy)
 
+   configure_file(setup.cfg.in setup.cfg)
    execute_process(COMMAND ${Python3_EXECUTABLE} wheel_name.py
        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
        OUTPUT_STRIP_TRAILING_WHITESPACE
