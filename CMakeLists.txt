@@ -125,4 +125,10 @@ if(BUILD_SDFPY)
        DESTINATION python COMPONENT pywheel)
 endif()
 
-install(FILES LICENSE DESTINATION share/licenses/SDF_utilities)
+install(FILES LICENSE DESTINATION share/licenses/SDF_utilities COMPONENT sdf-utilities)
+
+set(PACK_REDISTRIBUTABLES ON CACHE BOOL "Include redistributable libraries in the installable package")
+if(PACK_REDISTRIBUTABLES)
+    set(CMAKE_INSTALL_SYSTEM_RUNTIME_COMPONENT sdf-utilities)
+    include(InstallRequiredSystemLibraries)
+endif()
