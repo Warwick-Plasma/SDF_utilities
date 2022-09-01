@@ -28,6 +28,5 @@ setup(
             extra_link_args=['@EXTRA_LINK_ARGS@']
         )
     ],
-    package_dir={'': '${SDFPY_DIR}'},
     install_requires=['numpy']
 )

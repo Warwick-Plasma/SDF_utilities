@@ -97,16 +97,25 @@ if(BUILD_SDFPY)
    file(GLOB NUMPY_WHEEL ${CMAKE_CURRENT_BINARY_DIR}/numpy*.whl)
 
    file(RELATIVE_PATH SDFPY_DIR "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}")
+   string(REGEX REPLACE "/$" "" SDFPY_DIR "${SDFPY_DIR}")
    configure_file(setup.py.in setup.py.in)
    file(GENERATE OUTPUT setup_$<CONFIG>.py INPUT ${CMAKE_CURRENT_BINARY_DIR}/setup.py.in)
-   add_custom_command(OUTPUT setup.py
+   add_custom_command(
+       TARGET SDF_UTILITIES_GENERATED_SOURCE PRE_BUILD
        COMMAND ${CMAKE_COMMAND} -E copy setup_$<CONFIG>.py setup.py
+       BYPRODUCTS setup.py
        DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/setup_$<CONFIG>.py)
+
+   add_custom_command(
+       TARGET SDF_UTILITIES_GENERATED_SOURCE PRE_BUILD
+       COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/sdf_legacy.py .
+       BYPRODUCTS sdf_legacy.py
+       DEPENDS sdf_legacy.py)
 
    add_custom_command(OUTPUT build/timestamp
       COMMAND ${Python3_EXECUTABLE} setup.py build ${DEBUG_OPT}
       COMMAND ${CMAKE_COMMAND} -E touch build/timestamp
-      DEPENDS setup.py sdf_python.c ${SDFC} SDF_UTILITIES_GENERATED_SOURCE)
+      DEPENDS setup.py sdf_python.c sdf_legacy.py ${SDFC} SDF_UTILITIES_GENERATED_SOURCE)
    add_custom_target(sdfpy ALL DEPENDS build/timestamp)
 
    configure_file(sdfpy_install.cmake.in sdfpy_install.cmake @ONLY)
