@@ -32,11 +32,12 @@ def _error_message():
 def _check_validity():
     if not hasattr(sdf, "__version__"):
         return _error_message()
-    our_version = map(int, _sdf_version.split("."))
-    lib_version = map(int, sdf.__version__.split("."))
+    our_version = list(map(int, _sdf_version.split(".")))
+    lib_version = list(map(int, sdf.__version__.split(".")))
     # Just check that major version number matches
     if our_version[0] != lib_version[0]:
         return _error_message()
+
 
 _check_validity()
 
