@@ -1,15 +1,15 @@
-project(SDF_UTILITIES)
-cmake_minimum_required(VERSION 2.8.11)
+cmake_minimum_required(VERSION 3.10)
+project(SDF_UTILITIES VERSION 2.6.9)
 
 if(TARGET sdfc)
     set(SDFC sdfc)
 else()
     find_library(SDFC sdfc)
     if(SDFC)
-        get_filename_component(LIBDIR ${SDFC} DIRECTORY)
-        find_path(SDFC_INCLUDE_DIR sdf.h HINTS ${LIBDIR}/../include)
+        get_filename_component(SDFC_LIB_DIR ${SDFC} DIRECTORY)
+        find_path(SDFC_INCLUDE_DIR sdf.h HINTS ${SDFC_LIB_DIR}/../include)
     else()
-        add_subdirectory(../C C)
+        add_subdirectory(../C C EXCLUDE_FROM_ALL)
         set(SDFC sdfc)
     endif()
 endif()
@@ -37,24 +37,40 @@ add_definitions(-D_XOPEN_SOURCE=600)
 
 include_directories(${SDFC_INCLUDE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
-add_custom_target(
-    commit_info.h
-    COMMAND ${CMAKE_COMMAND} -DSRC_DIR:PATH=${CMAKE_CURRENT_SOURCE_DIR} -P
-        ${CMAKE_CURRENT_SOURCE_DIR}/gen_commit_string.cmake)
+find_package(Git)
+add_custom_target(SDF_UTILITIES_GENERATED_SOURCE)
+add_custom_command(
+    TARGET SDF_UTILITIES_GENERATED_SOURCE PRE_BUILD
+    COMMAND ${CMAKE_COMMAND} -DGIT_EXECUTABLE=${GIT_EXECUTABLE} -DOUTDIR=${CMAKE_CURRENT_BINARY_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/CommitInfo.cmake
+    BYPRODUCTS commit_info.h
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_executable(sdf2ascii sdf2ascii.c)
-add_dependencies(sdf2ascii commit_info.h)
+add_dependencies(sdf2ascii SDF_UTILITIES_GENERATED_SOURCE)
 
 add_executable(sdffilter sdffilter.c sdf_vtk_writer.c)
-add_dependencies(sdffilter commit_info.h)
+add_dependencies(sdffilter SDF_UTILITIES_GENERATED_SOURCE)
 
 add_executable(sdfdiff sdfdiff.c)
-add_dependencies(sdfdiff commit_info.h)
+add_dependencies(sdfdiff SDF_UTILITIES_GENERATED_SOURCE)
 
 if (WIN32)
-   target_link_libraries(sdf2ascii ${SDFC} m)
-   target_link_libraries(sdffilter ${SDFC} m)
-   target_link_libraries(sdfdiff ${SDFC} m)
+   if(CMAKE_HOST_SYSTEM_NAME STREQUAL Windows)
+       add_library(getopt SHARED getopt_windows/getopt.c)
+       install(TARGETS getopt DESTINATION bin COMPONENT sdf-utilities)
+       install(FILES getopt_windows/README getopt_windows/LICENCE
+           DESTINATION share/licenses/getopt
+           COMPONENT sdf-utilities)
+       include_directories(getopt_windows)
+       target_link_libraries(sdf2ascii ${SDFC} getopt)
+       target_link_libraries(sdffilter ${SDFC} getopt)
+       target_link_libraries(sdfdiff ${SDFC} getopt)
+   else()
+       target_link_libraries(sdf2ascii ${SDFC} m)
+       target_link_libraries(sdffilter ${SDFC} m)
+       target_link_libraries(sdfdiff ${SDFC} m)
+   endif()
 else()
    target_link_libraries(sdf2ascii ${SDFC} dl m)
    target_link_libraries(sdffilter ${SDFC} dl m)
@@ -75,16 +91,61 @@ install(TARGETS sdf2ascii sdffilter sdfdiff DESTINATION bin COMPONENT
 
 set(BUILD_SDFPY ON CACHE BOOL "Build the Python interface")
 if(BUILD_SDFPY)
-   find_package(PythonInterp REQUIRED)
-   configure_file(setup.py.in setup.py)
+   find_package(Python3 REQUIRED COMPONENTS Interpreter NumPy)
+   execute_process(COMMAND ${Python3_EXECUTABLE} -m pip --disable-pip-version-check download numpy
+       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+   file(GLOB NUMPY_WHEEL ${CMAKE_CURRENT_BINARY_DIR}/numpy*.whl)
+
+   file(RELATIVE_PATH SDFPY_DIR "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}")
+   string(REGEX REPLACE "/$" "" SDFPY_DIR "${SDFPY_DIR}")
+   configure_file(setup.py.in setup.py.in)
+   file(GENERATE OUTPUT setup_$<CONFIG>.py INPUT ${CMAKE_CURRENT_BINARY_DIR}/setup.py.in)
+   add_custom_command(
+       TARGET SDF_UTILITIES_GENERATED_SOURCE PRE_BUILD
+       COMMAND ${CMAKE_COMMAND} -E copy setup_$<CONFIG>.py setup.py
+       BYPRODUCTS setup.py
+       DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/setup_$<CONFIG>.py)
+
+   add_custom_command(
+       TARGET SDF_UTILITIES_GENERATED_SOURCE PRE_BUILD
+       COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/sdf_legacy.py .
+       BYPRODUCTS sdf_legacy.py
+       DEPENDS sdf_legacy.py)
+
    add_custom_command(OUTPUT build/timestamp
-      COMMAND ${PYTHON_EXECUTABLE} setup.py build ${DEBUG_OPT}
+      COMMAND ${Python3_EXECUTABLE} setup.py build ${DEBUG_OPT}
       COMMAND ${CMAKE_COMMAND} -E touch build/timestamp
-      DEPENDS setup.py sdf_python.c ${SDFC} commit_info.h)
+      DEPENDS setup.py sdf_python.c sdf_legacy.py ${SDFC} SDF_UTILITIES_GENERATED_SOURCE)
    add_custom_target(sdfpy ALL DEPENDS build/timestamp)
 
    configure_file(sdfpy_install.cmake.in sdfpy_install.cmake @ONLY)
    install(SCRIPT ${PROJECT_BINARY_DIR}/sdfpy_install.cmake COMPONENT sdfpy)
+
+   configure_file(setup.cfg.in setup.cfg)
+   execute_process(COMMAND ${Python3_EXECUTABLE} wheel_name.py
+       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+       OUTPUT_STRIP_TRAILING_WHITESPACE
+       OUTPUT_VARIABLE SDFPY_WHEEL)
+   add_custom_command(OUTPUT ${SDFPY_WHEEL}
+      COMMAND ${Python3_EXECUTABLE} -m pip --disable-pip-version-check wheel .
+      DEPENDS setup.py sdf_python.c commit_info.h ${SDFC} SDF_UTILITIES_GENERATED_SOURCE)
+   add_custom_target(sdfpy_wheel ALL DEPENDS ${SDFPY_WHEEL})
+   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${SDFPY_WHEEL} ${NUMPY_WHEEL}
+       DESTINATION python COMPONENT pywheel)
 endif()
 
-install(FILES LICENSE DESTINATION share/licenses/SDF_utilities)
+install(FILES LICENSE DESTINATION share/licenses/SDF_utilities COMPONENT sdf-utilities)
+
+set(PACK_REDISTRIBUTABLES ON CACHE BOOL "Include redistributable libraries in the installable package")
+if(PACK_REDISTRIBUTABLES)
+    set(CMAKE_INSTALL_SYSTEM_RUNTIME_COMPONENT sdf-utilities)
+    include(InstallRequiredSystemLibraries)
+endif()
+
+set(CPACK_SET_DESTDIR ON)
+set(CPACK_INSTALL_PREFIX /)
+set(CPACK_ARCHIVE_COMPONENT_INSTALL ON)
+list(APPEND CPACK_COMPONENTS_ALL sdf-utilities pywheel)
+set(CPACK_COMPONENTS_ALL ${CPACK_COMPONENTS_ALL} PARENT_SCOPE)
+set(CPACK_COMPONENTS_ALL_IN_ONE_PACKAGE 1)
+include(CPack)

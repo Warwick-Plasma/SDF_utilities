@@ -45,6 +45,13 @@
 #include "stack_allocator.h"
 #include "commit_info.h"
 
+#ifdef _MSC_VER
+#  include <windows.h>
+#  include <fileapi.h>
+#  include <limits.h>
+#  define PATH_MAX MAX_PATH
+#endif
+
 /* Backwards compatibility */
 
 #if PY_MAJOR_VERSION < 3
@@ -1138,7 +1145,12 @@ static PyObject *fill_header(sdf_file_t *h)
 
     dict = PyDict_New();
 
-    fname = Py_BuildValue("s", realpath(h->filename, fullpath));
+#ifdef _MSC_VER
+    GetFullPathNameA(h->filename, PATH_MAX, fullpath, NULL);
+#else
+    realpath(h->filename, fullpath);
+#endif
+    fname = Py_BuildValue("s", fullpath);
     PyDict_SetItemString(dict, "filename", fname);
     Py_DECREF(fname);
 

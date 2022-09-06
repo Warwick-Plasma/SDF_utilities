@@ -20,7 +20,21 @@
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
+
+// See: https://stackoverflow.com/a/62371749
+// Windows does not define the S_ISREG and S_ISDIR macros in stat.h, so we do.
+// We have to define _CRT_INTERNAL_NONSTDC_NAMES 1 before #including sys/stat.h
+// in order for Microsoft's stat.h to define names like S_IFMT, S_IFREG, and S_IFDIR,
+// rather than just defining  _S_IFMT, _S_IFREG, and _S_IFDIR as it normally does.
+#define _CRT_INTERNAL_NONSTDC_NAMES 1
 #include <sys/stat.h>
+#if !defined(S_ISREG) && defined(S_IFMT) && defined(S_IFREG)
+  #define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
+#endif
+#if !defined(S_ISDIR) && defined(S_IFMT) && defined(S_IFDIR)
+  #define S_ISDIR(m) (((m) & S_IFMT) == S_IFDIR)
+#endif
+
 #include <math.h>
 #include <time.h>
 #include <float.h>
@@ -1045,7 +1059,8 @@ static void print_metadata_id(sdf_block_t *b, int inum, int nblocks)
 {
     int digit = 0;
     static const int fmtlen = 64;
-    char fmt[fmtlen];
+    // char fmt[fmtlen]; doesn't work with Microsoft Visual C, so:
+    char fmt[64];
 
     while (nblocks) {
         nblocks /= 10;
@@ -1217,7 +1232,8 @@ void set_header_string(sdf_file_t **handles)
     struct stat st;
     struct tm *tm;
     static const int idxlen = 64;
-    char prestr[idxlen];
+    // char prestr[idxlen]; doesn't work with Microsoft Visual C, so:
+    char prestr[64];
 
     if (done_header)
         return;
@@ -1364,8 +1380,9 @@ int diff_plain(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
     int gotdiff = 0;
     static const int fmtlen = 32;
     static const int idxlen = 64;
-    char idxstr[idxlen];
-    char prestr[idxlen];
+    // char idxstr[idxlen]; doesn't work with Microsoft Visual C, so:
+    char idxstr[64];
+    char prestr[64];
     sdf_block_t *b = b1;
     double relerr_max, relerr_val, abserr_max, abserr_val, denom;
     int64_t n = 0;
@@ -1470,7 +1487,8 @@ int diff_mesh(sdf_file_t **handles, sdf_block_t *b1, sdf_block_t *b2, int inum)
     static int gotdiff = 0;
     static const int fmtlen = 32;
     static const int idxlen = 64;
-    char idxstr[idxlen];
+    // char idxstr[idxlen]; doesn't work with Microsoft Visual C, so:
+    char idxstr[64];
     char *prestr;
     char **prestr_dim;
     sdf_block_t *b = b1;
