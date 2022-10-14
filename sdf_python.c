@@ -461,6 +461,7 @@ Block_alloc(SDFObject *sdf, sdf_block_t *b)
     ob->data_length = PyLong_FromLongLong(b->data_length);
     if (!ob->data_length) goto error;
 
+    if (b->datatype_out < 0 || b->datatype_out > sdf_datatype_len) goto error;
     ob->datatype = PyArray_TypeObjectFromType(typemap[b->datatype_out]);
     if (!ob->datatype) goto error;
 
