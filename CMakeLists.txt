@@ -86,8 +86,29 @@ if(PARALLEL)
 endif()
 
 add_custom_target(sdf-utilities DEPENDS sdf2ascii sdffilter sdfdiff)
-install(TARGETS sdf2ascii sdffilter sdfdiff DESTINATION bin COMPONENT
-        sdf-utilities)
+install(
+    TARGETS sdf2ascii sdffilter sdfdiff
+    EXPORT SDFUtilitiesTargets
+    DESTINATION bin
+    COMPONENT sdf-utilities)
+
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/SDFUtilitiesConfigVersion.cmake
+    VERSION ${SDF_UTILITIES_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+export(EXPORT SDFUtilitiesTargets FILE ${CMAKE_CURRENT_BINARY_DIR}/SDFUtilitiesTargets.cmake)
+configure_file(SDFUtilitiesConfig.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/SDFUtilitiesConfig.cmake @ONLY)
+install(EXPORT SDFUtilitiesTargets FILE SDFUtilitiesTargets.cmake DESTINATION lib/SDFUtilities_${SDF_UTILITIES_VERSION})
+install(
+    FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/SDFUtilitiesConfigVersion.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/SDFUtilitiesConfig.cmake
+    DESTINATION lib/SDFUtilities_${SDF_UTILITIES_VERSION}
+    COMPONENT sdf-utilities)
+
 
 set(BUILD_SDFPY ON CACHE BOOL "Build the Python interface")
 if(BUILD_SDFPY)
