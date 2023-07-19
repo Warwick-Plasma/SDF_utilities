@@ -146,7 +146,12 @@ if(BUILD_SDFPY)
    execute_process(COMMAND ${Python3_EXECUTABLE} wheel_name.py
        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
        OUTPUT_STRIP_TRAILING_WHITESPACE
-       OUTPUT_VARIABLE SDFPY_WHEEL)
+       OUTPUT_VARIABLE SDFPY_WHEEL
+       RESULT_VARIABLE RES)
+   if(RES)
+       message(FATAL_ERROR "Error executing ${Python3_EXECUTABLE} wheel_name.py")
+   endif()
+
    add_custom_command(OUTPUT ${SDFPY_WHEEL}
       COMMAND ${Python3_EXECUTABLE} -m pip --disable-pip-version-check wheel .
       DEPENDS setup.py sdf_python.c commit_info.h ${SDFC} SDF_UTILITIES_GENERATED_SOURCE)
