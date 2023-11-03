@@ -112,7 +112,7 @@ install(
 
 set(BUILD_SDFPY ON CACHE BOOL "Build the Python interface")
 if(BUILD_SDFPY)
-   find_package(Python3 REQUIRED COMPONENTS Interpreter NumPy)
+   find_package(Python3 REQUIRED COMPONENTS Interpreter Development NumPy)
    execute_process(COMMAND ${Python3_EXECUTABLE} -m pip --disable-pip-version-check download numpy
        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
    file(GLOB NUMPY_WHEEL ${CMAKE_CURRENT_BINARY_DIR}/numpy*.whl)
