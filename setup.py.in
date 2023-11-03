@@ -22,7 +22,8 @@ setup(
             'sdf',
             [os.path.join("${CMAKE_CURRENT_SOURCE_DIR}", 'sdf_python.c')],
             include_dirs=['${Python3_NumPy_INCLUDE_DIRS}', '.', '${SDFC_INCLUDE_DIR}'],
-            library_dirs=['$<IF:$<TARGET_EXISTS:sdfc>,$<TARGET_FILE_DIR:sdfc>,${SDFC_LIB_DIR}>'], libraries=['${SDFC}'],
+            library_dirs=['$<IF:$<TARGET_EXISTS:sdfc>,$<TARGET_FILE_DIR:sdfc>,${SDFC_LIB_DIR}>'],
+            libraries=['sdfc'],
             extra_compile_args=['-O${OPT_LEVEL}', '-D_XOPEN_SOURCE=600']
             + '@EXTRA_COMPILE_ARGS@'.replace(';', '\n').split(),
             extra_link_args=['@EXTRA_LINK_ARGS@']
