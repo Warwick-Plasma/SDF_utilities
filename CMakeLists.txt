@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.21)
 project(SDF_UTILITIES VERSION 2.6.10)
 
 if(TARGET sdfc)
