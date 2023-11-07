@@ -1,16 +1,10 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.21)
 project(SDF_UTILITIES VERSION 2.6.10)
 
-if(TARGET sdfc)
-    set(SDFC sdfc)
-else()
-    find_library(SDFC sdfc)
-    if(SDFC)
-        get_filename_component(SDFC_LIB_DIR ${SDFC} DIRECTORY)
-        find_path(SDFC_INCLUDE_DIR sdf.h HINTS ${SDFC_LIB_DIR}/../include)
-    else()
+if(NOT TARGET sdfc)
+    find_package(SDFC 14.4.3)
+    if(NOT SDFC_FOUND)
         add_subdirectory(../C C EXCLUDE_FROM_ALL)
-        set(SDFC sdfc)
     endif()
 endif()
 
@@ -63,18 +57,18 @@ if (WIN32)
            DESTINATION share/licenses/getopt
            COMPONENT sdf-utilities)
        include_directories(getopt_windows)
-       target_link_libraries(sdf2ascii ${SDFC} getopt)
-       target_link_libraries(sdffilter ${SDFC} getopt)
-       target_link_libraries(sdfdiff ${SDFC} getopt)
+       target_link_libraries(sdf2ascii sdfc getopt)
+       target_link_libraries(sdffilter sdfc getopt)
+       target_link_libraries(sdfdiff sdfc getopt)
    else()
-       target_link_libraries(sdf2ascii ${SDFC} m)
-       target_link_libraries(sdffilter ${SDFC} m)
-       target_link_libraries(sdfdiff ${SDFC} m)
+       target_link_libraries(sdf2ascii sdfc m)
+       target_link_libraries(sdffilter sdfc m)
+       target_link_libraries(sdfdiff sdfc m)
    endif()
 else()
-   target_link_libraries(sdf2ascii ${SDFC} dl m)
-   target_link_libraries(sdffilter ${SDFC} dl m)
-   target_link_libraries(sdfdiff ${SDFC} dl m)
+   target_link_libraries(sdf2ascii sdfc dl m)
+   target_link_libraries(sdffilter sdfc dl m)
+   target_link_libraries(sdfdiff sdfc dl m)
 endif()
 
 if(PARALLEL)
@@ -112,7 +106,7 @@ install(
 
 set(BUILD_SDFPY ON CACHE BOOL "Build the Python interface")
 if(BUILD_SDFPY)
-   find_package(Python3 REQUIRED COMPONENTS Interpreter NumPy)
+   find_package(Python3 REQUIRED COMPONENTS Interpreter Development NumPy)
    execute_process(COMMAND ${Python3_EXECUTABLE} -m pip --disable-pip-version-check download numpy
        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
    file(GLOB NUMPY_WHEEL ${CMAKE_CURRENT_BINARY_DIR}/numpy*.whl)
@@ -136,7 +130,7 @@ if(BUILD_SDFPY)
    add_custom_command(OUTPUT build/timestamp
       COMMAND ${Python3_EXECUTABLE} setup.py build ${DEBUG_OPT}
       COMMAND ${CMAKE_COMMAND} -E touch build/timestamp
-      DEPENDS setup.py sdf_python.c sdf_legacy.py ${SDFC} SDF_UTILITIES_GENERATED_SOURCE)
+      DEPENDS setup.py sdf_python.c sdf_legacy.py sdfc SDF_UTILITIES_GENERATED_SOURCE)
    add_custom_target(sdfpy ALL DEPENDS build/timestamp)
 
    configure_file(sdfpy_install.cmake.in sdfpy_install.cmake @ONLY)
@@ -154,7 +148,7 @@ if(BUILD_SDFPY)
 
    add_custom_command(OUTPUT ${SDFPY_WHEEL}
       COMMAND ${Python3_EXECUTABLE} -m pip --disable-pip-version-check wheel .
-      DEPENDS setup.py sdf_python.c commit_info.h ${SDFC} SDF_UTILITIES_GENERATED_SOURCE)
+      DEPENDS setup.py sdf_python.c commit_info.h sdfc SDF_UTILITIES_GENERATED_SOURCE)
    add_custom_target(sdfpy_wheel ALL DEPENDS ${SDFPY_WHEEL})
    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${SDFPY_WHEEL} ${NUMPY_WHEEL}
        DESTINATION python COMPONENT pywheel)
