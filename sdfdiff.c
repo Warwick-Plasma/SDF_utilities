@@ -369,7 +369,11 @@ char **parse_args(int *argc, char ***argv)
     char *ptr, *tmp_optarg, **files = NULL;
     char **pargv = *argv;
     int c, i, err, got_include, got_exclude, len;
+#ifdef WIN32
+    struct __stat64 statbuf;
+#else
     struct stat statbuf;
+#endif
     static struct option longopts[] = {
         { "abserr",          optional_argument, NULL, 'a' },
         { "array-blocks",    no_argument,       NULL, 'A' },
@@ -551,7 +555,11 @@ char **parse_args(int *argc, char ***argv)
         files = calloc(2, sizeof(*files));
         for (i=0; i<2; i++) {
             files[i] = (*argv)[optind+i];
+#ifdef WIN32
+            err = _stat64(files[i], &statbuf);
+#else
             err = stat(files[i], &statbuf);
+#endif
             if (err) {
                 fprintf(stderr, "Error opening file %s\n", files[i]);
                 exit(1);
