@@ -495,7 +495,11 @@ char *parse_args(int *argc, char ***argv)
 {
     char *file = NULL;
     int c, err, got_include, got_exclude;
+#ifdef WIN32
+    struct __stat64 statbuf;
+#else
     struct stat statbuf;
+#endif
     static struct option longopts[] = {
         { "1dslice",         required_argument, NULL, '1' },
         { "array-section",   required_argument, NULL, 'a' },
@@ -709,7 +713,11 @@ char *parse_args(int *argc, char ***argv)
 
     if ((optind+1) == *argc) {
         file = (*argv)[optind];
+#ifdef WIN32
+        err = _stat64(file, &statbuf);
+#else
         err = stat(file, &statbuf);
+#endif
         if (err) {
             fprintf(stderr, "Error opening file %s\n", file);
             exit(1);

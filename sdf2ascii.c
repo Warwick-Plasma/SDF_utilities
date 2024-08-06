@@ -96,7 +96,11 @@ char *parse_args(int *argc, char ***argv)
     char *ptr, *file = NULL;
     int c, i, err, range, sz, nbuf;
     struct range_type *range_tmp;
+#ifdef WIN32
+    struct __stat64 statbuf;
+#else
     struct stat statbuf;
+#endif
     static struct option longopts[] = {
         { "no-nblocks",    no_argument,       NULL, 'b' },
         { "contents",      no_argument,       NULL, 'c' },
@@ -214,7 +218,11 @@ char *parse_args(int *argc, char ***argv)
 
     if ((optind+1) == *argc) {
         file = (*argv)[optind];
+#ifdef WIN32
+        err = _stat64(file, &statbuf);
+#else
         err = stat(file, &statbuf);
+#endif
         if (err) {
             fprintf(stderr, "Error opening file %s\n", file);
             exit(1);
