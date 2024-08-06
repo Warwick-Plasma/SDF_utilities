@@ -2042,13 +2042,19 @@ def subarray(base, slices):
 
 def list_variables(data):
     dct = data.__dict__
+    str_variables = ''
     for key in sorted(dct):
         try:
             val = dct[key]
             print('{} {} {}'.format(key, type(val),
                   np.array2string(np.array(val.dims), separator=', ')))
+            str_variables += '{} {} {}'.format(key, type(val),
+                  np.array2string(np.array(val.dims), separator=', '))
+            str_variables += '\n'
         except:
+            return str_variables
             pass
+    return str_variables
 
 
 def escape_latex(string):
