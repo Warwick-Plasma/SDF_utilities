@@ -9,3 +9,6 @@ description = "Python module for processing SDF files"
 dependencies = [
   "numpy",
 ]
+authors = [
+     {name = "Keith Bennett", email = "k.bennett@warwick.ac.uk"},
+]

@@ -12,8 +12,6 @@ for key in ['CC', 'CFLAGS']:
 setup(
     name='sdfpy',
     version='1.0',
-    author='Keith Bennett',
-    author_email='k.bennett@warwick.ac.uk',
     url='http://github.com/Warwick-Plasma/SDF.git',
     description='Python module for processing SDF files',
     py_modules=['sdf_legacy'],
