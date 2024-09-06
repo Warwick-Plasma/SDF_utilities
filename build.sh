@@ -45,8 +45,7 @@ cd `dirname $0`/.
 
 if [ $clean -ge 1 ] ; then
   rm -rf sdf2ascii sdf2ascii.dSYM
-  [ -r pybuild/files.txt ] && cat pybuild/files.txt | xargs rm
-  rm -rf pybuild
+  rm -rf build sdf.egg-info *.dSYM/
 fi
 if [ $clean -le 1 ] ; then
   if [ ! -r $SDFDIR/lib/libsdfc.a ]; then
@@ -62,26 +61,7 @@ if [ $clean -le 1 ] ; then
   gcc $OPT -o sdffilter sdffilter.c sdf_vtk_writer.c -lsdfc -ldl -lm || errcode=1
   gcc $OPT -o sdfdiff sdfdiff.c -lsdfc -ldl -lm || errcode=1
   if [ "$PYTHONCMD"x != x ]; then
-    # Test if python is new enough for the --user flag
-    if [ $system -eq 0 ]; then
-      user=$($PYTHONCMD -c 'import sys, os
-newenough = sys.hexversion > 0x02060000
-if newenough: sys.exit(newenough)
-for p in sys.path:
-  if p.startswith(os.environ["HOME"]) and p.find("site-packages") != -1:
-    print("/".join(p.split("/")[:-3]))
-    break
-sys.exit(newenough)')
-      if [ $? -eq 0 ]; then
-        uflags="--prefix=$user"
-      else
-        uflags="--prefix= --user"
-      fi
-    else
-      uflags=
-    fi
-    CFLAGS="$OPT" $PYTHONCMD setup.py build $PYDBG -b pybuild install \
-        $uflags --record pybuild/files.txt || errcode=1
+    CFLAGS="$OPT" $PYTHONCMD -m pip install . || errcode=1
   fi
   which a2x > /dev/null 2>&1
   if [ $? -eq 0 ]; then
