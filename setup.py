@@ -1,14 +1,13 @@
 import os
 import sys
-from distutils.sysconfig import get_python_lib
-from distutils.core import setup, Extension
+from sysconfig import get_path
+from setuptools import setup, Extension
 import subprocess as sp
 try:
     import numpy
     gotnumpy = True
 except:
     gotnumpy = False
-
 
 def get_numpy_dir():
     if gotnumpy:
@@ -22,7 +21,7 @@ def get_numpy_dir():
             for f in fl:
                 if f == 'arrayobject.h':
                     return os.path.realpath(os.path.join(r, '..'))
-    sys.path.insert(0, get_python_lib(standard_lib=1))
+    sys.path.insert(0, get_path('platlib'))
     for path in sys.path:
         for r, d, fl in os.walk(path):
             for f in fl:
@@ -36,13 +35,17 @@ sdfdir = os.path.join('..', 'C')
 
 srcfiles = ['sdf_python.c']
 
-incdirs = [get_numpy_dir()] + [os.path.join(sdfdir, 'src')]
+incdirs = [get_numpy_dir()] + [os.path.join(sdfdir, 'include')]
 libdirs = [os.path.join(sdfdir, 'lib')]
 
 
 def get_version():
+    import subprocess as sp
+
     commit_id = "UNKNOWN"
     version = "UNKNOWN"
+
+    sp.call("sh gen_commit_string.sh .", shell=True)
 
     with open("commit_info.h") as f:
         lines = f.readlines()
@@ -62,7 +65,23 @@ def get_version():
 
 get_version()
 
-setup(name="sdf", version="1.0",
-      ext_modules=[Extension("sdf", srcfiles, include_dirs=incdirs,
-                   library_dirs=libdirs, libraries=['sdfc'])],
-      packages=["sdf_helper"], py_modules=["sdf_legacy"])
+setup(
+    name='sdf',
+    version='1.0',
+    author='Keith Bennett',
+    author_email='k.bennett@warwick.ac.uk',
+    url='http://github.com/Warwick-Plasma/SDF.git',
+    description='Python module for processing SDF files',
+    packages=['sdf_helper'],
+    py_modules=['sdf_legacy'],
+    ext_modules=[
+        Extension(
+            'sdf',
+            srcfiles,
+            include_dirs=incdirs,
+            library_dirs=libdirs,
+            libraries=['sdfc']
+        )
+    ],
+    install_requires=['numpy']
+)

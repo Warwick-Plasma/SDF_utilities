@@ -3,7 +3,7 @@ Print the name of the wheel file, needed when packaging with CPack
 See: https://stackoverflow.com/a/60644659
 """
 
-from distutils.core import Extension
+from setuptools import Extension
 from setuptools.dist import Distribution
 
 
