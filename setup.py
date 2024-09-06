@@ -27,8 +27,6 @@ def get_numpy_dir():
             for f in fl:
                 if f == 'arrayobject.h':
                     return os.path.realpath(os.path.join(r, '..'))
-    print('Unable to build python module. Numpy directory not found.')
-    sys.exit(1)
 
 
 sdfdir = os.path.join('..', 'C')
@@ -68,8 +66,6 @@ get_version()
 setup(
     name='sdf',
     version='1.0',
-    author='Keith Bennett',
-    author_email='k.bennett@warwick.ac.uk',
     url='http://github.com/Warwick-Plasma/SDF.git',
     description='Python module for processing SDF files',
     packages=['sdf_helper'],
@@ -83,5 +79,4 @@ setup(
             libraries=['sdfc']
         )
     ],
-    install_requires=['numpy']
 )
