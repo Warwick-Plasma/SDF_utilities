@@ -38,7 +38,7 @@ if [ $? -eq 0 ]; then
   commit_date=$(git log --pretty=format:%cd -1 HEAD)
 else
 # not in a git repo
-  [[ $COMMIT_FILE_BASE -nt $COMMIT_FILE ]] && cp $COMMIT_FILE_BASE $COMMIT_FILE
+  [ "$COMMIT_FILE_BASE" -nt "$COMMIT_FILE" ] && cp $COMMIT_FILE_BASE $COMMIT_FILE
   grep "SDF_COMMIT_ID" $COMMIT_FILE > /dev/null 2>&1
   [ $? -eq 0 ] && exit
   commit_string=unknown-unknown-unknown-unknown

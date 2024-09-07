@@ -11,8 +11,11 @@ except:
 
 def get_numpy_dir():
     if gotnumpy:
-        numpydir = os.path.dirname(numpy.__file__)
-        incdir = os.path.join(numpydir, 'core', 'include')
+        numpydir = '/nonexistent'
+        incdir = '/nonexistent'
+        if numpy.__file__:
+            numpydir = os.path.dirname(numpy.__file__)
+            incdir = os.path.join(numpydir, 'core', 'include')
         for r, d, fl in os.walk(incdir):
             for f in fl:
                 if f == 'arrayobject.h':
@@ -27,9 +30,10 @@ def get_numpy_dir():
             for f in fl:
                 if f == 'arrayobject.h':
                     return os.path.realpath(os.path.join(r, '..'))
+    return None
 
 
-sdfdir = os.path.join('..', 'C')
+sdfdir = os.path.join(os.environ['PWD'], '..', 'C')
 
 srcfiles = ['sdf_python.c']
 
