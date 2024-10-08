@@ -1161,6 +1161,16 @@ def plot_rays(var, skip=1, rays=None, **kwargs):
            Number of rays to skip before selecting the next one to plot
     """
 
+    ray_start = -1
+    l = 'ray_start'
+    if l in kwargs:
+        ray_start = kwargs[l]
+
+    ray_stop = 1e9
+    l = 'ray_stop'
+    if l in kwargs:
+        ray_stop = kwargs[l]
+
     if type(var) is sdf.BlockStitchedPath:
         v = var.data[0]
         l = '_label'
@@ -1185,25 +1195,27 @@ def plot_rays(var, skip=1, rays=None, **kwargs):
             v = var.data[0]
             vmin = v.data.min()
             vmax = v.data.max()
-            iskip = skip
-            for v in var.data:
-                iskip -= 1
-                if iskip <= 0:
+            for iray, v in enumerate(var.data):
+                if iray < ray_start:
+                    continue
+                if iray > ray_stop:
+                    break
+                if iray%skip == 0:
                     vmin = min(vmin, v.data.min())
                     vmax = max(vmax, v.data.max())
-                    iskip = skip
             if k0 not in kwargs:
                 kwargs[k0] = vmin
             if k1 not in kwargs:
                 kwargs[k1] = vmax
 
-        iskip = skip
-        for v in var.data:
-            iskip -= 1
-            if iskip <= 0:
+        for iray, v in enumerate(var.data):
+            if iray < ray_start:
+                continue
+            if iray > ray_stop:
+                break
+            if iray%skip == 0:
                 plot_auto(v, update=False, **kwargs)
                 kwargs['hold'] = True
-                iskip = skip
 
         plot_auto(var.data[0], axis_only=True, **kwargs)
         kwargs['hold'] = True
@@ -1221,14 +1233,17 @@ def plot_rays(var, skip=1, rays=None, **kwargs):
     if k not in kwargs and not (k0 in kwargs and k1 in kwargs):
         vmin = var.data.min()
         vmax = var.data.max()
-        iskip = skip
+        iray = -1
         for k in data.keys():
             if k.startswith(start) and k.endswith(end):
-                iskip -= 1
-                if iskip <= 0:
+                iray += 1
+                if iray < ray_start:
+                    continue
+                if iray > ray_stop:
+                    break
+                if iray%skip == 0:
                     vmin = min(vmin, data[k].data.min())
                     vmax = max(vmax, data[k].data.max())
-                    iskip = skip
         if k0 not in kwargs:
             kwargs[k0] = vmin
         if k1 not in kwargs:
@@ -1240,14 +1255,17 @@ def plot_rays(var, skip=1, rays=None, **kwargs):
         kwargs[k] = '/'.join([split_name[0]] + split_name[2:]) \
                      + ' $(' + escape_latex(var.units) + ')$'
 
-    iskip = skip
+    iray = -1
     for k in data.keys():
         if k.startswith(start) and k.endswith(end):
-            iskip -= 1
-            if iskip <= 0:
+            iray += 1
+            if iray < ray_start:
+                continue
+            if iray > ray_stop:
+                break
+            if iray%skip == 0:
                 plot_auto(data[k], hold=True, update=False, **kwargs)
                 kwargs['hold'] = True
-                iskip = skip
 
     plot_auto(var, axis_only=True, **kwargs)
     kwargs['hold'] = True
