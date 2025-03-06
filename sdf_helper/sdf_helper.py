@@ -328,7 +328,7 @@ def get_job_id(file_list=None, base=None, block=None):
         The job ID
     """
 
-    if file_list is not None and type(file_list) is not list:
+    if file_list is not None and not isinstance(file_list, list):
         if os.path.exists(file_list):
             base = file_list
             file_list = None
@@ -715,7 +715,7 @@ def plot_auto(*args, **kwargs):
         )
         return
     if len(dims) == 1:
-        if type(args[0]) is sdf.BlockStitchedPath:
+        if isinstance(args[0], sdf.BlockStitchedPath):
             plot_rays(*args, **kwargs)
         elif len(args[0].grid.dims) == 1:
             plot1d(*args, **kwargs)
@@ -1151,7 +1151,7 @@ def plot_path(
         )
 
         if title:
-            if type(title) is str:
+            if isinstance(title, str):
                 title_label = title
             else:
                 title_label = get_title(var, extra_info=False)
@@ -1188,7 +1188,7 @@ def plot_path(
         subplot.colorbar = cax
         plt.sca(ax)
         if cbar_label:
-            if type(cbar_label) is str:
+            if isinstance(cbar_label, str):
                 var_label = cbar_label
             else:
                 var_label = var.name + " $(" + escape_latex(var.units) + ")$"
@@ -1255,20 +1255,20 @@ def plot_rays(var, skip=1, rays=None, **kwargs):
     if l in kwargs:
         ray_stop = kwargs[l]
 
-    if type(var) is sdf.BlockStitchedPath:
+    if isinstance(var, sdf.BlockStitchedPath):
         v = var.data[0]
         l = "_label"
         if l not in kwargs:
             kwargs[l] = var.name
 
-        if type(v) is sdf.BlockStitchedPath:
+        if isinstance(v, sdf.BlockStitchedPath):
             for v in var.data:
                 plot_rays(v, skip=skip, rays=rays, **kwargs)
                 kwargs["hold"] = True
             return
 
         k = "cbar_label"
-        if k not in kwargs or (kwargs[k] and type(kwargs[k]) != str):
+        if k not in kwargs or (kwargs[k] and not isinstance(kwargs[k], str)):
             kwargs[k] = kwargs[l] + " $(" + escape_latex(v.units) + ")$"
             del kwargs[l]
 
@@ -1334,7 +1334,7 @@ def plot_rays(var, skip=1, rays=None, **kwargs):
             kwargs[k1] = vmax
 
     k = "cbar_label"
-    if k not in kwargs or (kwargs[k] and type(kwargs[k]) != str):
+    if k not in kwargs or (kwargs[k] and not isinstance(kwargs[k], str)):
         # Remove /Ray[1-9]+ from the name
         kwargs[k] = (
             "/".join([split_name[0]] + split_name[2:])
@@ -1594,7 +1594,7 @@ def plot2d_array(
         subplot.colorbar = cax
         plt.sca(ax)
         if cbar_label:
-            if type(cbar_label) is str:
+            if isinstance(cbar_label, str):
                 var_label = cbar_label
             if cbar_top:
                 cbar.set_label(var_label, fontsize="large")
@@ -1635,12 +1635,12 @@ def plot2d(
     global data, fig, im, cbar
     global x, y, mult_x, mult_y
 
-    if type(irange) is list or type(irange) is tuple:
+    if isinstance(irange, list) or isinstance(irange, tuple):
         si = slice(*irange)
     else:
         si = slice(None, irange)
 
-    if type(jrange) is list or type(jrange) is tuple:
+    if isinstance(jrange, list) or isinstance(jrange, tuple):
         sj = slice(*jrange)
     else:
         sj = slice(None, jrange)
@@ -2113,9 +2113,8 @@ def getdata(fname, wkd=None, verbose=True, squeeze=False):
 
     # Export particle arrays
     for k, value in data.__dict__.items():
-        if (
-            type(value) != sdf.BlockPointVariable
-            and type(value) != sdf.BlockPointMesh
+        if not isinstance(value, sdf.BlockPointVariable) and not isinstance(
+            value, sdf.BlockPointMesh
         ):
             continue
         key = re.sub(r"[^a-z0-9]", "_", value.id.lower())
@@ -2124,7 +2123,7 @@ def getdata(fname, wkd=None, verbose=True, squeeze=False):
         else:
             var = value
         dims = str(tuple(int(i) for i in value.dims))
-        if type(value) == sdf.BlockPointVariable:
+        if isinstance(value, sdf.BlockPointVariable):
             if verbose:
                 print(key + dims + " = " + value.name)
             fdict[key] = var
@@ -2169,7 +2168,7 @@ def ogrid(skip=None, **kwargs):
 
 
 def plotgrid(fname=None, iso=None, title=True):
-    if type(fname) is sdf.BlockList or type(fname) is dict:
+    if isinstance(fname, sdf.BlockList) or isinstance(fname, dict):
         dat = fname
     elif fname is not None:
         dat = getdata(fname, verbose=verbose)
