@@ -717,10 +717,19 @@ def plot_auto(*args, **kwargs):
     if len(dims) == 1:
         if isinstance(args[0], sdf.BlockStitchedPath):
             plot_rays(*args, **kwargs)
+        elif isinstance(args[0], sdf.BlockStitched):
+            newargs = list(args[:])
+            for block in args[0].data:
+                newargs[0] = block
+                plot_auto(*newargs, **kwargs)
         elif len(args[0].grid.dims) == 1:
             plot1d(*args, **kwargs)
         else:
             plot_path(*args, **kwargs)
+    elif isinstance(args[0], sdf.BlockLagrangianMesh) and dims[1] == 1:
+        plot_path(*args, **kwargs)
+    elif isinstance(args[0], sdf.BlockStitchedPath):
+        plot_rays(*args, **kwargs)
     elif len(dims) == 2:
         k = "set_ylabel"
         if k in kwargs:
@@ -992,7 +1001,12 @@ def plot_path(
         figure.canvas.draw()
         return
 
-    if len(var.dims) != 1:
+    isvar = True
+    if isinstance(var, sdf.BlockLagrangianMesh):
+        isvar = False
+        add_cbar = False
+
+    if isvar and len(var.dims) != 1:
         print("error: Not a 1d dataset")
         return
 
@@ -1029,7 +1043,10 @@ def plot_path(
     #    grid = var.grid
     # else:
     #    grid = var.grid_mid
-    grid = var.grid
+    if isvar:
+        grid = var.grid
+    else:
+        grid = var
 
     test_dir = False
     if xdir is None:
@@ -1085,7 +1102,8 @@ def plot_path(
 
     X = mult_x * X
     Y = mult_y * Y
-    c = var.data
+    if isvar:
+        c = var.data
 
     if clip_reflect:
         g = (X[0] - X[1]) / (Y[0] - Y[1])
@@ -1099,31 +1117,33 @@ def plot_path(
             if abs(grad) > 10 or grad < 0:
                 X = np.copy(X[: i + 1])
                 Y = np.copy(Y[: i + 1])
-                c = np.copy(c[: i + 1])
+                if isvar:
+                    c = np.copy(c[: i + 1])
                 break
 
     points = np.array([X, Y]).T.reshape(-1, 1, 2)
     segments = np.concatenate([points[:-1], points[1:]], axis=1)
 
-    if not hold or plot_path.norm_values is None:
-        k = "vmin"
-        k1 = "vrange"
-        if k in kwargs:
-            vmin = kwargs[k]
-        elif k1 in kwargs:
-            vmin = kwargs[k1][0]
-        else:
-            vmin = c.min()
+    if isvar:
+        if not hold or plot_path.norm_values is None:
+            k = "vmin"
+            k1 = "vrange"
+            if k in kwargs:
+                vmin = kwargs[k]
+            elif k1 in kwargs:
+                vmin = kwargs[k1][0]
+            else:
+                vmin = c.min()
 
-        k = "vmax"
-        if k in kwargs:
-            vmax = kwargs[k]
-        elif k1 in kwargs:
-            vmax = kwargs[k1][1]
-        else:
-            vmax = c.max()
+            k = "vmax"
+            if k in kwargs:
+                vmax = kwargs[k]
+            elif k1 in kwargs:
+                vmax = kwargs[k1][1]
+            else:
+                vmax = c.max()
 
-        plot_path.norm_values = plt.Normalize(vmin, vmax)
+            plot_path.norm_values = plt.Normalize(vmin, vmax)
 
     kk = {}
     k = "lw"
@@ -1133,7 +1153,8 @@ def plot_path(
     if k in kwargs:
         kk[k] = kwargs[k]
     lc = LineCollection(segments, norm=plot_path.norm_values, **kk)
-    lc.set_array(c)
+    if isvar:
+        lc.set_array(c)
     im = subplot.add_collection(lc)
 
     if not hold:
@@ -1267,30 +1288,33 @@ def plot_rays(var, skip=1, rays=None, **kwargs):
                 kwargs["hold"] = True
             return
 
-        k = "cbar_label"
-        if k not in kwargs or (kwargs[k] and not isinstance(kwargs[k], str)):
-            kwargs[k] = kwargs[l] + " $(" + escape_latex(v.units) + ")$"
-            del kwargs[l]
+        if not isinstance(v, sdf.BlockLagrangianMesh):
+            k = "cbar_label"
+            if k not in kwargs or (
+                kwargs[k] and not isinstance(kwargs[k], str)
+            ):
+                kwargs[k] = kwargs[l] + " $(" + escape_latex(v.units) + ")$"
+                del kwargs[l]
 
-        k0 = "vmin"
-        k1 = "vmax"
-        k = "vrange"
-        if k not in kwargs and not (k0 in kwargs and k1 in kwargs):
-            v = var.data[0]
-            vmin = v.data.min()
-            vmax = v.data.max()
-            for iray, v in enumerate(var.data):
-                if iray < ray_start:
-                    continue
-                if iray > ray_stop:
-                    break
-                if iray % skip == 0:
-                    vmin = min(vmin, v.data.min())
-                    vmax = max(vmax, v.data.max())
-            if k0 not in kwargs:
-                kwargs[k0] = vmin
-            if k1 not in kwargs:
-                kwargs[k1] = vmax
+            k0 = "vmin"
+            k1 = "vmax"
+            k = "vrange"
+            if k not in kwargs and not (k0 in kwargs and k1 in kwargs):
+                v = var.data[0]
+                vmin = v.data.min()
+                vmax = v.data.max()
+                for iray, v in enumerate(var.data):
+                    if iray < ray_start:
+                        continue
+                    if iray > ray_stop:
+                        break
+                    if iray % skip == 0:
+                        vmin = min(vmin, v.data.min())
+                        vmax = max(vmax, v.data.max())
+                if k0 not in kwargs:
+                    kwargs[k0] = vmin
+                if k1 not in kwargs:
+                    kwargs[k1] = vmax
 
         for iray, v in enumerate(var.data):
             if iray < ray_start:
